@@ -2047,6 +2047,7 @@ async function doAction(actionName, label) {
   updateScreenBg(screenMode);
 
   log(`${label}…`);
+  if (!Object.keys(state.inv).length) await loadState(true);
   const invBefore = { ...state.inv };
   const result = await apiPost(`/api/beetle/action/${actionName}`);
   if (!result) return;
