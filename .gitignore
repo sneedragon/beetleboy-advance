@@ -1,0 +1,9 @@
+tool.py
+*.bak
+*.lock
+*.pyc
+__pycache__/
+data/
+chat.php
+miladychan-deno.ts
+miladychan-worker.js

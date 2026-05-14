@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BeetleBoy SP</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" href="icons/beetles/green.png" type="image/png">
+</head>
+<body>
+
+  <canvas id="bg-shader"></canvas>
+
+  <!-- Login -->
+  <div id="login-screen">
+    <div class="login-box">
+      <div class="login-logo">🪲</div>
+      <h1>BeetleBoy <span class="sp-tag">SP</span></h1>
+      <p class="login-sub">Sign in with your remilia.net account</p>
+      <form id="login-form">
+        <input id="lf-user" type="text" placeholder="Username" autocomplete="username" required>
+        <input id="lf-pass" type="password" placeholder="Password" autocomplete="current-password" required>
+        <button type="submit" id="login-btn">LOG IN</button>
+        <div id="login-err"></div>
+      </form>
+      <p class="login-disclaimer">Your credentials connect directly to remilia.net and are never sent to or stored on any third-party server. Only a session token is kept locally in your browser.</p>
+      <p class="login-signup">No account? <a href="https://www.remilia.net" target="_blank">Sign up at remilia.net</a></p>
+    </div>
+  </div>
+
+  <!-- App -->
+  <div id="app-screen" class="hidden">
+
+    <!-- Left panel: Inventory -->
+    <div id="panel-left" class="side-panel">
+      <div class="panel-inner">
+        <div class="panel-titlebar">
+          <div id="left-mode-btns">
+            <button class="mode-btn active" data-left-mode="inv">INV</button>
+            <button class="mode-btn" data-left-mode="dex">DEX</button>
+            <button class="mode-btn" data-left-mode="trphy">TRPHY</button>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div id="left-mode-inv" class="left-pane"></div>
+          <div id="left-mode-dex" class="left-pane hidden"></div>
+          <div id="left-mode-trphy" class="left-pane hidden"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main device -->
+    <div id="device">
+
+      <div id="dev-top">
+        <button id="btn-esc" class="shoulder-btn">ESC</button>
+        <div id="speaker-grille"></div>
+        <div id="dev-brand">BeetleBoy Advance<span class="sp-tag" id="sp-clickable">SP</span>
+          <div id="theme-picker" class="hidden"></div>
+        </div>
+        <div id="user-info">
+          <span id="header-user">—</span>
+          <button id="logout-btn" class="shoulder-btn">OFF</button>
+        </div>
+      </div>
+
+      <div id="dev-screen">
+        <div id="screen-bg">
+          <div id="screen-bg-img"></div>
+          <video id="screen-bg-vid" autoplay loop muted playsinline></video>
+          <div id="screen-overlay"></div>
+        </div>
+        <div id="screen-cheese"></div>
+        <div id="screen-level"></div>
+        <div id="screen-result-icon"></div>
+        <div id="chat-notif"></div>
+        <div class="sp" id="sp-log"><div id="act-log"></div></div>
+        <div class="sp hidden" id="sp-assemble">
+          <div class="sp-header">ASSEMBLE</div>
+          <div class="sm-slots">
+            <div class="sm-slot" data-slot="asm0"><span class="sm-slot-lbl">Slot 1</span></div>
+            <div class="sm-slot" data-slot="asm1"><span class="sm-slot-lbl">Slot 2</span></div>
+            <div class="sm-slot" data-slot="asm2"><span class="sm-slot-lbl">Slot 3</span></div>
+            <div class="sm-slot" data-slot="asm3"><span class="sm-slot-lbl">Slot 4</span></div>
+          </div>
+          <div class="sp-preview" id="asm-preview">—</div>
+          <div class="sp-row">
+            <button class="sp-action-btn" id="do-assemble">⚙ CRAFT</button>
+            <input class="sp-repeat-input" id="asm-repeat" type="number" min="1" max="99" value="1" title="Repeat count">
+            <button class="sp-clear-btn" id="clear-assemble">CLEAR</button>
+            <div class="sp-result" id="asm-result"></div>
+          </div>
+        </div>
+        <div class="sp hidden" id="sp-smash">
+          <div class="sm-group">
+            <div class="sm-group-lbl">Items to Smash</div>
+            <div class="sm-slots">
+              <div class="sm-slot" data-slot="sm0"><span class="sm-slot-lbl">Slot 1</span></div>
+              <div class="sm-slot" data-slot="sm1"><span class="sm-slot-lbl">Slot 2 (opt)</span></div>
+            </div>
+          </div>
+          <div class="sm-group sm-group-spec">
+            <div class="sm-group-lbl">Sacrifice &amp; Hammer</div>
+            <div class="sm-slots">
+              <div class="sm-slot" data-slot="smsac"><span class="sm-slot-lbl">Beetle</span></div>
+              <div class="sm-slot" data-slot="smhammer"><span class="sm-slot-lbl">Hammer</span></div>
+            </div>
+          </div>
+          <div class="sp-preview" id="smash-preview">—</div>
+          <div class="sp-row">
+            <button class="sp-action-btn sp-smash-btn" id="do-smash">⚡ SMASH</button>
+            <input class="sp-repeat-input" id="smash-repeat" type="number" min="1" max="99" value="1" title="Repeat count">
+            <button class="sp-clear-btn" id="clear-smash">CLEAR</button>
+            <div class="sp-result" id="smash-result2"></div>
+          </div>
+        </div>
+        <div class="sp hidden" id="sp-item">
+          <div id="spi-img"></div>
+          <div id="spi-info">
+            <div id="spi-name"></div>
+            <div id="spi-qty"></div>
+            <div id="spi-rcp"></div>
+          </div>
+        </div>
+      </div>
+      <div id="screen-label">SEVENSEVENSEVEN.NET</div>
+
+      <div id="dev-controls">
+
+        <button class="side-panel-btn sp-left panel-toggle-btn" data-panel="left"><span>INV</span></button>
+
+        <div id="ctrl-center">
+          <div class="ctrl-row">
+            <button class="act-btn" id="act-claim">
+              <span class="act-name">CLAIM BEETLE</span>
+              <span class="btn-cd" id="cd-claim">—</span>
+            </button>
+            <button class="act-btn" id="act-hunt">
+              <span class="act-name">HUNT BEETLE</span>
+              <span class="btn-cd" id="cd-hunt">—</span>
+            </button>
+            <button class="act-btn" id="act-ubc">
+              <span class="act-name">CLAIM UBC</span>
+              <span class="btn-cd" id="cd-ubc">—</span>
+            </button>
+            <button class="act-btn" id="act-faucet">
+              <span class="act-name">JUNK FAUCET</span>
+              <span class="btn-cd" id="cd-faucet">—</span>
+            </button>
+          </div>
+          <div class="ctrl-row">
+            <button class="act-toggle-btn" id="act-assemble">
+              <span class="act-name">ASSEMBLE</span>
+            </button>
+            <button class="act-toggle-btn act-toggle-smash" id="act-smash">
+              <span class="act-name">SMASH</span>
+            </button>
+            <button class="act-btn grey-act-btn" id="act-crunch">
+              <span class="act-name">CRUNCH JUNK</span>
+            </button>
+            <button class="act-btn grey-act-btn" id="act-refresh">
+              <span class="act-name">REFRESH</span>
+            </button>
+          </div>
+        </div>
+
+        <button class="side-panel-btn sp-right panel-toggle-btn" data-panel="right"><span>TOOLS</span></button>
+
+      </div>
+      <div id="device-credit"><a href="https://www.remilia.net/~777">Made by c.sneed</a> - 0x2947b5B9e4753745ED8cF53a8aDf9B40DAd9e4f3</div>
+    </div>
+
+    <!-- Right panel: Tools -->
+    <div id="panel-right" class="side-panel">
+      <div class="panel-inner">
+      <div class="panel-titlebar">
+        <div id="mode-btns">
+          <button class="mode-btn active" data-mode="craft">EZ-CRFT</button>
+          <button class="mode-btn" data-mode="recipes">RCP</button>
+          <button class="mode-btn" data-mode="wiki">WIKI</button>
+          <button class="mode-btn" data-mode="chat">CHAT</button>
+        </div>
+      </div>
+      <div class="panel-body">
+        <div id="mode-craft"    class="mode-pane"><div id="craftable-list"></div></div>
+        <div id="mode-recipes" class="mode-pane hidden">
+          <input id="recipe-search" type="search" placeholder="Search recipes…" autocomplete="off">
+          <div id="recipe-table-wrap"></div>
+        </div>
+        <div id="mode-wiki" class="mode-pane hidden">
+          <iframe id="wiki-frame" src="about:blank" title="Beetle Wiki"></iframe>
+        </div>
+        <div id="mode-chat" class="mode-pane hidden">
+          <div id="chat-messages"></div>
+          <div id="reply-bar" class="hidden">
+            <span id="reply-bar-text">Replying to <strong id="reply-bar-name"></strong></span>
+            <button id="reply-bar-cancel" type="button">✕</button>
+          </div>
+          <div id="chat-input-row">
+            <div id="chat-suggest"></div>
+            <input id="chat-input" type="text" placeholder="Say something… (drag items or type [name])" maxlength="500" autocomplete="off">
+            <button id="chat-send" type="button">▶</button>
+          </div>
+        </div>
+      </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
