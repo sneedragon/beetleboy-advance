@@ -282,31 +282,30 @@ function previewSmash() {
   const sac = slotState['smsac'] || null;
   if (!s1) return null;
 
-  const R = RARITY;
   const isBeetle = k => k && BEETLES.includes(k);
-  const isFlower = k => k && [...TIN_FLOWERS,...BRONZE_FLOWERS,...MITHRIL_FLOWERS,...ADAM_FLOWERS,'black_lotus'].includes(k);
-  const tierName = { tin:'Bronze', brz:'Mithril', mth:'Adamantine', adm:'Diamond' };
-  const tierFlower = RARITY_NAMES;
+  const isFlower = k => k && ALL_FLOWERS.includes(k);
+  // Maps a rarity to the NEXT tier's name (for tier-up preview)
+  const nextTier = { tin:'Bronze', brz:'Mithril', mth:'Adamantine', adm:'Diamond' };
 
   // Tier up — both item slots same rarity same category
-  if (s2 && R[s1] && R[s1] === R[s2] && tierName[R[s1]]) {
+  if (s2 && RARITY[s1] && RARITY[s1] === RARITY[s2] && nextTier[RARITY[s1]]) {
     if (isBeetle(s1) && isBeetle(s2))
-      return { out: `${tierName[R[s1]]} Beetle`, note: 'Tier Up — risky' };
+      return { out: `${nextTier[RARITY[s1]]} Beetle`, note: 'Tier Up — risky' };
     if (isFlower(s1) && isFlower(s2))
-      return { out: `${tierName[R[s1]]} Flower`, note: 'Tier Up — risky' };
+      return { out: `${nextTier[RARITY[s1]]} Flower`, note: 'Tier Up — risky' };
   }
 
-  // Beetle → flower transmutation
-  const btf = (b, j) => isBeetle(b) && j === 'junk_cube_t1' && tierFlower[R[b]]
-    ? { out: `${tierFlower[R[b]]} Flower (random)`, note: 'one-way' } : null;
+  // Beetle → flower transmutation (beetle + junk cube → same-tier flower)
+  const btf = (b, j) => isBeetle(b) && j === 'junk_cube_t1' && RARITY_NAMES[RARITY[b]]
+    ? { out: `${RARITY_NAMES[RARITY[b]]} Flower (random)`, note: 'one-way' } : null;
   const btfResult = btf(s1, s2) || btf(s2, s1);
   if (btfResult) return btfResult;
 
   // Artifact creation
   const artCreate = (beetle, pollen) => {
-    if (isBeetle(beetle) && R[beetle] === 'brz' && pollen === 'pollen_uncommon')
+    if (isBeetle(beetle) && RARITY[beetle] === 'brz' && pollen === 'pollen_uncommon')
       return { out: 'Nectar or Cattail', note: 'random' };
-    if (isBeetle(beetle) && R[beetle] === 'mth' && pollen === 'pollen_rare')
+    if (isBeetle(beetle) && RARITY[beetle] === 'mth' && pollen === 'pollen_rare')
       return { out: 'Pinecone, Moss or Gunpowder', note: 'random' };
     return null;
   };
@@ -596,8 +595,8 @@ function renderHeader() {
 }
 
 // ── SCREEN PANE / SLOT SYSTEM ─────────────────────────────────────────────────
-let screenMode = SCREEN.LOG; // 'log' | 'assemble' | 'smash' | 'item'
-let lastActionCtx = 'beetle'; // 'beetle' | 'cheese'
+let screenMode    = SCREEN.LOG;  // one of SCREEN.*
+let lastActionCtx = 'beetle';   // 'beetle' | 'cheese' — drives background image choice
 let currentItemKey = null;
 const slotState = {}; // slotId → itemKey | null
 const logMessages = []; // { msg, cls }[], newest first
