@@ -11,7 +11,7 @@ const CHAT_URL           = 'chatroom.php';
 const CHAT_POLL_INTERVAL = 30_000;
 
 // ── UI CONSTANTS ─────────────────────────────────────────────────────────────
-const ASM_SLOTS   = ASM_SLOTS;
+const ASM_SLOTS   = ['asm0','asm1','asm2','asm3'];
 const SMASH_SLOTS = ['sm0','sm1'];
 const ALL_SLOTS   = [...ASM_SLOTS, 'sm0','sm1','smsac','smhammer'];
 
