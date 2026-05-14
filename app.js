@@ -80,6 +80,21 @@ function iname(key) {
 }
 function rcls(key) { const r = RARITY[key]; return r ? `r-${r}` : ''; }
 
+function ingGroupLabel(group) {
+  if (group === 'junk') return 'Any Junk';
+  const tier = FLOWER_TIERS.find(([g]) => g === group);
+  return tier ? tier[1] : iname(group[0]);
+}
+
+function arDisplay(r, inv) {
+  const repeatKey  = TROPHY_REPEAT[r.out];
+  const ownsTrophy = !!repeatKey && (inv[r.out] || 0) > 0;
+  return {
+    displayKey:  ownsTrophy ? repeatKey : r.out,
+    displayName: ownsTrophy ? iname(repeatKey) : (r.name ?? iname(r.out)),
+  };
+}
+
 function fmtMs(ms) {
   if (ms === null) return { text: '—', cls: '' };
   if (ms <= 0) return { text: 'Ready', cls: 'ready' };
@@ -235,7 +250,7 @@ function previewAssemble() {
     if (match && remaining.length === 0) {
       const repeatKey = TROPHY_REPEAT[r.out];
       const ownsTrophy = repeatKey && (state.inv[r.out] || 0) > 0;
-      return ownsTrophy ? { name: iname(repeatKey), key: repeatKey } : { name: r.name, key: r.out };
+      return ownsTrophy ? { name: iname(repeatKey), key: repeatKey } : { name: r.name ?? iname(r.out), key: r.out };
     }
   }
   return null;
@@ -981,10 +996,7 @@ function renderCraftable() {
   }
 
   el.innerHTML = craftable.map(({ r, n }, i) => {
-    const repeatKey  = TROPHY_REPEAT[r.out];
-    const ownsTrophy = repeatKey && (inv[r.out] || 0) > 0;
-    const displayKey  = ownsTrophy ? repeatKey : r.out;
-    const displayName = ownsTrophy ? iname(repeatKey) : (r.name ?? iname(r.out));
+    const { displayKey, displayName } = arDisplay(r, inv);
     const icon = IMAGES[displayKey]
       ? `<img class="craft-icon" src="${IMAGES[displayKey]}" alt="">`
       : `<span class="craft-icon"></span>`;
@@ -1073,10 +1085,8 @@ function makeAsmRow(r, inv) {
 
   const craftable  = craftCount(r, inv) > 0;
   const isTrophy   = r.out.startsWith('trophy_');
-  const repeatKey  = TROPHY_REPEAT[r.out];
-  const ownsTrophy = repeatKey && (inv[r.out] || 0) > 0;
-  const displayName = ownsTrophy ? iname(repeatKey) : (r.name ?? iname(r.out));
-  const displayKey  = ownsTrophy ? repeatKey : r.out;
+  const { displayKey, displayName } = arDisplay(r, inv);
+  const ownsTrophy = !!TROPHY_REPEAT[r.out] && (inv[r.out] || 0) > 0;
   const rowCls = (!ownsTrophy && isTrophy) ? 'rcp-trophy' : rcls(displayKey);
   const rhsCls = (!ownsTrophy && isTrophy) ? 'rcp-trophy-name' : rcls(displayKey);
 
@@ -1199,7 +1209,7 @@ function renderRecipes(filter = '') {
   const asmRows = AR
     .filter(r => !r.reqTrophy || (inv[r.reqTrophy] || 0) > 0)
     .filter(r => !q ||
-      r.name.toLowerCase().includes(q) ||
+      (r.name ?? iname(r.out)).toLowerCase().includes(q) ||
       r.ing.some(ing => 'key' in ing
         ? iname(ing.key).toLowerCase().includes(q)
         : ingGroupLabel(ing.group).toLowerCase().includes(q)));
