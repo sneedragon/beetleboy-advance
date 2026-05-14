@@ -483,12 +483,6 @@ let state = {
 let refreshTimer = null, tickTimer = null;
 let prevCdStates = {};
 let lastRateLimitLog = 0;
-let chatPollTimer = null;
-let chatLastId    = null;
-let replyTarget   = null; // {id, username, displayname, body}
-const renderedPostEls = new Map(); // msgId → element
-const CHAT_REACTS = ['😹', '🤍', '👍', '🪲'];
-let reactPollTimer = null;
 
 async function loadState(silent = false) {
   const user = await apiGet('/api/beetle/user');
@@ -1389,6 +1383,13 @@ function insertChatLink(key) {
 }
 
 // ── CHAT ──────────────────────────────────────────────────────────────────────
+const CHAT_REACTS     = ['😹', '🤍', '👍', '🪲'];
+let chatPollTimer     = null;
+let reactPollTimer    = null;
+let chatLastId        = null;
+let replyTarget       = null;
+const renderedPostEls = new Map(); // msgId → DOM element
+
 async function pollChat() {
   try {
     const url = chatLastId !== null
