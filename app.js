@@ -984,7 +984,7 @@ function renderCraftable() {
     const repeatKey  = TROPHY_REPEAT[r.out];
     const ownsTrophy = repeatKey && (inv[r.out] || 0) > 0;
     const displayKey  = ownsTrophy ? repeatKey : r.out;
-    const displayName = ownsTrophy ? iname(repeatKey) : r.name;
+    const displayName = ownsTrophy ? iname(repeatKey) : (r.name ?? iname(r.out));
     const icon = IMAGES[displayKey]
       ? `<img class="craft-icon" src="${IMAGES[displayKey]}" alt="">`
       : `<span class="craft-icon"></span>`;
