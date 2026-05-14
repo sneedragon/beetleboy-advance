@@ -1075,7 +1075,7 @@ function makeAsmRow(r, inv) {
   const isTrophy   = r.out.startsWith('trophy_');
   const repeatKey  = TROPHY_REPEAT[r.out];
   const ownsTrophy = repeatKey && (inv[r.out] || 0) > 0;
-  const displayName = ownsTrophy ? iname(repeatKey) : r.name;
+  const displayName = ownsTrophy ? iname(repeatKey) : (r.name ?? iname(r.out));
   const displayKey  = ownsTrophy ? repeatKey : r.out;
   const rowCls = (!ownsTrophy && isTrophy) ? 'rcp-trophy' : rcls(displayKey);
   const rhsCls = (!ownsTrophy && isTrophy) ? 'rcp-trophy-name' : rcls(displayKey);
