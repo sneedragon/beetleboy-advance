@@ -1,5 +1,3 @@
-'use strict';
-
 // ── CONFIG ────────────────────────────────────────────────────────────────────
 const USE_PROXY  = true;
 const PROXY_PATH = 'proxy.php';
@@ -11,6 +9,18 @@ const REFRESH_INTERVAL   = 60_000;
 const TICK_INTERVAL      = 1_000;
 const CHAT_URL           = 'chatroom.php';
 const CHAT_POLL_INTERVAL = 30_000;
+
+// ── UI CONSTANTS ─────────────────────────────────────────────────────────────
+const ASM_SLOTS   = ASM_SLOTS;
+const SMASH_SLOTS = ['sm0','sm1'];
+const ALL_SLOTS   = [...ASM_SLOTS, 'sm0','sm1','smsac','smhammer'];
+
+const SCREEN = { LOG:'log', ASSEMBLE:'assemble', SMASH:'smash', ITEM:'item' };
+
+const RARITY_NAMES = {
+  tin:'Tin', brz:'Bronze', mth:'Mithril', adm:'Adamantine',
+  dia:'Diamond', pnk:'Special', jnk:'Junk',
+};
 
 // ── THEMES ────────────────────────────────────────────────────────────────────
 const LS_THEME  = 'bb_theme';
@@ -177,7 +187,7 @@ function fillSmash(spec) {
   if (s1) { slotState['sm1'] = s1; renderSlot('sm1'); }
   const sac = resolveSmashSpec(spec?.sac, [s0, s1].filter(Boolean));
   if (sac) { slotState['smsac'] = sac; renderSlot('smsac'); }
-  if (screenMode !== 'smash') setScreenMode('smash');
+  if (screenMode !== 'smash') setScreenMode(SCREEN.SMASH);
   else autofillSmashHammer();
 }
 
@@ -196,7 +206,7 @@ function resolveSlotKeys(slotIds) {
 }
 
 function previewAssemble() {
-  const keys = ['asm0','asm1','asm2','asm3'].map(id => slotState[id] || null).filter(Boolean);
+  const keys = ASM_SLOTS.map(id => slotState[id] || null).filter(Boolean);
   if (!keys.length) return null;
   for (const r of AR) {
     const remaining = [...keys];
@@ -276,7 +286,7 @@ function previewSmash() {
   const isBeetle = k => k && BEETLES.includes(k);
   const isFlower = k => k && [...TIN_FLOWERS,...BRONZE_FLOWERS,...MITHRIL_FLOWERS,...ADAM_FLOWERS,'black_lotus'].includes(k);
   const tierName = { tin:'Bronze', brz:'Mithril', mth:'Adamantine', adm:'Diamond' };
-  const tierFlower = { tin:'Tin', brz:'Bronze', mth:'Mithril', adm:'Adamantine' };
+  const tierFlower = RARITY_NAMES;
 
   // Tier up — both item slots same rarity same category
   if (s2 && R[s1] && R[s1] === R[s2] && tierName[R[s1]]) {
@@ -361,12 +371,12 @@ function updatePreviews() {
   if (asmEl) {
     const result = previewAssemble();
     asmEl.textContent = result ? `→ ${result.name}` : '—';
-    if (screenMode === 'assemble') setResultIcon(result?.key || null);
+    if (screenMode === SCREEN.ASSEMBLE) setResultIcon(result?.key || null);
   }
   const smEl = document.getElementById('smash-preview');
   if (smEl) {
     const s1 = slotState['sm0'];
-    if (!s1) { smEl.innerHTML = '—'; if (screenMode === 'smash') setResultIcon(null); return; }
+    if (!s1) { smEl.innerHTML = '—'; if (screenMode === SCREEN.SMASH) setResultIcon(null); return; }
 
     const preview = previewSmash();
     smEl.innerHTML = '';
@@ -391,7 +401,7 @@ function updatePreviews() {
       smEl.appendChild(line3);
     }
 
-    if (screenMode === 'smash') {
+    if (screenMode === SCREEN.SMASH) {
       const key = preview ? Object.entries(NAMES).find(([, v]) => v === preview.out)?.[0] : null;
       setResultIcon(key || null);
     }
@@ -514,7 +524,7 @@ function log(msg, cls = '') {
   const ts = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')} `;
   logMessages.unshift({ msg, cls, ts });
   if (logMessages.length > 16) logMessages.length = 16;
-  if (screenMode === 'item') setScreenMode('log');
+  if (screenMode === SCREEN.ITEM) setScreenMode(SCREEN.LOG);
   renderLog();
 }
 
@@ -592,7 +602,7 @@ function renderHeader() {
 }
 
 // ── SCREEN PANE / SLOT SYSTEM ─────────────────────────────────────────────────
-let screenMode = 'log'; // 'log' | 'assemble' | 'smash' | 'item'
+let screenMode = SCREEN.LOG; // 'log' | 'assemble' | 'smash' | 'item'
 let lastActionCtx = 'beetle'; // 'beetle' | 'cheese'
 let currentItemKey = null;
 const slotState = {}; // slotId → itemKey | null
@@ -603,15 +613,15 @@ function updateScreenBg(mode) {
   const vid    = document.getElementById('screen-bg-vid');
   if (!imgDiv || !vid) return;
 
-  if (mode === 'assemble' || mode === 'smash') {
-    const src = mode === 'assemble' ? 'img/assemblyloop.mp4' : 'img/smashloop.mp4';
+  if (mode === SCREEN.ASSEMBLE || mode === SCREEN.SMASH) {
+    const src = mode === SCREEN.ASSEMBLE ? 'img/assemblyloop.mp4' : 'img/smashloop.mp4';
     if (vid.getAttribute('src') !== src) { vid.src = src; vid.load(); }
     vid.style.opacity = '1';
     vid.play().catch(() => {});
   } else {
     vid.pause();
     vid.style.opacity = '0';
-    const imgSrc = mode === 'item' || lastActionCtx !== 'cheese'
+    const imgSrc = mode === SCREEN.ITEM || lastActionCtx !== 'cheese'
       ? 'img/morning_poster.webp'
       : 'img/cheese_empty_poster.webp';
     imgDiv.style.backgroundImage = `url('${imgSrc}')`;
@@ -621,18 +631,18 @@ function updateScreenBg(mode) {
 }
 
 function setScreenMode(mode) {
-  if (screenMode === mode && mode !== 'item') mode = 'log';
+  if (screenMode === mode && mode !== SCREEN.ITEM) mode = SCREEN.LOG;
   screenMode = mode;
-  document.getElementById('sp-log').classList.toggle('hidden',      mode !== 'log');
-  document.getElementById('sp-assemble').classList.toggle('hidden',  mode !== 'assemble');
-  document.getElementById('sp-smash').classList.toggle('hidden',     mode !== 'smash');
-  document.getElementById('sp-item').classList.toggle('hidden',      mode !== 'item');
-  document.getElementById('act-assemble').classList.toggle('active', mode === 'assemble');
-  document.getElementById('act-smash').classList.toggle('active',    mode === 'smash');
-  document.getElementById('btn-esc').classList.toggle('esc-inactive', mode === 'log');
+  document.getElementById('sp-log').classList.toggle('hidden',      mode !== SCREEN.LOG);
+  document.getElementById('sp-assemble').classList.toggle('hidden',  mode !== SCREEN.ASSEMBLE);
+  document.getElementById('sp-smash').classList.toggle('hidden',     mode !== SCREEN.SMASH);
+  document.getElementById('sp-item').classList.toggle('hidden',      mode !== SCREEN.ITEM);
+  document.getElementById('act-assemble').classList.toggle('active', mode === SCREEN.ASSEMBLE);
+  document.getElementById('act-smash').classList.toggle('active',    mode === SCREEN.SMASH);
+  document.getElementById('btn-esc').classList.toggle('esc-inactive', mode === SCREEN.LOG);
   updateScreenBg(mode);
-  if (mode === 'smash') autofillSmashHammer();
-  if (mode !== 'assemble' && mode !== 'smash') setResultIcon(null);
+  if (mode === SCREEN.SMASH) autofillSmashHammer();
+  if (mode !== SCREEN.ASSEMBLE && mode !== SCREEN.SMASH) setResultIcon(null);
   updatePreviews();
 }
 
@@ -688,7 +698,7 @@ function wireSlots() {
 }
 
 function clearSlots(prefix) {
-  ['asm0','asm1','asm2','asm3','sm0','sm1','smsac','smhammer'].forEach(id => {
+  ALL_SLOTS.forEach(id => {
     if (id.startsWith(prefix)) { slotState[id] = null; renderSlot(id); }
   });
   const resultId = prefix === 'asm' ? 'asm-result' : 'smash-result2';
@@ -698,9 +708,9 @@ function clearSlots(prefix) {
 }
 
 function openCard(key) {
-  if (screenMode === 'item' && currentItemKey === key) { setScreenMode('log'); currentItemKey = null; return; }
+  if (screenMode === SCREEN.ITEM && currentItemKey === key) { setScreenMode(SCREEN.LOG); currentItemKey = null; return; }
   currentItemKey = key;
-  setScreenMode('item');
+  setScreenMode(SCREEN.ITEM);
 
   if (key === '_junk_') {
     const pool   = junkPool(state.inv);
@@ -748,12 +758,11 @@ function openCard(key) {
   nameTxt.className = 'spi-name-main';
   nameTxt.textContent = iname(key);
   nameEl.appendChild(nameTxt);
-  const rarityLabels = { tin:'Tin', brz:'Bronze', mth:'Mithril', adm:'Adamantine', dia:'Diamond', pnk:'Special', jnk:'Junk' };
   const r = RARITY[key];
-  if (r && rarityLabels[r]) {
+  if (r && RARITY_NAMES[r]) {
     const rarEl = document.createElement('div');
     rarEl.className = `spi-rarity r-${r}`;
-    rarEl.textContent = rarityLabels[r];
+    rarEl.textContent = RARITY_NAMES[r];
     nameEl.appendChild(rarEl);
   }
   const sci = SCIENTIFIC[key];
@@ -825,8 +834,8 @@ function openCard(key) {
     row.addEventListener('click', () => {
       clearSlots('asm');
       const slots = pickSlots(r, state.inv);
-      if (slots) ['asm0','asm1','asm2','asm3'].forEach((id, i) => { if (slots[i]) { slotState[id] = slots[i]; renderSlot(id); } });
-      setScreenMode('assemble');
+      if (slots) ASM_SLOTS.forEach((id, i) => { if (slots[i]) { slotState[id] = slots[i]; renderSlot(id); } });
+      setScreenMode(SCREEN.ASSEMBLE);
     });
   });
 
@@ -889,13 +898,13 @@ function renderInventory() {
   el.querySelectorAll('.icc[data-key]').forEach(card => {
     const k = card.dataset.key;
     card.addEventListener('click', () => {
-      if (screenMode === 'assemble') {
+      if (screenMode === SCREEN.ASSEMBLE) {
         if (!BEETLES.includes(k)) {
-          const slots = ['asm0','asm1','asm2','asm3'];
+          const slots = ASM_SLOTS;
           const empty = slots.find(s => !slotState[s]);
           if (empty) { slotState[empty] = k; renderSlot(empty); return; }
         }
-      } else if (screenMode === 'smash') {
+      } else if (screenMode === SCREEN.SMASH) {
         if (HAMMERS.includes(k)) {
           slotState['smhammer'] = k; renderSlot('smhammer'); return;
         }
@@ -1138,10 +1147,10 @@ function renderRecipes(filter = '') {
       if (craftable) {
         clearSlots('asm');
         const slots = pickSlots(r, state.inv);
-        if (slots) ['asm0','asm1','asm2','asm3'].forEach((id, i) => {
+        if (slots) ASM_SLOTS.forEach((id, i) => {
           if (slots[i]) { slotState[id] = slots[i]; renderSlot(id); }
         });
-        if (screenMode !== 'assemble') setScreenMode('assemble');
+        if (screenMode !== SCREEN.ASSEMBLE) setScreenMode(SCREEN.ASSEMBLE);
       } else {
         expanded = !expanded;
         expand.classList.toggle('hidden', !expanded);
@@ -1186,7 +1195,7 @@ function renderRecipes(filter = '') {
         const need = (s === spec.sm1 && spec.sm0?.t === s.t && spec.sm0?.r === s.r) ? 2 : 1;
         if (have < need) parts.push(`${label} ×${need - have}`);
       };
-      const rname = r => r ? (r === 'tin' ? 'Tin' : r === 'brz' ? 'Bronze' : r === 'mth' ? 'Mithril' : r === 'adm' ? 'Adamantine' : r === 'dia' ? 'Diamond' : r) : '';
+      const rname = r => RARITY_NAMES[r] || r || '';
       const sLabel = s => s ? (s.k ? iname(s.k) : `${rname(s.r)} ${s.t === 'beetle' ? 'Beetle' : 'Flower'}`) : '';
       checkSpec(spec.sm0, sLabel(spec.sm0));
       checkSpec(spec.sm1, sLabel(spec.sm1));
@@ -1227,7 +1236,7 @@ function renderRecipes(filter = '') {
 const ACTION_CD_KEY = { catchBeetle:'catchBeetle', beetleHunt:'beetleHunt', claimUBC:'claimUBC', junkFaucet:'junkFaucet' };
 
 async function doAction(actionName, label) {
-  if (screenMode === 'assemble' || screenMode === 'smash') setScreenMode('log');
+  if (screenMode === SCREEN.ASSEMBLE || screenMode === SCREEN.SMASH) setScreenMode(SCREEN.LOG);
   if (actionName === 'catchBeetle' || actionName === 'beetleHunt') lastActionCtx = 'beetle';
   else if (actionName === 'claimUBC' || actionName === 'junkFaucet') lastActionCtx = 'cheese';
   updateScreenBg(screenMode);
@@ -1299,8 +1308,8 @@ async function doJunkCrunch() {
   const pool = junkPool(state.inv);
   if (pool.length < 2) { log('Not enough loose junk.', 'warn'); return; }
   const pairs = Math.floor(pool.length / 2);
-  if (screenMode === 'assemble' || screenMode === 'smash') setScreenMode('log');
-  updateScreenBg('smash');
+  if (screenMode === SCREEN.ASSEMBLE || screenMode === SCREEN.SMASH) setScreenMode(SCREEN.LOG);
+  updateScreenBg(SCREEN.SMASH);
   log(`Crunching ${pool.length} junk items…`);
   let made = 0, skipped = 0;
   for (let i = 0; i < pairs * 2; i += 2) {
@@ -1727,8 +1736,8 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('act-refresh').addEventListener('click', loadState);
 
   // Assemble / Smash screen pane buttons
-  document.getElementById('act-assemble').addEventListener('click', () => setScreenMode('assemble'));
-  document.getElementById('act-smash').addEventListener('click', () => setScreenMode('smash'));
+  document.getElementById('act-assemble').addEventListener('click', () => setScreenMode(SCREEN.ASSEMBLE));
+  document.getElementById('act-smash').addEventListener('click', () => setScreenMode(SCREEN.SMASH));
 
   document.getElementById('do-assemble').addEventListener('click', async () => {
     if (!slotState['asm0']) { setResult('asm-result', 'Fill at least Slot 1.'); return; }
@@ -1738,7 +1747,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let successCount = 0, lastLabel = '', lastKey = null, lastError = '', trophyCrafted = null;
     for (let i = 0; i < repeatCount; i++) {
       setResult('asm-result', repeatCount > 1 ? `${i+1}/${repeatCount}…` : 'Assembling…', lastKey);
-      const [s1, s2, s3, s4] = resolveSlotKeys(['asm0','asm1','asm2','asm3']);
+      const [s1, s2, s3, s4] = resolveSlotKeys(ASM_SLOTS);
       if (!s1) { lastError = 'Out of materials.'; setResult('asm-result', lastError); break; }
       const body = { type: 1, slot1: s1, slot2: s2 || undefined, ...(s3 ? { slot3: s3 } : {}), ...(s4 ? { slot4: s4 } : {}) };
       const result = await apiPost('/api/beetle/action/craft', body);
@@ -1865,7 +1874,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
 
-  document.getElementById('btn-esc').addEventListener('click', () => setScreenMode('log'));
+  document.getElementById('btn-esc').addEventListener('click', () => setScreenMode(SCREEN.LOG));
 
   wireSlots();
 
@@ -1884,7 +1893,7 @@ document.addEventListener('DOMContentLoaded', () => {
   applyTheme(localStorage.getItem(LS_THEME) || THEMES[Math.floor(Math.random() * THEMES.length)].id);
 
   // Initial screen background
-  updateScreenBg('log');
+  updateScreenBg(SCREEN.LOG);
 
   // Auto-login if token stored
   if (getTokens().access) { showApp(); loadState().then(startTimers); }
