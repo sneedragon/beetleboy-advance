@@ -1055,8 +1055,146 @@ function renderCraftable() {
 }
 
 
+function groupRarityClass(group) {
+  if (group === 'junk')          return 'r-jnk';
+  if (group === TIN_FLOWERS)     return 'r-tin';
+  if (group === BRONZE_FLOWERS)  return 'r-brz';
+  if (group === MITHRIL_FLOWERS) return 'r-mth';
+  if (group === ADAM_FLOWERS)    return 'r-adm';
+  return '';
+}
+
+function makeAsmRow(r, inv) {
+  const lhsHtml = r.ing.map(ing => {
+    const label = 'key' in ing ? iname(ing.key) : ingGroupLabel(ing.group);
+    const cls   = 'key' in ing ? rcls(ing.key) : groupRarityClass(ing.group);
+    const qty   = ing.qty > 1 ? ` ×${ing.qty}` : '';
+    return `<span class="${cls}">${esc(label)}${qty}</span>`;
+  }).join('<span class="rcp-plus"> + </span>');
+
+  const craftable  = craftCount(r, inv) > 0;
+  const isTrophy   = r.out.startsWith('trophy_');
+  const repeatKey  = TROPHY_REPEAT[r.out];
+  const ownsTrophy = repeatKey && (inv[r.out] || 0) > 0;
+  const displayName = ownsTrophy ? iname(repeatKey) : r.name;
+  const displayKey  = ownsTrophy ? repeatKey : r.out;
+  const rowCls = (!ownsTrophy && isTrophy) ? 'rcp-trophy' : rcls(displayKey);
+  const rhsCls = (!ownsTrophy && isTrophy) ? 'rcp-trophy-name' : rcls(displayKey);
+
+  const row  = document.createElement('div');
+  row.className = `rcp-row ${rowCls} rcp-clickable`;
+
+  const main = document.createElement('div');
+  main.className = 'rcp-main';
+  main.innerHTML =
+    `<span class="rcp-lhs">${lhsHtml}</span>` +
+    `<span class="rcp-arr">→</span>` +
+    `<span class="rcp-rhs ${rhsCls}">${esc(displayName)}</span>` +
+    `<span class="rcp-ready-dot${craftable ? '' : ' rcp-dot-off'}"></span>`;
+  row.appendChild(main);
+
+  const expand = document.createElement('div');
+  expand.className = 'rcp-expand hidden';
+  if (craftable) {
+    expand.innerHTML = '<span class="rcp-can-craft">✓ Ready — click again to fill slots</span>';
+  } else {
+    const parts = [];
+    for (const ing of r.ing) {
+      let have, label;
+      if ('group' in ing) {
+        have  = ing.group === 'junk' ? junkPool(inv).length : ing.group.reduce((s, k) => s + (inv[k] || 0), 0);
+        label = ingGroupLabel(ing.group);
+      } else {
+        have  = inv[ing.key] || 0;
+        label = iname(ing.key);
+      }
+      if (ing.qty - have > 0) parts.push(`${label} ×${ing.qty - have}`);
+    }
+    expand.innerHTML = `<span class="rcp-missing">Need: ${parts.join(', ')}</span>`;
+  }
+  row.appendChild(expand);
+
+  let expanded = false;
+  row.addEventListener('click', () => {
+    if (craftable) {
+      clearSlots('asm');
+      const slots = pickSlots(r, state.inv);
+      if (slots) ASM_SLOTS.forEach((id, i) => {
+        if (slots[i]) { slotState[id] = slots[i]; renderSlot(id); }
+      });
+      if (screenMode !== SCREEN.ASSEMBLE) setScreenMode(SCREEN.ASSEMBLE);
+    } else {
+      expanded = !expanded;
+      expand.classList.toggle('hidden', !expanded);
+    }
+  });
+  return row;
+}
+
+function makeSmashRow(ing, out, note) {
+  const inv       = state.inv;
+  const spec      = SMASH_FILL_MAP.get(ing);
+  const craftable = smashCraftable(spec);
+
+  const row  = document.createElement('div');
+  row.className = 'rcp-row rcp-clickable';
+
+  const main = document.createElement('div');
+  main.className = 'rcp-main';
+  main.innerHTML =
+    `<span class="rcp-lhs">${esc(ing)}</span>` +
+    `<span class="rcp-arr">→</span>` +
+    `<span class="rcp-rhs">${esc(out)}</span>` +
+    `<span class="rcp-ready-dot${craftable ? '' : ' rcp-dot-off'}"></span>`;
+  row.appendChild(main);
+
+  if (note) {
+    const noteEl = document.createElement('div');
+    noteEl.className = 'rcp-note';
+    noteEl.textContent = note;
+    row.appendChild(noteEl);
+  }
+
+  const expand = document.createElement('div');
+  expand.className = 'rcp-expand hidden';
+  if (!craftable && spec) {
+    const parts  = [];
+    const rname  = r => RARITY_NAMES[r] || r || '';
+    const sLabel = s => s ? (s.k ? iname(s.k) : `${rname(s.r)} ${s.t === 'beetle' ? 'Beetle' : 'Flower'}`) : '';
+    const checkSpec = (s, label) => {
+      if (!s) return;
+      if (s.k) {
+        if ((inv[s.k] || 0) < 1) parts.push(`${iname(s.k)} ×1`);
+        return;
+      }
+      const pool = s.t === 'beetle' ? BEETLES : s.t === 'flower' ? ALL_FLOWERS : [];
+      const have = pool.filter(k => !s.r || RARITY[k] === s.r).reduce((n, k) => n + (inv[k] || 0), 0);
+      const need = (s === spec.sm1 && spec.sm0?.t === s.t && spec.sm0?.r === s.r) ? 2 : 1;
+      if (have < need) parts.push(`${label} ×${need - have}`);
+    };
+    checkSpec(spec.sm0, sLabel(spec.sm0));
+    checkSpec(spec.sm1, sLabel(spec.sm1));
+    checkSpec(spec.sac, sLabel(spec.sac));
+    expand.innerHTML = parts.length
+      ? `<span class="rcp-missing">Need: ${parts.join(', ')}</span>`
+      : '<span class="rcp-can-craft">✓ Ready</span>';
+  }
+  row.appendChild(expand);
+
+  let expanded = false;
+  row.addEventListener('click', () => {
+    if (craftable) {
+      fillSmash(spec);
+    } else {
+      expanded = !expanded;
+      expand.classList.toggle('hidden', !expanded);
+    }
+  });
+  return row;
+}
+
 function renderRecipes(filter = '') {
-  const q = filter.toLowerCase();
+  const q   = filter.toLowerCase();
   const inv = state.inv;
 
   const asmRows = AR
@@ -1073,155 +1211,21 @@ function renderRecipes(filter = '') {
   const wrap = document.getElementById('recipe-table-wrap');
   wrap.innerHTML = '';
 
-  const groupCls = (group) => {
-    if (group === 'junk')          return 'r-jnk';
-    if (group === TIN_FLOWERS)     return 'r-tin';
-    if (group === BRONZE_FLOWERS)  return 'r-brz';
-    if (group === MITHRIL_FLOWERS) return 'r-mth';
-    if (group === ADAM_FLOWERS)    return 'r-adm';
-    return '';
-  };
-
-  const mkSection = (label) => {
+  const addSection = label => {
     const hdr = document.createElement('div');
     hdr.className = 'rcp-hdr';
     hdr.textContent = label;
     wrap.appendChild(hdr);
   };
 
-  const mkAsmRow = (r) => {
-    const lhsHtml = r.ing.map(ing => {
-      const label = 'key' in ing ? iname(ing.key) : ingGroupLabel(ing.group);
-      const cls   = 'key' in ing ? rcls(ing.key) : groupCls(ing.group);
-      const qty   = ing.qty > 1 ? ` ×${ing.qty}` : '';
-      return `<span class="${cls}">${esc(label)}${qty}</span>`;
-    }).join('<span class="rcp-plus"> + </span>');
-
-    const craftable = craftCount(r, inv) > 0;
-    const isTrophy  = r.out.startsWith('trophy_');
-    const repeatKey = TROPHY_REPEAT[r.out];
-    const ownsTrophy = repeatKey && (inv[r.out] || 0) > 0;
-    const displayName = ownsTrophy ? iname(repeatKey) : r.name;
-    const displayKey  = ownsTrophy ? repeatKey : r.out;
-    const rowCls    = (!ownsTrophy && isTrophy) ? 'rcp-trophy' : rcls(displayKey);
-    const rhsCls    = (!ownsTrophy && isTrophy) ? 'rcp-trophy-name' : rcls(displayKey);
-
-    const row = document.createElement('div');
-    row.className = `rcp-row ${rowCls} rcp-clickable`;
-
-    const main = document.createElement('div');
-    main.className = 'rcp-main';
-    main.innerHTML =
-      `<span class="rcp-lhs">${lhsHtml}</span>` +
-      `<span class="rcp-arr">→</span>` +
-      `<span class="rcp-rhs ${rhsCls}">${esc(displayName)}</span>` +
-      (craftable ? '<span class="rcp-ready-dot"></span>' : '<span class="rcp-ready-dot rcp-dot-off"></span>');
-    row.appendChild(main);
-
-    const expand = document.createElement('div');
-    expand.className = 'rcp-expand hidden';
-    if (craftable) {
-      expand.innerHTML = '<span class="rcp-can-craft">✓ Ready — click again to fill slots</span>';
-    } else {
-      const parts = [];
-      for (const ing of r.ing) {
-        let have, label;
-        if ('group' in ing) {
-          have  = ing.group === 'junk' ? junkPool(inv).length : ing.group.reduce((s, k) => s + (inv[k] || 0), 0);
-          label = ingGroupLabel(ing.group);
-        } else { have = inv[ing.key] || 0; label = iname(ing.key); }
-        if (ing.qty - have > 0) parts.push(`${label} ×${ing.qty - have}`);
-      }
-      expand.innerHTML = `<span class="rcp-missing">Need: ${parts.join(', ')}</span>`;
-    }
-    row.appendChild(expand);
-
-    let expanded = false;
-    row.addEventListener('click', () => {
-      if (craftable) {
-        clearSlots('asm');
-        const slots = pickSlots(r, state.inv);
-        if (slots) ASM_SLOTS.forEach((id, i) => {
-          if (slots[i]) { slotState[id] = slots[i]; renderSlot(id); }
-        });
-        if (screenMode !== SCREEN.ASSEMBLE) setScreenMode(SCREEN.ASSEMBLE);
-      } else {
-        expanded = !expanded;
-        expand.classList.toggle('hidden', !expanded);
-      }
-    });
-    wrap.appendChild(row);
-  };
-
-  const mkSmashRow = (ing, out, note) => {
-    const spec      = SMASH_FILL_MAP.get(ing);
-    const craftable = smashCraftable(spec);
-    const row = document.createElement('div');
-    row.className = 'rcp-row rcp-clickable';
-
-    const main = document.createElement('div');
-    main.className = 'rcp-main';
-    main.innerHTML =
-      `<span class="rcp-lhs">${esc(ing)}</span>` +
-      `<span class="rcp-arr">→</span>` +
-      `<span class="rcp-rhs">${esc(out)}</span>` +
-      (craftable ? '<span class="rcp-ready-dot"></span>' : '<span class="rcp-ready-dot rcp-dot-off"></span>');
-    row.appendChild(main);
-
-    if (note) {
-      const noteEl = document.createElement('div');
-      noteEl.className = 'rcp-note';
-      noteEl.textContent = note;
-      row.appendChild(noteEl);
-    }
-
-    const expand = document.createElement('div');
-    expand.className = 'rcp-expand hidden';
-    if (!craftable && spec) {
-      const inv = state.inv;
-      const parts = [];
-      const checkSpec = (s, label) => {
-        if (!s) return;
-        let have;
-        if (s.k) { have = inv[s.k] || 0; if (have < 1) parts.push(`${iname(s.k)} ×1`); return; }
-        const pool = s.t === 'beetle' ? BEETLES : s.t === 'flower' ? ALL_FLOWERS : [];
-        have = pool.filter(k => !s.r || RARITY[k] === s.r).reduce((n, k) => n + (inv[k] || 0), 0);
-        const need = (s === spec.sm1 && spec.sm0?.t === s.t && spec.sm0?.r === s.r) ? 2 : 1;
-        if (have < need) parts.push(`${label} ×${need - have}`);
-      };
-      const rname = r => RARITY_NAMES[r] || r || '';
-      const sLabel = s => s ? (s.k ? iname(s.k) : `${rname(s.r)} ${s.t === 'beetle' ? 'Beetle' : 'Flower'}`) : '';
-      checkSpec(spec.sm0, sLabel(spec.sm0));
-      checkSpec(spec.sm1, sLabel(spec.sm1));
-      checkSpec(spec.sac, sLabel(spec.sac));
-      expand.innerHTML = parts.length
-        ? `<span class="rcp-missing">Need: ${parts.join(', ')}</span>`
-        : '<span class="rcp-can-craft">✓ Ready</span>';
-    }
-    row.appendChild(expand);
-
-    let expanded = false;
-    row.addEventListener('click', () => {
-      if (craftable) {
-        fillSmash(spec);
-      } else {
-        expanded = !expanded;
-        expand.classList.toggle('hidden', !expanded);
-      }
-    });
-    wrap.appendChild(row);
-  };
-
   if (asmRows.length) {
-    mkSection('⚙ ASSEMBLE');
-    asmRows.forEach(mkAsmRow);
+    addSection('⚙ ASSEMBLE');
+    asmRows.forEach(r => wrap.appendChild(makeAsmRow(r, inv)));
   }
-
   if (smashRows.length) {
-    mkSection('⚡ SMASH');
-    smashRows.forEach(([ing, out,, note]) => mkSmashRow(ing, out, note));
+    addSection('⚡ SMASH');
+    smashRows.forEach(([ing, out,, note]) => wrap.appendChild(makeSmashRow(ing, out, note)));
   }
-
   if (!asmRows.length && !smashRows.length)
     wrap.innerHTML = '<div class="nothing-craftable">No recipes match.</div>';
 }
@@ -1698,8 +1702,74 @@ function startTimers() {
 }
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', () => {
+// ── CRAFT ACTIONS ─────────────────────────────────────────────────────────────
+async function doAssemble() {
+  if (!slotState['asm0']) { setResult('asm-result', 'Fill at least Slot 1.'); return; }
+  const btn = document.getElementById('do-assemble');
+  btn.disabled = true;
+  const repeatCount = Math.max(1, Math.min(99, parseInt(document.getElementById('asm-repeat').value) || 1));
+  let successCount = 0, lastLabel = '', lastKey = null, lastError = '', trophyCrafted = null;
+  for (let i = 0; i < repeatCount; i++) {
+    setResult('asm-result', repeatCount > 1 ? `${i+1}/${repeatCount}…` : 'Assembling…', lastKey);
+    const [s1, s2, s3, s4] = resolveSlotKeys(ASM_SLOTS);
+    if (!s1) { lastError = 'Out of materials.'; setResult('asm-result', lastError); break; }
+    const body = { type: 1, slot1: s1, slot2: s2 || undefined, ...(s3 ? { slot3: s3 } : {}), ...(s4 ? { slot4: s4 } : {}) };
+    const result = await apiPost('/api/beetle/action/craft', body);
+    if (!result) break;
+    if (result.success === false) { lastError = result.message || 'Failed.'; setResult('asm-result', lastError); break; }
+    lastLabel = resultLabel(result) || 'done';
+    lastKey   = resultKey(result);
+    if (lastKey?.startsWith('trophy_') && !trophyCrafted) trophyCrafted = lastKey;
+    successCount++;
+    if (i < repeatCount - 1) await loadState(true);
+  }
+  await loadState();
+  updatePreviews();
+  if (successCount > 0) {
+    const txt = repeatCount > 1 ? `✓ ×${successCount}: ${lastLabel}` : `✓ Got: ${lastLabel}`;
+    setResult('asm-result', txt, lastKey);
+    log(txt);
+    if (trophyCrafted) announceTrophy(trophyCrafted);
+  } else if (lastError) {
+    log(lastError, 'warn');
+  }
+  btn.disabled = false;
+}
 
+async function doSmash() {
+  if (!slotState['sm0'] || !slotState['smsac'] || !slotState['smhammer'])
+    { setResult('smash-result2', 'Need Slot 1, Sacrifice and Hammer.'); return; }
+  const btn = document.getElementById('do-smash');
+  btn.disabled = true;
+  const repeatCount = Math.max(1, Math.min(99, parseInt(document.getElementById('smash-repeat').value) || 1));
+  let successCount = 0, lastLabel = '', lastKey = null, lastError = '';
+  for (let i = 0; i < repeatCount; i++) {
+    setResult('smash-result2', repeatCount > 1 ? `${i+1}/${repeatCount}…` : 'Smashing…', lastKey);
+    const [s1, s2] = resolveSlotKeys(SMASH_SLOTS);
+    if (!s1) { lastError = 'Out of materials.'; setResult('smash-result2', lastError); break; }
+    const body = { type: 2, slot1: s1, sacrifice: slotState['smsac'] || '', hammer: slotState['smhammer'] || '', ...(s2 ? { slot2: s2 } : {}) };
+    const result = await apiPost('/api/beetle/action/craft', body);
+    if (!result) break;
+    if (result.success === false) { lastError = result.message || 'Failed.'; setResult('smash-result2', lastError); break; }
+    lastLabel = resultLabel(result) || 'done';
+    lastKey   = resultKey(result);
+    successCount++;
+    if (i < repeatCount - 1) await loadState(true);
+  }
+  await loadState();
+  updatePreviews();
+  if (successCount > 0) {
+    const txt = repeatCount > 1 ? `✓ ×${successCount}: ${lastLabel}` : `✓ Got: ${lastLabel}`;
+    setResult('smash-result2', txt, lastKey);
+    log(txt);
+  } else if (lastError) {
+    log(lastError, 'warn');
+  }
+  btn.disabled = false;
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+function setupAuthListeners() {
   document.getElementById('login-form').addEventListener('submit', async e => {
     e.preventDefault();
     const btn = document.getElementById('login-btn');
@@ -1728,115 +1798,51 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('logout-btn').addEventListener('click', () => {
     clearInterval(refreshTimer); clearInterval(tickTimer); showLogin();
   });
+}
 
+function setupActionButtons() {
   document.getElementById('act-claim').addEventListener('click',  () => doAction('catchBeetle', 'Claim Beetle'));
   document.getElementById('act-hunt').addEventListener('click',   () => doAction('beetleHunt',  'Hunt'));
   document.getElementById('act-ubc').addEventListener('click',    () => doAction('claimUBC',    'Claim UBC'));
   document.getElementById('act-faucet').addEventListener('click', () => doAction('junkFaucet',  'Junk Faucet'));
   document.getElementById('act-crunch').addEventListener('click', doJunkCrunch);
   document.getElementById('act-refresh').addEventListener('click', loadState);
-
-  // Assemble / Smash screen pane buttons
   document.getElementById('act-assemble').addEventListener('click', () => setScreenMode(SCREEN.ASSEMBLE));
-  document.getElementById('act-smash').addEventListener('click', () => setScreenMode(SCREEN.SMASH));
-
-  document.getElementById('do-assemble').addEventListener('click', async () => {
-    if (!slotState['asm0']) { setResult('asm-result', 'Fill at least Slot 1.'); return; }
-    const btn = document.getElementById('do-assemble');
-    btn.disabled = true;
-    const repeatCount = Math.max(1, Math.min(99, parseInt(document.getElementById('asm-repeat').value) || 1));
-    let successCount = 0, lastLabel = '', lastKey = null, lastError = '', trophyCrafted = null;
-    for (let i = 0; i < repeatCount; i++) {
-      setResult('asm-result', repeatCount > 1 ? `${i+1}/${repeatCount}…` : 'Assembling…', lastKey);
-      const [s1, s2, s3, s4] = resolveSlotKeys(ASM_SLOTS);
-      if (!s1) { lastError = 'Out of materials.'; setResult('asm-result', lastError); break; }
-      const body = { type: 1, slot1: s1, slot2: s2 || undefined, ...(s3 ? { slot3: s3 } : {}), ...(s4 ? { slot4: s4 } : {}) };
-      const result = await apiPost('/api/beetle/action/craft', body);
-      if (!result) break;
-      if (result.success === false) { lastError = result.message || 'Failed.'; setResult('asm-result', lastError); break; }
-      lastLabel = resultLabel(result) || 'done';
-      lastKey   = resultKey(result);
-      if (lastKey?.startsWith('trophy_') && !trophyCrafted) trophyCrafted = lastKey;
-      successCount++;
-      if (i < repeatCount - 1) await loadState(true);
-    }
-    await loadState();
-    updatePreviews();
-    if (successCount > 0) {
-      const txt = repeatCount > 1 ? `✓ ×${successCount}: ${lastLabel}` : `✓ Got: ${lastLabel}`;
-      setResult('asm-result', txt, lastKey);
-      log(txt);
-      if (trophyCrafted) announceTrophy(trophyCrafted);
-    } else if (lastError) {
-      log(lastError, 'warn');
-    }
-    btn.disabled = false;
-  });
-
+  document.getElementById('act-smash').addEventListener('click',    () => setScreenMode(SCREEN.SMASH));
+  document.getElementById('do-assemble').addEventListener('click', doAssemble);
   document.getElementById('clear-assemble').addEventListener('click', () => clearSlots('asm'));
-
-  document.getElementById('do-smash').addEventListener('click', async () => {
-    if (!slotState['sm0'] || !slotState['smsac'] || !slotState['smhammer'])
-      { setResult('smash-result2', 'Need Slot 1, Sacrifice and Hammer.'); return; }
-    const btn = document.getElementById('do-smash');
-    btn.disabled = true;
-    const repeatCount = Math.max(1, Math.min(99, parseInt(document.getElementById('smash-repeat').value) || 1));
-    let successCount = 0, lastLabel = '', lastKey = null, lastError = '';
-    for (let i = 0; i < repeatCount; i++) {
-      setResult('smash-result2', repeatCount > 1 ? `${i+1}/${repeatCount}…` : 'Smashing…', lastKey);
-      const [s1, s2] = resolveSlotKeys(['sm0','sm1']);
-      if (!s1) { lastError = 'Out of materials.'; setResult('smash-result2', lastError); break; }
-      const body = { type: 2, slot1: s1, sacrifice: slotState['smsac'] || '', hammer: slotState['smhammer'] || '', ...(s2 ? { slot2: s2 } : {}) };
-      const result = await apiPost('/api/beetle/action/craft', body);
-      if (!result) break;
-      if (result.success === false) { lastError = result.message || 'Failed.'; setResult('smash-result2', lastError); break; }
-      lastLabel = resultLabel(result) || 'done';
-      lastKey   = resultKey(result);
-      successCount++;
-      if (i < repeatCount - 1) await loadState(true);
-    }
-    await loadState();
-    updatePreviews();
-    if (successCount > 0) {
-      const txt = repeatCount > 1 ? `✓ ×${successCount}: ${lastLabel}` : `✓ Got: ${lastLabel}`;
-      setResult('smash-result2', txt, lastKey);
-      log(txt);
-    } else if (lastError) {
-      log(lastError, 'warn');
-    }
-    btn.disabled = false;
-  });
-
+  document.getElementById('do-smash').addEventListener('click', doSmash);
   document.getElementById('clear-smash').addEventListener('click', () => clearSlots('sm'));
+  document.getElementById('btn-esc').addEventListener('click', () => setScreenMode(SCREEN.LOG));
+}
 
-  document.getElementById('recipe-search').addEventListener('input', e => renderRecipes(e.target.value));
+function setupChatListeners() {
+  const input   = document.getElementById('chat-input');
+  const suggest = document.getElementById('chat-suggest');
 
   document.getElementById('chat-send').addEventListener('click', sendChatMsg);
-  document.getElementById('chat-input').addEventListener('keydown', e => {
+  input.addEventListener('keydown', e => {
     if (e.key === 'Enter')  { e.preventDefault(); sendChatMsg(); }
-    if (e.key === 'Escape') document.getElementById('chat-suggest').classList.remove('open');
+    if (e.key === 'Escape') suggest.classList.remove('open');
   });
-  document.getElementById('chat-input').addEventListener('input', () =>
-    updateChatSuggest(document.getElementById('chat-input')));
-  document.getElementById('chat-input').addEventListener('blur', () =>
-    setTimeout(() => document.getElementById('chat-suggest').classList.remove('open'), 150));
-  document.getElementById('chat-suggest').addEventListener('click', e => {
-    const item = e.target.closest('.chat-sug-item');
-    if (item) insertChatLink(item.dataset.key);
-  });
-  document.getElementById('chat-input').addEventListener('dragover', e => {
+  input.addEventListener('input', () => updateChatSuggest(input));
+  input.addEventListener('blur',  () => setTimeout(() => suggest.classList.remove('open'), 150));
+  input.addEventListener('dragover', e => {
     if (e.dataTransfer.types.includes('text/plain')) e.preventDefault();
   });
-  document.getElementById('chat-input').addEventListener('drop', e => {
+  input.addEventListener('drop', e => {
     const key = e.dataTransfer.getData('text/plain');
     if (!NAMES[key]) return;
     e.preventDefault();
-    const input = e.target;
     const pos  = input.selectionStart ?? input.value.length;
     const link = `[${iname(key)}]`;
     input.value = input.value.slice(0, pos) + link + input.value.slice(pos);
     input.setSelectionRange(pos + link.length, pos + link.length);
     input.focus();
+  });
+  suggest.addEventListener('click', e => {
+    const item = e.target.closest('.chat-sug-item');
+    if (item) insertChatLink(item.dataset.key);
   });
   document.getElementById('chat-messages').addEventListener('click', e => {
     const link = e.target.closest('.chat-item-link');
@@ -1854,33 +1860,30 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
   document.getElementById('reply-bar-cancel').addEventListener('click', () => setReplyTarget(null));
+  document.getElementById('recipe-search').addEventListener('input', e => renderRecipes(e.target.value));
+}
 
+function setupPanelListeners() {
   document.getElementById('mode-btns').addEventListener('click', e => {
     const mode = e.target.dataset.mode;
     if (mode) setMode(mode);
   });
-
   document.getElementById('left-mode-btns').addEventListener('click', e => {
     const mode = e.target.dataset.leftMode;
     if (!mode) return;
     document.querySelectorAll('.left-pane').forEach(p => p.classList.add('hidden'));
-    document.querySelectorAll('#left-mode-btns .mode-btn').forEach(b => b.classList.toggle('active', b.dataset.leftMode === mode));
+    document.querySelectorAll('#left-mode-btns .mode-btn').forEach(b =>
+      b.classList.toggle('active', b.dataset.leftMode === mode));
     document.getElementById(`left-mode-${mode}`).classList.remove('hidden');
-    if (mode === 'dex') renderBeetledex();
+    if (mode === 'dex')   renderBeetledex();
     if (mode === 'trphy') renderTrophies();
   });
+  document.querySelectorAll('.panel-toggle-btn').forEach(btn =>
+    btn.addEventListener('click', () => openPanel(btn.dataset.panel)));
+}
 
-  document.querySelectorAll('.panel-toggle-btn').forEach(btn => {
-    btn.addEventListener('click', () => openPanel(btn.dataset.panel));
-  });
-
-
-  document.getElementById('btn-esc').addEventListener('click', () => setScreenMode(SCREEN.LOG));
-
-  wireSlots();
-
-  // SP colorway picker
-  const spBtn = document.getElementById('sp-clickable');
+function setupThemePicker() {
+  const spBtn  = document.getElementById('sp-clickable');
   const picker = document.getElementById('theme-picker');
   spBtn.addEventListener('click', e => {
     e.stopPropagation();
@@ -1889,14 +1892,19 @@ document.addEventListener('DOMContentLoaded', () => {
     if (wasHidden) buildThemePicker();
   });
   document.addEventListener('click', () => picker.classList.add('hidden'));
+}
 
-  // Load saved theme — default to flame
+document.addEventListener('DOMContentLoaded', () => {
+  setupAuthListeners();
+  setupActionButtons();
+  setupChatListeners();
+  setupPanelListeners();
+  setupThemePicker();
+  wireSlots();
+
   applyTheme(localStorage.getItem(LS_THEME) || THEMES[Math.floor(Math.random() * THEMES.length)].id);
-
-  // Initial screen background
   updateScreenBg(SCREEN.LOG);
 
-  // Auto-login if token stored
   if (getTokens().access) { showApp(); loadState().then(startTimers); }
 
   const loadBgImage = initBgShader();
