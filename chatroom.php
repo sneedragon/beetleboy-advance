@@ -228,8 +228,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $sock = ws_connect();
     if (!$sock) { echo json_encode(['ok'=>false,'error'=>'connect failed']); exit; }
 
+    $uname = mb_substr(trim($in['uname'] ?? ''), 0, 50);
     ws_auth($sock, $token);
-    fwrite($sock, ws_frame('01'.json_encode(['password'=>'beetleboy','open'=>true,'sage'=>false,'body'=>mb_substr($msg,0,500),'name'=>''])));
+    fwrite($sock, ws_frame('01'.json_encode(['password'=>'beetleboy','open'=>true,'sage'=>false,'body'=>mb_substr($msg,0,500),'name'=>$uname])));
 
     $deadline = microtime(true) + 6;
     while (microtime(true) < $deadline && !feof($sock)) {

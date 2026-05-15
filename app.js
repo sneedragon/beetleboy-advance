@@ -1398,6 +1398,7 @@ let chatSource    = null; // EventSource
 let chatLastId    = null;
 let replyTarget       = null;
 const renderedPostEls = new Map(); // msgId → DOM element
+const sentQueue       = [];        // {body, user} — enriches our own posts when 33/01 lacks user data
 
 function openChatStream() {
   const { access } = getTokens();
@@ -1413,6 +1414,13 @@ function openChatStream() {
         return;
       }
       if (d.type === 'posts' && Array.isArray(d.posts) && d.posts.length) {
+        // Enrich posts that arrived without user data (finalized BeetleBoy sends)
+        for (const p of d.posts) {
+          if (!p.user?.username && !p.user?.displayname) {
+            const qi = sentQueue.findIndex(s => s.body === p.body);
+            if (qi >= 0) { p.user = sentQueue[qi].user; sentQueue.splice(qi, 1); }
+          }
+        }
         const isInit = chatLastId === null;
         chatLastId = d.posts[d.posts.length - 1].id;
         appendChatPosts(d.posts, isInit);
@@ -1579,8 +1587,20 @@ async function sendChatMsg() {
   setReplyTarget(null);
   input.value = '';
   input.disabled = true;
+  // Queue user data so the incoming 33/01 echo can be enriched if it lacks user info
+  sentQueue.push({ body: msg, user: {
+    username:    state.user?.username    || '',
+    displayname: state.user?.displayname || state.user?.username || '',
+    pfpUrl:      state.user?.pfpUrl      || '',
+    theme:       localStorage.getItem(LS_THEME) || 'flame',
+  }});
+  if (sentQueue.length > 10) sentQueue.shift();
   try {
-    const payload = { token: access, body: msg, theme: localStorage.getItem(LS_THEME) || 'flame' };
+    const payload = {
+      token: access, body: msg,
+      uname: state.user?.username || '',
+      theme: localStorage.getItem(LS_THEME) || 'flame',
+    };
     if (rt) payload.replyTo = rt;
     const r = await fetch(CHAT_URL, {
       method: 'POST',
