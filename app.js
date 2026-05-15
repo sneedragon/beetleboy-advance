@@ -1451,7 +1451,7 @@ function appendChatPosts(posts, isInit) {
   const myUser = state.user?.username || '';
   for (const p of posts) {
     const el = document.createElement('div');
-    const name = esc(p.user?.displayname || p.name || '?');
+    const name = esc(p.user?.displayname || p.name || 'anon');
     const uname = p.user?.username || '';
     const profileUrl = uname ? `https://www.remilia.net/~${esc(uname)}` : '';
     const profileLink = (inner) => profileUrl
@@ -1465,7 +1465,7 @@ function appendChatPosts(posts, isInit) {
       el.className = 'chat-msg';
       let pfp = p.user?.pfpUrl || '';
       if (pfp.startsWith('/')) pfp = 'https://www.remilia.net' + pfp;
-      const time = new Date(p.time * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const time = p.time > 0 ? new Date(p.time * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
       const avatar = pfp
         ? `<img class="chat-avatar" src="${esc(pfp)}" alt="" onerror="this.style.display='none'">`
         : '<div class="chat-avatar-ph"></div>';
