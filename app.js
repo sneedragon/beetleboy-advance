@@ -1445,11 +1445,28 @@ function appendChatPosts(posts, isInit) {
   if (isInit) { box.innerHTML = ''; renderedPostEls.clear(); }
   const myUser = state.user?.username || '';
   for (const p of posts) {
-    // Live typing: same post ID arrives on each keystroke — update body in place
+    // Same post ID = update in place (live typing, or live event enriching a history slot)
     if (renderedPostEls.has(p.id)) {
       const existing = renderedPostEls.get(p.id);
       const textEl = existing.querySelector('.chat-text');
       if (textEl) textEl.innerHTML = renderChatBody(p.body || '');
+      // Upgrade name/pfp if the existing slot is anonymous and this event has data
+      const dname = p.user?.displayname || p.user?.username || p.name || '';
+      if (dname) {
+        const nameEl = existing.querySelector('.chat-user');
+        if (nameEl && !nameEl.textContent.trim()) nameEl.textContent = dname;
+      }
+      const pfpSrc = p.user?.pfpUrl ? (p.user.pfpUrl.startsWith('/') ? 'https://www.remilia.net' + p.user.pfpUrl : p.user.pfpUrl) : '';
+      if (pfpSrc) {
+        const ph = existing.querySelector('.chat-avatar-ph');
+        if (ph) {
+          const img = document.createElement('img');
+          img.className = 'chat-avatar'; img.alt = '';
+          img.onerror = () => img.style.display = 'none';
+          img.src = pfpSrc;
+          ph.replaceWith(img);
+        }
+      }
       continue;
     }
 

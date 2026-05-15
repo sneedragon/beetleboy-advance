@@ -168,24 +168,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['stream'])) {
         $payload = substr($frame, 2);
 
         if ($op === '30' && !$got_init) {
-            // Initial history: body only (no usernames in the recent dict)
+            // Initial history: body only (no usernames in the recent dict).
+            // Always send all recent posts regardless of Last-Event-ID so the browser
+            // always has a full history after switching to the chat tab.
             $got_init = true;
             stream_set_timeout($sock, 2); // switch to short timeout for live events
             $recent = [];
             foreach ((json_decode($payload, true)['recent'] ?? []) as $id => $p) {
-                $id = (int)$id;
-                if ($id > $last_id) $recent[] = norm_body_only($id, (string)($p['body'] ?? ''));
+                $recent[] = norm_body_only((int)$id, (string)($p['body'] ?? ''));
             }
             sse($recent);
 
         } elseif ($op === '33') {
-            // Live events. Forward every sub-event that carries id+body, regardless of its
-            // sub-opcode.  Only skip '02' (typing-count updates which carry no post body).
-            // miladychan may use sub-opcodes other than '01' for finalized/edited posts.
+            // Live events — only '01' sub-events carry full post+user data.
+            // Other sub-opcodes (02 = typing count, etc.) lack user info and would
+            // overwrite the name slot via in-place update if forwarded first.
             $posts = [];
             foreach ((json_decode($payload, true) ?? []) as $evt) {
-                if (!is_string($evt)) continue;
-                if (substr($evt, 0, 2) === '02') continue; // typing-count only, no post data
+                if (!is_string($evt) || substr($evt, 0, 2) !== '01') continue;
                 $p = json_decode(substr($evt, 2), true);
                 if (!is_array($p) || empty($p['id'])) continue;
                 $body = trim($p['body'] ?? '');
