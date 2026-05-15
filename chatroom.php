@@ -225,6 +225,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['stream'])) {
     exit;
 }
 
+// ── GET history proxy — fetches REST endpoint server-side to avoid CORS ─────────
+if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['history'])) {
+    $token = trim($_GET['token'] ?? '');
+    if (!$token) { http_response_code(400); echo '{}'; exit; }
+    $ctx  = stream_context_create(['ssl' => ['verify_peer' => true, 'verify_peer_name' => true]]);
+    $sock = @stream_socket_client('ssl://' . MC_HOST . ':443', $errno, $errstr, 10, STREAM_CLIENT_CONNECT, $ctx);
+    if (!$sock) { echo '{}'; exit; }
+    stream_set_timeout($sock, 15);
+    $path = '/json/chat/' . MC_BOARD . '/' . MC_THREAD . '/' . rawurlencode($token) . '?last=100';
+    fwrite($sock,
+        "GET $path HTTP/1.1\r\n" .
+        "Host: "       . MC_HOST   . "\r\n" .
+        "Origin: "     . MC_ORIGIN . "\r\n" .
+        "Accept: application/json\r\n" .
+        "Connection: close\r\n\r\n"
+    );
+    $raw = '';
+    while (!feof($sock)) { $c = fread($sock, 8192); if ($c === false) break; $raw .= $c; }
+    fclose($sock);
+    $pos = strpos($raw, "\r\n\r\n");
+    header('Content-Type: application/json');
+    echo $pos !== false ? substr($raw, $pos + 4) : '{}';
+    exit;
+}
+
 // ── GET reactions (no-op — reactions come with SSE stream) ────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     echo json_encode(['reactions' => (object)[]]);
