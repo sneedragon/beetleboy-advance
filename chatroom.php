@@ -149,8 +149,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['stream'])) {
         flush(); exit;
     }
     ws_auth($sock, $token);
-    // Short read timeout so we can send SSE keepalives and detect browser disconnect
-    stream_set_timeout($sock, 2);
+    // Longer timeout while waiting for the initial (potentially large) op-30 history frame.
+    // Switched to 2 s after the first frame arrives so we can send SSE keepalives promptly.
+    stream_set_timeout($sock, 10);
 
     $got_init = false;
 
@@ -158,7 +159,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['stream'])) {
         $frame = ws_read($sock);
 
         if ($frame === null) {
-            // Timeout — no data for 2s; send keepalive and loop
+            if (!$got_init) continue; // still waiting for initial history — no ping yet
             echo ": ping\n\n"; flush();
             continue;
         }
@@ -167,8 +168,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['stream'])) {
         $payload = substr($frame, 2);
 
         if ($op === '30' && !$got_init) {
-            // Initial history: body only (no usernames)
+            // Initial history: body only (no usernames in the recent dict)
             $got_init = true;
+            stream_set_timeout($sock, 2); // switch to short timeout for live events
             $recent = [];
             foreach ((json_decode($payload, true)['recent'] ?? []) as $id => $p) {
                 $id = (int)$id;
@@ -177,14 +179,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['stream'])) {
             sse($recent);
 
         } elseif ($op === '33') {
-            // Live events — forward all '01' sub-events regardless of ID.
-            // The same post ID arrives repeatedly as the user types (live typing).
-            // The browser deduplicates by updating the existing element.
+            // Live events. Forward every sub-event that carries id+body, regardless of its
+            // sub-opcode.  Only skip '02' (typing-count updates which carry no post body).
+            // miladychan may use sub-opcodes other than '01' for finalized/edited posts.
             $posts = [];
             foreach ((json_decode($payload, true) ?? []) as $evt) {
-                if (!is_string($evt) || substr($evt, 0, 2) !== '01') continue;
+                if (!is_string($evt)) continue;
+                if (substr($evt, 0, 2) === '02') continue; // typing-count only, no post data
                 $p = json_decode(substr($evt, 2), true);
-                if (!$p || empty($p['id'])) continue;
+                if (!is_array($p) || empty($p['id'])) continue;
                 $body = trim($p['body'] ?? '');
                 if ($body !== '') {
                     $posts[] = norm_full($p);
