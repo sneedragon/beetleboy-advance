@@ -1428,7 +1428,6 @@ function openChatStream() {
           }
         }
         const isInit = chatLastId === null;
-        if (!isInit) console.log('[live post]', JSON.stringify(d.posts[0]));
         chatLastId = d.posts[d.posts.length - 1].id;
         appendChatPosts(d.posts, isInit);
         if (isInit) enrichHistoryFromREST();
@@ -1443,7 +1442,17 @@ async function enrichHistoryFromREST() {
   const { access } = getTokens();
   if (!access) return;
   try {
-    const r = await fetch(`${CHAT_URL}?history=1&token=${encodeURIComponent(access)}`);
+    // Try direct fetch first (fast). Falls back to PHP proxy if CORS is still restricted.
+    let r;
+    try {
+      r = await fetch(
+        `https://boards.miladychan.org/json/chat/beetle/201346/${encodeURIComponent(access)}?last=100`,
+        { mode: 'cors', credentials: 'omit' }
+      );
+    } catch {
+      r = await fetch(`${CHAT_URL}?history=1&token=${encodeURIComponent(access)}`);
+    }
+    if (!r) return;
     if (!r.ok) return;
     const data = await r.json();
     // Handle both array and object response shapes
