@@ -1419,7 +1419,16 @@ function openChatStream() {
           // Enrich posts that arrived without user data (finalized BeetleBoy sends)
           if (!p.user?.username && !p.user?.displayname) {
             const qi = sentQueue.findIndex(s => s.body === p.body);
-            if (qi >= 0) { p.user = sentQueue[qi].user; sentQueue.splice(qi, 1); }
+            if (qi >= 0) {
+              const entry = sentQueue[qi];
+              p.user = entry.user;
+              // Remap optimistic placeholder element to the real post ID
+              if (entry.optId !== undefined && renderedPostEls.has(entry.optId)) {
+                renderedPostEls.set(p.id, renderedPostEls.get(entry.optId));
+                renderedPostEls.delete(entry.optId);
+              }
+              sentQueue.splice(qi, 1);
+            }
           }
           // Cache any profile data we receive so history slots can be upgraded later
           const uname = p.user?.username;
@@ -1660,19 +1669,32 @@ async function sendChatMsg() {
   setReplyTarget(null);
   input.value = '';
   input.disabled = true;
-  // Queue user data so the incoming 33/01 echo can be enriched if it lacks user info
-  sentQueue.push({ body: msg, user: {
+
+  const myUser = {
     username:    state.user?.username    || '',
     displayname: state.user?.displayname || state.user?.username || '',
     pfpUrl:      state.user?.pfpUrl      || '',
     theme:       localStorage.getItem(LS_THEME) || 'flame',
-  }});
+  };
+
+  // Optimistic: render immediately with a negative placeholder ID
+  const optId = -Date.now();
+  appendChatPosts([{
+    id: optId, type: 'msg',
+    time: Math.floor(Date.now() / 1000),
+    body: msg, user: myUser,
+    reactions: {}, replyTo: rt || null,
+  }], false);
+
+  // Queue so the incoming 33/01 echo gets remapped to the real post ID
+  sentQueue.push({ body: msg, user: myUser, optId });
   if (sentQueue.length > 10) sentQueue.shift();
+
   try {
     const payload = {
       token: access, body: msg,
-      uname: state.user?.username || '',
-      theme: localStorage.getItem(LS_THEME) || 'flame',
+      uname: myUser.username,
+      theme: myUser.theme,
     };
     if (rt) payload.replyTo = rt;
     const r = await fetch(CHAT_URL, {
@@ -1680,8 +1702,19 @@ async function sendChatMsg() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
-    if (!r.ok) input.value = msg;
-  } catch { input.value = msg; }
+    if (!r.ok) {
+      // Remove optimistic element on failure
+      const optEl = renderedPostEls.get(optId);
+      if (optEl) optEl.remove();
+      renderedPostEls.delete(optId);
+      input.value = msg;
+    }
+  } catch {
+    const optEl = renderedPostEls.get(optId);
+    if (optEl) optEl.remove();
+    renderedPostEls.delete(optId);
+    input.value = msg;
+  }
   input.disabled = false;
   input.focus();
 }
