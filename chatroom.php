@@ -115,10 +115,17 @@ function norm_full(array $p): array {
     ];
 }
 
-function norm_body_only(int $id, string $body): array {
+function norm_body_only(int $id, array $p): array {
+    $name = (string)($p['name'] ?? '');
+    $u    = $p['user'] ?? [];
+    $uname = (string)($u['username']    ?? $name);
+    $dname = (string)($u['displayname'] ?? $name);
+    $pfp   = (string)($u['pfpUrl']      ?? '');
     return [
-        'id' => $id, 'type' => 'msg', 'time' => 0, 'body' => $body,
-        'user'      => ['username'=>'','displayname'=>'','pfpUrl'=>'','theme'=>'flame'],
+        'id' => $id, 'type' => 'msg',
+        'time' => (int)($p['time'] ?? 0),
+        'body' => (string)($p['body'] ?? ''),
+        'user' => ['username'=>$uname,'displayname'=>$dname,'pfpUrl'=>$pfp,'theme'=>'flame'],
         'reactions' => (object)[], 'replyTo' => null,
     ];
 }
@@ -178,7 +185,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['stream'])) {
             stream_set_timeout($sock, 2); // switch to short timeout for live events
             $recent = [];
             foreach ((json_decode($payload, true)['recent'] ?? []) as $id => $p) {
-                $recent[] = norm_body_only((int)$id, (string)($p['body'] ?? ''));
+                $recent[] = norm_body_only((int)$id, is_array($p) ? $p : ['body' => (string)$p]);
             }
             sse($recent);
 

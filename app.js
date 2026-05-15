@@ -1397,8 +1397,9 @@ const CHAT_REACTS     = ['😹', '🤍', '👍', '🪲'];
 let chatSource    = null; // EventSource
 let chatLastId    = null;
 let replyTarget       = null;
-const renderedPostEls = new Map(); // msgId → DOM element
-const sentQueue       = [];        // {body, user} — enriches our own posts when 33/01 lacks user data
+const renderedPostEls  = new Map(); // msgId → DOM element
+const sentQueue        = [];        // {body, user} — enriches our own posts when 33/01 lacks user data
+const profileCache     = new Map(); // username → {displayname, pfpUrl, theme}
 
 function openChatStream() {
   const { access } = getTokens();
@@ -1414,11 +1415,16 @@ function openChatStream() {
         return;
       }
       if (d.type === 'posts' && Array.isArray(d.posts) && d.posts.length) {
-        // Enrich posts that arrived without user data (finalized BeetleBoy sends)
         for (const p of d.posts) {
+          // Enrich posts that arrived without user data (finalized BeetleBoy sends)
           if (!p.user?.username && !p.user?.displayname) {
             const qi = sentQueue.findIndex(s => s.body === p.body);
             if (qi >= 0) { p.user = sentQueue[qi].user; sentQueue.splice(qi, 1); }
+          }
+          // Cache any profile data we receive so history slots can be upgraded later
+          const uname = p.user?.username;
+          if (uname && p.user.pfpUrl) {
+            profileCache.set(uname, { displayname: p.user.displayname || uname, pfpUrl: p.user.pfpUrl, theme: p.user.theme || 'flame' });
           }
         }
         const isInit = chatLastId === null;
@@ -1483,20 +1489,24 @@ function appendChatPosts(posts, isInit) {
     }
 
     const el = document.createElement('div');
-    const name = esc(pdname || 'anon');
     const uname = p.user?.username || '';
+    // Fill missing pfp from cache if we've seen this user's live event before
+    const cached = uname ? profileCache.get(uname) : null;
+    const resolvedPfp = p.user?.pfpUrl || cached?.pfpUrl || '';
+    const resolvedName = pdname || cached?.displayname || '';
+    const name = esc(resolvedName || 'anon');
     const profileUrl = uname ? `https://www.remilia.net/~${esc(uname)}` : '';
     const profileLink = (inner) => profileUrl
       ? `<a class="chat-profile-link" href="${profileUrl}" target="_blank" rel="noopener">${inner}</a>`
       : inner;
     // Only apply theme color when we have a real username — anon uses default accent
-    const nameSpan = `<span class="chat-user"${uname ? ` data-chat-theme="${esc(p.user?.theme || 'flame')}"` : ''}>${name}</span>`;
+    const nameSpan = `<span class="chat-user"${uname ? ` data-chat-theme="${esc(p.user?.theme || cached?.theme || 'flame')}"` : ''}>${name}</span>`;
     if (p.type === 'join') {
       el.className = 'chat-join';
       el.innerHTML = `<span>• ${profileLink(nameSpan)} entered the chat</span>`;
     } else {
       el.className = 'chat-msg';
-      let pfp = p.user?.pfpUrl || '';
+      let pfp = resolvedPfp;
       if (pfp.startsWith('/')) pfp = 'https://www.remilia.net' + pfp;
       const time = p.time > 0 ? new Date(p.time * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
       const avatar = pfp
