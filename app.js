@@ -8,7 +8,6 @@ const LS_REFRESH = 'bb_refresh';
 const REFRESH_INTERVAL   = 60_000;
 const TICK_INTERVAL      = 1_000;
 const CHAT_URL           = 'chatroom.php';
-const CHAT_POLL_INTERVAL = 30_000;
 
 // ── UI CONSTANTS ─────────────────────────────────────────────────────────────
 const ASM_SLOTS   = ['asm0','asm1','asm2','asm3'];
@@ -1291,7 +1290,6 @@ async function announceTrophy(trophyKey) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ token: access, body: `🏆 Crafted [[${trophyKey}]]!`, theme: localStorage.getItem(LS_THEME) || 'flame' }),
     });
-    setTimeout(pollChat, 500);
   } catch {}
 }
 
@@ -1307,7 +1305,6 @@ async function announceRareDrops(actionLabel, gainedKeys) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ token: access, body: `🪲 Got ${names} from ${actionLabel}!`, theme: localStorage.getItem(LS_THEME) || 'flame' }),
     });
-    setTimeout(pollChat, 500);
   } catch {}
 }
 
@@ -1397,33 +1394,31 @@ function insertChatLink(key) {
 
 // ── CHAT ──────────────────────────────────────────────────────────────────────
 const CHAT_REACTS     = ['😹', '🤍', '👍', '🪲'];
-let chatPollTimer     = null;
-let reactPollTimer    = null;
-let chatLastId        = null;
+let chatSource    = null; // EventSource
+let chatLastId    = null;
 let replyTarget       = null;
 const renderedPostEls = new Map(); // msgId → DOM element
 
-async function pollChat() {
-  try {
-    const { access } = getTokens();
-    if (!access) return;
-    const base = chatLastId !== null
-      ? `${CHAT_URL}?after=${chatLastId}`
-      : `${CHAT_URL}?last=50`;
-    const r = await fetch(`${base}&token=${encodeURIComponent(access)}`);
-    if (r.status === 401) {
-      const tokens = await tryRefresh();
-      if (tokens) { saveTokens(tokens.access, tokens.refresh); return pollChat(); }
-      return;
-    }
-    if (!r.ok) return;
-    const data = await r.json();
-    const posts = Array.isArray(data.posts) ? data.posts : [];
-    if (!posts.length) return;
-    const isInit = chatLastId === null;
-    chatLastId = posts[posts.length - 1].id;
-    appendChatPosts(posts, isInit);
-  } catch (e) { console.warn('chat poll', e); }
+function openChatStream() {
+  const { access } = getTokens();
+  if (!access) return;
+  if (chatSource) chatSource.close();
+  chatSource = new EventSource(`${CHAT_URL}?stream=1&token=${encodeURIComponent(access)}`);
+  chatSource.onmessage = e => {
+    try {
+      const d = JSON.parse(e.data);
+      if (d.type === 'token_expired') {
+        chatSource.close(); chatSource = null;
+        tryRefresh().then(tokens => { if (tokens) { saveTokens(tokens.access, tokens.refresh); openChatStream(); } });
+        return;
+      }
+      if (d.type === 'posts' && Array.isArray(d.posts) && d.posts.length) {
+        const isInit = chatLastId === null;
+        chatLastId = d.posts[d.posts.length - 1].id;
+        appendChatPosts(d.posts, isInit);
+      }
+    } catch {}
+  };
 }
 
 
@@ -1534,68 +1529,15 @@ function setReplyTarget(target) {
   }
 }
 
-async function sendReact(msgId, emoji) {
-  const { access } = getTokens();
-  if (!access) return;
-  try {
-    await fetch(CHAT_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token: access, action: 'react', msgId, emoji }),
-    });
-    fetchReactions();
-  } catch {}
-}
-
-async function fetchReactions() {
-  try {
-    const { access } = getTokens();
-    if (!access) return;
-    const r = await fetch(`${CHAT_URL}?reactions=1&token=${encodeURIComponent(access)}`);
-    const d = await r.json();
-    if (d.reactions) {
-      for (const [idStr, reacts] of Object.entries(d.reactions)) {
-        const el = renderedPostEls.get(Number(idStr));
-        if (!el) continue;
-        const pillsEl = el.querySelector('.chat-reacts');
-        if (pillsEl) renderReactPills(pillsEl, reacts, Number(idStr));
-      }
-      // Clear pills on messages with no reactions
-      for (const [id, el] of renderedPostEls) {
-        if (!d.reactions[String(id)]) {
-          const pillsEl = el.querySelector('.chat-reacts');
-          if (pillsEl) pillsEl.innerHTML = '';
-        }
-      }
-    }
-  } catch {}
-}
-
 function startChatPoll() {
-  if (chatPollTimer) return;
+  if (chatSource && chatSource.readyState !== EventSource.CLOSED) return;
   chatLastId = null;
-  pollChat();
-  chatPollTimer = setInterval(pollChat, CHAT_POLL_INTERVAL);
-  reactPollTimer = setInterval(fetchReactions, 20000);
-  postChatJoin();
-}
-
-async function postChatJoin() {
-  const { access } = getTokens();
-  if (!access) return;
-  try {
-    await fetch('chatroom.php', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token: access, action: 'join', theme: localStorage.getItem(LS_THEME) || 'flame' }),
-    });
-    setTimeout(pollChat, 400);
-  } catch {}
+  openChatStream();
 }
 
 function stopChatPoll() {
-  clearInterval(chatPollTimer); chatPollTimer = null;
-  clearInterval(reactPollTimer); reactPollTimer = null;
+  if (chatSource) { chatSource.close(); chatSource = null; }
+  chatLastId = null;
   setReplyTarget(null);
 }
 
@@ -1619,7 +1561,6 @@ async function sendChatMsg() {
       body: JSON.stringify(payload),
     });
     if (!r.ok) input.value = msg;
-    else setTimeout(pollChat, 300);
   } catch { input.value = msg; }
   input.disabled = false;
   input.focus();
