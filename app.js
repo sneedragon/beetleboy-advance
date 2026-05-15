@@ -1414,6 +1414,7 @@ function openChatStream() {
         tryRefresh().then(tokens => { if (tokens) { saveTokens(tokens.access, tokens.refresh); openChatStream(); } });
         return;
       }
+      if (d.type === 'debug') { console.log('[chat op30 sample]', d.sample); return; }
       if (d.type === 'posts' && Array.isArray(d.posts) && d.posts.length) {
         for (const p of d.posts) {
           // Enrich posts that arrived without user data (finalized BeetleBoy sends)
