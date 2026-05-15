@@ -40,14 +40,38 @@ function ws_connect(): mixed {
     return $sock;
 }
 
+// read_exact loops until all bytes received, retrying on TLS-layer timeouts
 function read_exact($sock, int $n): string {
     $d = '';
-    while (strlen($d) < $n) { $c = fread($sock, $n - strlen($d)); if ($c === false || $c === '') break; $d .= $c; }
+    while (strlen($d) < $n) {
+        $c = fread($sock, $n - strlen($d));
+        if ($c === false) break;
+        if ($c === '') {
+            // May be a stream timeout mid-frame — retry if not EOF
+            if (feof($sock)) break;
+            continue;
+        }
+        $d .= $c;
+    }
     return $d;
 }
 
-function ws_read($sock): ?string {
-    $h = @fread($sock, 2); if (strlen($h) < 2) return null;
+// ws_read returns: string frame on success, null on timeout/no-data, false on disconnect
+function ws_read($sock): string|null|false {
+    $h = @fread($sock, 2);
+    if ($h === false) return false;
+    if ($h === '' || strlen($h) < 2) {
+        // Possible timeout — check metadata
+        $meta = stream_get_meta_data($sock);
+        if ($meta['timed_out']) return null;
+        if (feof($sock)) return false;
+        // Got 1 byte, wait for second
+        if (strlen($h) === 1) {
+            $h2 = @fread($sock, 1);
+            if (!$h2) return false;
+            $h .= $h2;
+        } else return null;
+    }
     $b2 = ord($h[1]); $l = $b2 & 0x7F;
     if ($l === 126) $l = unpack('n', read_exact($sock, 2))[1];
     elseif ($l === 127) $l = unpack('J', read_exact($sock, 8))[1];
@@ -125,23 +149,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['stream'])) {
         flush(); exit;
     }
     ws_auth($sock, $token);
+    // Short read timeout so we can send SSE keepalives and detect browser disconnect
+    stream_set_timeout($sock, 2);
 
     $got_init = false;
 
     while (!feof($sock) && !connection_aborted()) {
-        // Wait up to 2s for data, then send keepalive
-        $read = [$sock]; $write = $except = null;
-        $n = @stream_select($read, $write, $except, 2);
-        if ($n === false) break;
+        $frame = ws_read($sock);
 
-        if ($n === 0) {
-            // No data in 2s — keepalive to detect browser disconnect
+        if ($frame === null) {
+            // Timeout — no data for 2s; send keepalive and loop
             echo ": ping\n\n"; flush();
             continue;
         }
-
-        $frame = ws_read($sock);
-        if ($frame === null) break;
+        if ($frame === false) break; // WS disconnected
         $op      = substr($frame, 0, 2);
         $payload = substr($frame, 2);
 
