@@ -40,17 +40,20 @@ function ws_connect(): mixed {
     return $sock;
 }
 
-// read_exact loops until all bytes received, retrying on TLS-layer timeouts
+// read_exact loops until all bytes received, retrying on TLS-layer timeouts.
+// PHP blocking TLS streams return false (not '') on stream_set_timeout expiry,
+// so we must distinguish a real error (break) from a timeout (retry).
 function read_exact($sock, int $n): string {
     $d = '';
     while (strlen($d) < $n) {
         $c = fread($sock, $n - strlen($d));
-        if ($c === false) break;
-        if ($c === '') {
-            // May be a stream timeout mid-frame — retry if not EOF
-            if (feof($sock)) break;
-            continue;
+        if ($c === false) {
+            if (feof($sock)) break;                        // connection closed
+            $meta = stream_get_meta_data($sock);
+            if (!$meta['timed_out']) break;               // real error
+            continue;                                      // timeout — retry
         }
+        if ($c === '') { if (feof($sock)) break; continue; }
         $d .= $c;
     }
     return $d;

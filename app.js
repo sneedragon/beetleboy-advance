@@ -1450,11 +1450,13 @@ function appendChatPosts(posts, isInit) {
       const existing = renderedPostEls.get(p.id);
       const textEl = existing.querySelector('.chat-text');
       if (textEl) textEl.innerHTML = renderChatBody(p.body || '');
-      // Upgrade name/pfp if the existing slot is anonymous and this event has data
+      // Upgrade name/pfp if the existing slot is anonymous and this event has data.
+      // History posts render as 'anon'; check for that too, not just empty string.
       const dname = p.user?.displayname || p.user?.username || p.name || '';
       if (dname) {
         const nameEl = existing.querySelector('.chat-user');
-        if (nameEl && !nameEl.textContent.trim()) nameEl.textContent = dname;
+        const cur = nameEl?.textContent.trim() ?? '';
+        if (nameEl && (!cur || cur === 'anon')) nameEl.textContent = dname;
       }
       const pfpSrc = p.user?.pfpUrl ? (p.user.pfpUrl.startsWith('/') ? 'https://www.remilia.net' + p.user.pfpUrl : p.user.pfpUrl) : '';
       if (pfpSrc) {
