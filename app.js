@@ -1484,7 +1484,7 @@ async function enrichHistoryFromREST() {
       if (dname) {
         const nameEl = el.querySelector('.chat-user');
         const cur = nameEl?.textContent.trim() ?? '';
-        if (nameEl && (!cur || cur === 'anon')) {
+        if (nameEl && (!cur || cur === 'Some Grigger')) {
           nameEl.textContent = dname;
           if (uname) nameEl.setAttribute('data-chat-theme', theme);
         }
@@ -1538,7 +1538,7 @@ function appendChatPosts(posts, isInit) {
       if (pdname) {
         const nameEl = existing.querySelector('.chat-user');
         const cur = nameEl?.textContent.trim() ?? '';
-        if (nameEl && (!cur || cur === 'anon')) {
+        if (nameEl && (!cur || cur === 'Some Grigger')) {
           nameEl.textContent = pdname;
           nameEl.setAttribute('data-chat-theme', p.user?.theme || 'flame');
         }
@@ -1563,7 +1563,7 @@ function appendChatPosts(posts, isInit) {
     const cached = uname ? profileCache.get(uname) : null;
     const resolvedPfp = p.user?.pfpUrl || cached?.pfpUrl || '';
     const resolvedName = pdname || cached?.displayname || '';
-    const name = esc(resolvedName || 'anon');
+    const name = esc(resolvedName || 'Some Grigger');
     const profileUrl = uname ? `https://www.remilia.net/~${esc(uname)}` : '';
     const profileLink = (inner) => profileUrl
       ? `<a class="chat-profile-link" href="${profileUrl}" target="_blank" rel="noopener">${inner}</a>`
