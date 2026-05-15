@@ -1430,9 +1430,64 @@ function openChatStream() {
         const isInit = chatLastId === null;
         chatLastId = d.posts[d.posts.length - 1].id;
         appendChatPosts(d.posts, isInit);
+        if (isInit) enrichHistoryFromREST();
       }
     } catch {}
   };
+}
+
+// Fetch recent posts with full user data directly from miladychan REST API.
+// The token goes in the URL path; credentials:omit so it works cross-origin.
+async function enrichHistoryFromREST() {
+  const { access } = getTokens();
+  if (!access) return;
+  try {
+    const r = await fetch(
+      `https://boards.miladychan.org/json/chat/beetle/201346/${encodeURIComponent(access)}?last=100`,
+      { mode: 'cors', credentials: 'omit' }
+    );
+    if (!r.ok) return;
+    const data = await r.json();
+    // Handle both array and object response shapes
+    const posts = Array.isArray(data) ? data
+      : Array.isArray(data.posts)   ? data.posts
+      : Array.isArray(data.recent)  ? data.recent
+      : Object.values(data.recent ?? data.posts ?? {});
+
+    for (const p of posts) {
+      const id   = parseInt(p.id ?? p.postId, 10);
+      if (!id) continue;
+      const u     = p.user || {};
+      const uname = u.username    || p.username || p.name || '';
+      const dname = u.displayname || u.displayName || p.displayName || p.name || uname;
+      const pfpUrl = u.pfpUrl || p.pfpUrl || '';
+      const theme  = u.theme  || 'flame';
+      if (uname && pfpUrl) profileCache.set(uname, { displayname: dname, pfpUrl, theme });
+      if (!renderedPostEls.has(id)) continue;
+      const el = renderedPostEls.get(id);
+      // Upgrade name
+      if (dname) {
+        const nameEl = el.querySelector('.chat-user');
+        const cur = nameEl?.textContent.trim() ?? '';
+        if (nameEl && (!cur || cur === 'anon')) {
+          nameEl.textContent = dname;
+          if (uname) nameEl.setAttribute('data-chat-theme', theme);
+        }
+      }
+      // Upgrade pfp
+      if (pfpUrl) {
+        const src = pfpUrl.startsWith('/') ? 'https://www.remilia.net' + pfpUrl : pfpUrl;
+        const ph = el.querySelector('.chat-avatar-ph');
+        if (ph) {
+          const img = document.createElement('img');
+          img.className = 'chat-avatar'; img.alt = '';
+          img.onerror = () => img.style.display = 'none';
+          img.src = src;
+          ph.replaceWith(img);
+        }
+      }
+    }
+  } catch { /* CORS or network failure — silent, live events still work */ }
 }
 
 
