@@ -1757,6 +1757,10 @@ function setMode(mode) {
 // ── PANELS ────────────────────────────────────────────────────────────────────
 function openPanel(which) {
   const target = document.getElementById(`panel-${which}`);
+  // On mobile, close the other panel first so they don't both overlay at once
+  if (window.innerWidth <= 700 && !target.classList.contains('open')) {
+    document.querySelectorAll('.side-panel').forEach(p => p.classList.remove('open'));
+  }
   target.classList.toggle('open');
   updateDeviceRadius();
 }
