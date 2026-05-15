@@ -1454,59 +1454,32 @@ function appendChatPosts(posts, isInit) {
   const myUser = state.user?.username || '';
   for (const p of posts) {
     const pdname = p.user?.displayname || p.user?.username || p.name || '';
-    const pfpResolve = url => url ? (url.startsWith('/') ? 'https://www.remilia.net' + url : url) : '';
-    const upgradePfp = (el, pfpSrc) => {
-      if (!pfpSrc) return;
-      const ph = el.querySelector('.chat-avatar-ph');
-      if (ph) {
-        const img = document.createElement('img');
-        img.className = 'chat-avatar'; img.alt = '';
-        img.onerror = () => img.style.display = 'none';
-        img.src = pfpSrc;
-        ph.replaceWith(img);
-      }
-    };
-    const upgradeName = (el, dname, theme) => {
-      const nameEl = el.querySelector('.chat-user');
-      const cur = nameEl?.textContent.trim() ?? '';
-      if (nameEl && dname && (!cur || cur === 'anon')) {
-        nameEl.textContent = dname;
-        nameEl.setAttribute('data-chat-theme', theme || 'flame');
-      }
-    };
 
     // ── Same post ID: update body + upgrade name/pfp if now available ──────────
     if (renderedPostEls.has(p.id)) {
       const existing = renderedPostEls.get(p.id);
       const textEl = existing.querySelector('.chat-text');
-      if (textEl) { textEl.innerHTML = renderChatBody(p.body || ''); existing.dataset.rawBody = p.body || ''; }
-      upgradeName(existing, pdname, p.user?.theme);
-      upgradePfp(existing, pfpResolve(p.user?.pfpUrl));
-      continue;
-    }
-
-    // ── Body-based dedup: finalized post (has user data + timestamp) can merge
-    //    into an existing anon live-typing draft with matching body text ─────────
-    if (pdname && p.time > 0 && p.body) {
-      let merged = false;
-      for (const [draftId, draftEl] of renderedPostEls) {
-        const nameEl = draftEl.querySelector('.chat-user');
+      if (textEl) textEl.innerHTML = renderChatBody(p.body || '');
+      if (pdname) {
+        const nameEl = existing.querySelector('.chat-user');
         const cur = nameEl?.textContent.trim() ?? '';
-        if ((cur === 'anon' || !cur) && draftEl.dataset.rawBody === p.body) {
-          // Merge: upgrade the draft element to the finalized post
-          const textEl = draftEl.querySelector('.chat-text');
-          const timeEl = draftEl.querySelector('.chat-time');
-          if (textEl) { textEl.innerHTML = renderChatBody(p.body); draftEl.dataset.rawBody = p.body; }
-          if (timeEl) timeEl.textContent = new Date(p.time * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-          upgradeName(draftEl, pdname, p.user?.theme);
-          upgradePfp(draftEl, pfpResolve(p.user?.pfpUrl));
-          renderedPostEls.delete(draftId);
-          renderedPostEls.set(p.id, draftEl);
-          merged = true;
-          break;
+        if (nameEl && (!cur || cur === 'anon')) {
+          nameEl.textContent = pdname;
+          nameEl.setAttribute('data-chat-theme', p.user?.theme || 'flame');
         }
       }
-      if (merged) continue;
+      const pfpSrc = p.user?.pfpUrl ? (p.user.pfpUrl.startsWith('/') ? 'https://www.remilia.net' + p.user.pfpUrl : p.user.pfpUrl) : '';
+      if (pfpSrc) {
+        const ph = existing.querySelector('.chat-avatar-ph');
+        if (ph) {
+          const img = document.createElement('img');
+          img.className = 'chat-avatar'; img.alt = '';
+          img.onerror = () => img.style.display = 'none';
+          img.src = pfpSrc;
+          ph.replaceWith(img);
+        }
+      }
+      continue;
     }
 
     const el = document.createElement('div');
@@ -1516,7 +1489,7 @@ function appendChatPosts(posts, isInit) {
     const profileLink = (inner) => profileUrl
       ? `<a class="chat-profile-link" href="${profileUrl}" target="_blank" rel="noopener">${inner}</a>`
       : inner;
-    // Only apply theme color when we have a real username (not anon)
+    // Only apply theme color when we have a real username — anon uses default accent
     const nameSpan = `<span class="chat-user"${uname ? ` data-chat-theme="${esc(p.user?.theme || 'flame')}"` : ''}>${name}</span>`;
     if (p.type === 'join') {
       el.className = 'chat-join';
@@ -1566,7 +1539,6 @@ function appendChatPosts(posts, isInit) {
         }
       }
     }
-    el.dataset.rawBody = p.body || '';
     renderedPostEls.set(p.id, el);
     box.appendChild(el);
   }
