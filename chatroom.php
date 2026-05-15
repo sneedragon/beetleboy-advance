@@ -178,10 +178,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['stream'])) {
         $payload = substr($frame, 2);
 
         if ($op === '30' && !$got_init) {
-            // History is now loaded by the client via REST (full user data, faster).
-            // We still must read this frame to unblock the WS stream, but don't forward it.
             $got_init = true;
-            stream_set_timeout($sock, 2); // switch to short timeout for live events
+            stream_set_timeout($sock, 2);
+            $recent_raw = json_decode($payload, true)['recent'] ?? [];
+            foreach ($recent_raw as $id => $p) {
+                $recent[] = norm_body_only((int)$id, is_array($p) ? $p : ['body' => (string)$p]);
+            }
+            sse($recent);
 
         } elseif ($op === '33') {
             // Live events — only '01' sub-events carry full post+user data.
