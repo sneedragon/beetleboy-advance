@@ -91,7 +91,7 @@ function ws_frame(string $d): string {
 
 function ws_auth($sock, string $token): void {
     fwrite($sock, ws_frame('30'.json_encode([
-        'board'=>MC_BOARD, 'thread'=>MC_THREAD, 'shoutboxtoken'=>$token, 'multisync'=>false,
+        'board'=>MC_BOARD, 'thread'=>MC_THREAD, 'shoutboxtoken'=>$token, 'multisync'=>true,
     ])));
 }
 
