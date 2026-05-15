@@ -559,6 +559,10 @@ body::after {
   font-size: 10px; letter-spacing: 0.16em; color: rgba(65,95,165,0.7);
   text-transform: uppercase; margin: 5px 0 3px;
 }
+.spi-rcp-sep {
+  border-top: 1px solid rgba(255,255,255,0.07);
+  margin: 9px 0 7px;
+}
 .spi-rcp-row {
   font-size: 11px; color: rgba(160,185,220,0.85);
   padding: 3px 0; border-bottom: 1px solid rgba(255,255,255,0.04);
