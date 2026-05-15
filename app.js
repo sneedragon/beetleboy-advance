@@ -1445,6 +1445,14 @@ function appendChatPosts(posts, isInit) {
   if (isInit) { box.innerHTML = ''; renderedPostEls.clear(); }
   const myUser = state.user?.username || '';
   for (const p of posts) {
+    // Live typing: same post ID arrives on each keystroke — update body in place
+    if (renderedPostEls.has(p.id)) {
+      const existing = renderedPostEls.get(p.id);
+      const textEl = existing.querySelector('.chat-text');
+      if (textEl) textEl.innerHTML = renderChatBody(p.body || '');
+      continue;
+    }
+
     const el = document.createElement('div');
     const name = esc(p.user?.displayname || p.name || 'anon');
     const uname = p.user?.username || '';

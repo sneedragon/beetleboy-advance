@@ -177,17 +177,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['stream'])) {
             sse($recent);
 
         } elseif ($op === '33') {
-            // Live events — extract '01' sub-events (new posts with full user data)
+            // Live events — forward all '01' sub-events regardless of ID.
+            // The same post ID arrives repeatedly as the user types (live typing).
+            // The browser deduplicates by updating the existing element.
             $posts = [];
             foreach ((json_decode($payload, true) ?? []) as $evt) {
                 if (!is_string($evt) || substr($evt, 0, 2) !== '01') continue;
                 $p = json_decode(substr($evt, 2), true);
                 if (!$p || empty($p['id'])) continue;
-                $id   = (int)$p['id'];
                 $body = trim($p['body'] ?? '');
-                if ($id > $last_id && $body !== '') {
+                if ($body !== '') {
                     $posts[] = norm_full($p);
-                    $last_id = max($last_id, $id);
+                    $last_id = max($last_id, (int)$p['id']);
                 }
             }
             sse($posts);
