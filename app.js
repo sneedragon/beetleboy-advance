@@ -1414,7 +1414,6 @@ function openChatStream() {
         tryRefresh().then(tokens => { if (tokens) { saveTokens(tokens.access, tokens.refresh); openChatStream(); } });
         return;
       }
-      if (d.type === 'debug') { console.log('[chat op30 entry]', JSON.stringify(d.entry)); return; }
       if (d.type === 'posts' && Array.isArray(d.posts) && d.posts.length) {
         for (const p of d.posts) {
           // Enrich posts that arrived without user data (finalized BeetleBoy sends)
@@ -1444,7 +1443,8 @@ async function enrichHistoryFromREST() {
   if (!access) return;
   try {
     const r = await fetch(
-      `${CHAT_URL}?history=1&token=${encodeURIComponent(access)}`
+      `https://boards.miladychan.org/json/chat/beetle/201346/${encodeURIComponent(access)}?last=100`,
+      { mode: 'cors', credentials: 'omit' }
     );
     if (!r.ok) return;
     const data = await r.json();

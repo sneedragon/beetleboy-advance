@@ -184,16 +184,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['stream'])) {
             $got_init = true;
             stream_set_timeout($sock, 2); // switch to short timeout for live events
             $recent = [];
-            $decoded = json_decode($payload, true);
-            $recent_raw = $decoded['recent'] ?? [];
-            // DEBUG: send one raw recent entry so we can see the actual field names
-            $sample_keys = array_keys($recent_raw);
-            if ($sample_keys) {
-                $first_id  = $sample_keys[0];
-                $first_val = $recent_raw[$first_id];
-                echo "data: " . json_encode(['type'=>'debug','id'=>$first_id,'entry'=>$first_val]) . "\n\n";
-                flush();
-            }
+            $recent_raw = json_decode($payload, true)['recent'] ?? [];
             foreach ($recent_raw as $id => $p) {
                 $recent[] = norm_body_only((int)$id, is_array($p) ? $p : ['body' => (string)$p]);
             }
