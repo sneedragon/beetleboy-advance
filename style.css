@@ -1229,3 +1229,72 @@ body[data-scheme="light"] .chat-user[data-chat-theme="orange"] { color: #883010;
   white-space: nowrap; z-index: 50; text-align: center;
 }
 #chat-notif.visible { opacity: 1; }
+
+/* ── MOBILE ────────────────────────────────────────────────────────────────────
+   ≤ 700px: single-column layout, panels slide over as overlays.
+   Desktop experience (> 700px) is completely unchanged.
+──────────────────────────────────────────────────────────────────────────────── */
+@media (max-width: 700px) {
+
+  /* Remove viewport padding so device fills the screen */
+  #app-screen { padding: 0; }
+
+  /* Device: full width, no rounded corners, tighter padding */
+  #device {
+    min-width: 0;
+    max-width: 100%;
+    border-radius: 0 !important;
+    padding: 8px 10px 10px;
+  }
+
+  /* Give the screen a bit less height so controls have room */
+  #dev-screen { height: 36%; }
+
+  /* Compact top bar */
+  #dev-top { gap: 6px; padding: 0 4px; margin-bottom: 8px; }
+  #dev-brand { font-size: 10px; letter-spacing: 0.12em; }
+  #speaker-grille { display: none; }
+  #screen-label { margin-bottom: 6px; }
+
+  /* ── Side panels: fixed overlays, don't affect device layout ── */
+  .side-panel {
+    position: fixed;
+    z-index: 300;
+    top: 0; bottom: 0;
+    margin: 0;
+  }
+  #panel-left  { left: 0; }
+  #panel-right { right: 0; }
+
+  /* Cap panel width to 92% of viewport on narrow phones */
+  .side-panel.open { width: min(380px, 92vw); }
+  .panel-inner {
+    width: min(380px, 92vw);
+    border-radius: 0 !important;
+    /* Shrink inner panels to fill keyboard-aware height on mobile */
+    height: 100dvh;
+  }
+  #panel-left  .panel-inner { border-radius: 0 !important; }
+  #panel-right .panel-inner { border-radius: 0 !important; }
+
+  /* Backdrop: dims device when a panel is open */
+  #device.pl-open::before,
+  #device.pr-open::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.55);
+    z-index: 299;
+    pointer-events: none; /* close via ESC/toggle button, not tap-away */
+  }
+
+  /* Control buttons: slightly reduced min-height to fit smaller viewports */
+  .ctrl-row { min-height: 60px; }
+
+  /* Item detail: shrink the image so it doesn't crowd the info column */
+  #spi-img { width: 100px; }
+
+  /* Login: don't overflow on tiny screens */
+  .login-box { width: 90vw; max-width: 340px; }
+  .login-box input { font-size: 16px; } /* prevent iOS zoom on focus */
+}
