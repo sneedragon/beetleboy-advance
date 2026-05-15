@@ -1428,6 +1428,7 @@ function openChatStream() {
           }
         }
         const isInit = chatLastId === null;
+        if (!isInit) console.log('[live post]', JSON.stringify(d.posts[0]));
         chatLastId = d.posts[d.posts.length - 1].id;
         appendChatPosts(d.posts, isInit);
         if (isInit) enrichHistoryFromREST();
