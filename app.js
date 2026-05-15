@@ -1585,7 +1585,7 @@ function startChatPoll() {
 
 function stopChatPoll() {
   if (chatSource) { chatSource.close(); chatSource = null; }
-  chatLastId = null;
+  // Don't reset chatLastId — keeps names/pfps intact when returning to the chat tab
   setReplyTarget(null);
 }
 
