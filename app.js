@@ -815,7 +815,6 @@ function openCard(key) {
     return false;
   }));
   if (usedIn.length) {
-    if (rcpHtml) rcpHtml += `<div class="spi-rcp-sep"></div>`;
     rcpHtml += `<div class="spi-rcp-title">USED IN</div>`;
     usedIn.forEach(r => {
       const idx = AR.indexOf(r);
@@ -850,11 +849,6 @@ function openCard(key) {
 
   // Add smash rows with click support
   if (smashRows.length) {
-    if (rcpEl.children.length) {
-      const sep = document.createElement('div');
-      sep.className = 'spi-rcp-sep';
-      rcpEl.appendChild(sep);
-    }
     const title = document.createElement('div');
     title.className = 'spi-rcp-title';
     title.textContent = 'SMASH';
