@@ -1430,7 +1430,6 @@ function openChatStream() {
         const isInit = chatLastId === null;
         chatLastId = d.posts[d.posts.length - 1].id;
         appendChatPosts(d.posts, isInit);
-        if (isInit) enrichHistoryFromREST();
       }
     } catch {}
   };
@@ -1461,40 +1460,35 @@ async function enrichHistoryFromREST() {
       : Array.isArray(data.recent)  ? data.recent
       : Object.values(data.recent ?? data.posts ?? {});
 
+    // Normalise REST posts into the same shape appendChatPosts expects
+    const normalised = [];
     for (const p of posts) {
       const id   = parseInt(p.id ?? p.postId, 10);
-      if (!id) continue;
+      if (!id || !p.body) continue;
       const u     = p.user || {};
       const uname = u.username    || p.username || p.name || '';
       const dname = u.displayname || u.displayName || p.displayName || p.name || uname;
       const pfpUrl = u.pfpUrl || p.pfpUrl || '';
       const theme  = u.theme  || 'flame';
       if (uname && pfpUrl) profileCache.set(uname, { displayname: dname, pfpUrl, theme });
-      if (!renderedPostEls.has(id)) continue;
-      const el = renderedPostEls.get(id);
-      // Upgrade name
-      if (dname) {
-        const nameEl = el.querySelector('.chat-user');
-        const cur = nameEl?.textContent.trim() ?? '';
-        if (nameEl && (!cur || cur === 'anon')) {
-          nameEl.textContent = dname;
-          if (uname) nameEl.setAttribute('data-chat-theme', theme);
-        }
-      }
-      // Upgrade pfp
-      if (pfpUrl) {
-        const src = pfpUrl.startsWith('/') ? 'https://www.remilia.net' + pfpUrl : pfpUrl;
-        const ph = el.querySelector('.chat-avatar-ph');
-        if (ph) {
-          const img = document.createElement('img');
-          img.className = 'chat-avatar'; img.alt = '';
-          img.onerror = () => img.style.display = 'none';
-          img.src = src;
-          ph.replaceWith(img);
-        }
-      }
+      normalised.push({
+        id, type: 'msg',
+        time: p.time || 0,
+        body: p.body,
+        user: { username: uname, displayname: dname, pfpUrl, theme },
+        reactions: p.reactions || {},
+        replyTo: p.replyTo || null,
+      });
     }
-  } catch { /* CORS or network failure — silent, live events still work */ }
+    if (!normalised.length) return;
+    normalised.sort((a, b) => a.id - b.id);
+
+    // If SSE hasn't rendered anything yet, this IS the initial history view.
+    // Otherwise just patch existing anon elements in place.
+    const isFirst = chatLastId === null;
+    if (isFirst) chatLastId = normalised[normalised.length - 1].id;
+    appendChatPosts(normalised, isFirst);
+  } catch { /* silent — SSE live events still work */ }
 }
 
 
@@ -1642,7 +1636,8 @@ function setReplyTarget(target) {
 function startChatPoll() {
   if (chatSource && chatSource.readyState !== EventSource.CLOSED) return;
   chatLastId = null;
-  openChatStream();
+  enrichHistoryFromREST(); // load history with full user data immediately
+  openChatStream();        // SSE handles live events only
 }
 
 function stopChatPoll() {
