@@ -1961,12 +1961,6 @@ function setupPanelListeners() {
   document.querySelectorAll('.panel-toggle-btn').forEach(btn =>
     btn.addEventListener('click', () => openPanel(btn.dataset.panel)));
 
-  // Mobile: tap the visible device area above the sheet to close it.
-  // Exclude panel-toggle-btn clicks — those open the panel and must not immediately close it.
-  document.getElementById('app-screen').addEventListener('click', e => {
-    if (window.innerWidth > 700) return;
-    if (!e.target.closest('.side-panel') && !e.target.closest('.panel-toggle-btn')) closeAllPanels();
-  });
 }
 
 function setupThemePicker() {

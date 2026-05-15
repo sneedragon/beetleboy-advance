@@ -1231,89 +1231,66 @@ body[data-scheme="light"] .chat-user[data-chat-theme="orange"] { color: #883010;
 #chat-notif.visible { opacity: 1; }
 
 /* ── MOBILE ────────────────────────────────────────────────────────────────────
-   ≤ 700px: bottom-sheet panels. The device fills the full screen; panels slide
-   up from the bottom covering ~65% so the game screen + ESC stay visible.
-   Tap anywhere above the sheet (or press ESC) to dismiss it.
+   ≤ 700px: panels slide in BELOW the device — no overlays, no backdrop.
+   The game screen and controls stay fully visible at all times.
+   Device flexes to fill remaining space; panel takes a fixed slice at bottom.
    Desktop experience (> 700px) is completely unchanged.
 ──────────────────────────────────────────────────────────────────────────────── */
 @media (max-width: 700px) {
 
-  /* ── App screen: no padding ── */
-  #app-screen { padding: 0; }
+  /* Column layout: device on top, panel below */
+  #app-screen {
+    flex-direction: column;
+    padding: 0;
+    align-items: stretch;
+  }
 
-  /* ── Device: full width, square corners, tighter padding ── */
+  /* Device: always at top, fills whatever height is left after the panel */
   #device {
-    min-width: 0;
-    max-width: 100%;
+    order: -1;
+    min-width: 0; max-width: 100%;
     border-radius: 0 !important;
     padding: 8px 10px 10px;
+    flex: 1 1 auto;
+    min-height: 0;
   }
 
   /* Compact top bar */
-  #dev-top { gap: 6px; padding: 0 4px; margin-bottom: 8px; }
+  #dev-top { gap: 6px; padding: 0 4px; margin-bottom: 6px; }
   #dev-brand { font-size: 10px; letter-spacing: 0.12em; }
   #speaker-grille { display: none; }
   #screen-label { margin-bottom: 4px; }
 
-  /* Screen: slightly less height so controls breathe */
-  #dev-screen { height: 34%; }
+  /* Screen: give controls enough room */
+  #dev-screen { height: 35%; }
+  .ctrl-row { min-height: 54px; }
 
-  /* Control rows: adequate touch targets */
-  .ctrl-row { min-height: 58px; }
-
-  /* ── Bottom-sheet panels ──
-     Both panels anchor to the bottom edge and slide UP by height.
-     Width is forced to 100% so neither panel affects the flex layout.
-     Only one can be open at a time (enforced by openPanel() JS).           */
+  /* ── Panels: static in-flow, slide in by HEIGHT below the device ──
+     Width is always 100% (not animated). Only height animates.
+     One open at a time via openPanel() JS.                           */
   .side-panel {
-    position: fixed;
-    left: 0; right: 0; bottom: 0;
-    top: auto !important;
+    position: static;
+    order: 0;
     width: 100% !important;
     height: 0;
     margin: 0;
-    z-index: 300;
-    transition: height 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+    flex: 0 0 auto;
+    transition: height 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   }
   .side-panel.open {
-    height: 65vh;
-    height: 65dvh; /* keyboard-aware on supporting browsers */
-    width: 100% !important;
+    height: 42vh;
+    height: 42dvh;
   }
   .panel-inner {
     width: 100%;
     height: 100%;
-    border-radius: 14px 14px 0 0 !important;
+    border-radius: 0 !important;
   }
   #panel-left  .panel-inner,
-  #panel-right .panel-inner { border-radius: 14px 14px 0 0 !important; }
-
-  /* Drag-handle hint at top of sheet */
-  .panel-titlebar::before {
-    content: '';
-    display: block;
-    width: 36px; height: 4px;
-    background: rgba(255,255,255,0.18);
-    border-radius: 2px;
-    margin: 0 auto 6px;
-  }
-
-  /* Dim the device area above the sheet — pointer-events:none so taps
-     still reach #device and bubble up to the closeAllPanels handler     */
-  #device.pl-open::before,
-  #device.pr-open::before {
-    content: '';
-    position: fixed;
-    top: 0; left: 0; right: 0;
-    bottom: 65vh;
-    bottom: 65dvh;
-    background: rgba(0,0,0,0.45);
-    z-index: 299;
-    pointer-events: none;
-  }
+  #panel-right .panel-inner { border-radius: 0 !important; }
 
   /* Item detail: shrink image so info column has room */
-  #spi-img { width: 100px; }
+  #spi-img { width: 90px; }
 
   /* Login: comfortable on narrow screens; 16px prevents iOS zoom on focus */
   .login-box { width: 90vw; max-width: 340px; }
