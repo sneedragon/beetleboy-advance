@@ -1405,10 +1405,17 @@ const renderedPostEls = new Map(); // msgId → DOM element
 
 async function pollChat() {
   try {
-    const url = chatLastId !== null
+    const { access } = getTokens();
+    if (!access) return;
+    const base = chatLastId !== null
       ? `${CHAT_URL}?after=${chatLastId}`
       : `${CHAT_URL}?last=50`;
-    const r = await fetch(url);
+    const r = await fetch(`${base}&token=${encodeURIComponent(access)}`);
+    if (r.status === 401) {
+      const tokens = await tryRefresh();
+      if (tokens) { saveTokens(tokens.access, tokens.refresh); return pollChat(); }
+      return;
+    }
     if (!r.ok) return;
     const data = await r.json();
     const posts = Array.isArray(data.posts) ? data.posts : [];
@@ -1542,7 +1549,9 @@ async function sendReact(msgId, emoji) {
 
 async function fetchReactions() {
   try {
-    const r = await fetch(CHAT_URL + '?reactions=1');
+    const { access } = getTokens();
+    if (!access) return;
+    const r = await fetch(`${CHAT_URL}?reactions=1&token=${encodeURIComponent(access)}`);
     const d = await r.json();
     if (d.reactions) {
       for (const [idStr, reacts] of Object.entries(d.reactions)) {
