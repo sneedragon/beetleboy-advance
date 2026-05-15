@@ -821,7 +821,7 @@ function openCard(key) {
       const ingDesc = r.ing.map(ing =>
         'group' in ing ? `${ingGroupLabel(ing.group)} ×${ing.qty}` : `${iname(ing.key)} ×${ing.qty}`
       ).join(' + ');
-      rcpHtml += `<div class="spi-rcp-row spi-rcp-clickable" data-rcp="${idx}">${ingDesc} → ${esc(r.name)}</div>`;
+      rcpHtml += `<div class="spi-rcp-row spi-rcp-clickable" data-rcp="${idx}">${ingDesc} → ${esc(arDisplay(r, inv).displayName)}</div>`;
     });
   }
 
