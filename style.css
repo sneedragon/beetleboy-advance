@@ -1115,6 +1115,36 @@ body[data-scheme="light"] #theme-picker {
 .chat-user { font-size: 0.72em; font-weight: bold; color: var(--accent); }
 .chat-time { font-size: 0.63em; color: var(--dim); }
 .chat-text { font-size: 0.8em; word-break: break-word; line-height: 1.4; color: var(--text); }
+/* Image in chat body */
+.chat-img {
+  display: block; max-width: 100%; max-height: 280px;
+  border-radius: 6px; margin-top: 4px; cursor: pointer;
+  object-fit: contain;
+}
+.chat-link {
+  color: var(--accent); text-decoration: underline;
+  word-break: break-all; font-size: 0.85em;
+}
+/* Attachment preview strip */
+#chat-attach-preview {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 8px 0; flex-shrink: 0;
+  border-top: 1px solid var(--border);
+}
+#chat-attach-preview.hidden { display: none; }
+#chat-attach-preview:not(.hidden) + #chat-input-row { border-top: none; }
+.attach-thumb {
+  max-height: 56px; max-width: 80px; border-radius: 4px;
+  object-fit: cover; border: 1px solid var(--border);
+}
+#chat-attach-remove {
+  background: none; border: 1px solid var(--border);
+  color: var(--dim); border-radius: 50%; width: 18px; height: 18px;
+  font-size: 0.65em; cursor: pointer; line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+#chat-attach-remove:hover { color: var(--text); border-color: var(--accent); }
 #chat-input-row {
   display: flex; gap: 6px; padding: 8px;
   border-top: 1px solid var(--border); flex-shrink: 0;
@@ -1142,6 +1172,12 @@ body[data-scheme="light"] #theme-picker {
   font-family: inherit; font-size: 0.82em; outline: none;
 }
 #chat-input:focus { border-color: var(--accent); }
+#chat-attach {
+  background: var(--ctrl-bg-1); border: 1px solid var(--border);
+  border-radius: 4px; padding: 6px 7px; cursor: pointer;
+  font-size: 0.85em; flex-shrink: 0; line-height: 1;
+}
+#chat-attach:hover { border-color: var(--accent); }
 #chat-send {
   background: var(--accent); border: none; color: #fff;
   border-radius: 4px; padding: 6px 10px; cursor: pointer;

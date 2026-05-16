@@ -95,6 +95,23 @@ function ws_auth($sock, string $token): void {
     ])));
 }
 
+// ── Image URL helper ──────────────────────────────────────────────────────────
+// Mirrors the Python script's chat_image_url() logic.
+
+const MC_IMG_BASE   = 'https://boards.miladychan.org/assets/images/src';
+const MC_IMG_TYPES  = [0=>'jpg',1=>'png',2=>'gif',3=>'webm',4=>'pdf',5=>'svg',6=>'mp4',7=>'ogg',8=>'zip',16=>'avif'];
+const MC_IMG_SKIP   = ['webm','mp4','ogg','pdf','zip','svg'];
+
+function chat_image_url(?array $img): ?string {
+    if (!$img) return null;
+    $sha1 = $img['sha1'] ?? null;
+    $ft   = $img['file_type'] ?? null;
+    if (!$sha1 || $ft === null) return null;
+    $ext = MC_IMG_TYPES[$ft] ?? 'jpg';
+    if (in_array($ext, MC_IMG_SKIP, true)) return null;
+    return MC_IMG_BASE . '/' . $sha1 . '.' . $ext;
+}
+
 // ── Normalizers ───────────────────────────────────────────────────────────────
 
 function norm_full(array $p): array {
@@ -104,6 +121,7 @@ function norm_full(array $p): array {
         'type'      => 'msg',
         'time'      => (int)($p['time'] ?? 0),
         'body'      => (string)($p['body'] ?? ''),
+        'imageUrl'  => chat_image_url(is_array($p['image'] ?? null) ? $p['image'] : null),
         'user'      => [
             'username'    => (string)($u['username']    ?? ($p['name'] ?? '')),
             'displayname' => (string)($u['displayname'] ?? ($p['name'] ?? '')),
@@ -122,10 +140,11 @@ function norm_body_only(int $id, array $p): array {
     $dname = (string)($u['displayname'] ?? $name);
     $pfp   = (string)($u['pfpUrl']      ?? '');
     return [
-        'id' => $id, 'type' => 'msg',
-        'time' => (int)($p['time'] ?? 0),
-        'body' => (string)($p['body'] ?? ''),
-        'user' => ['username'=>$uname,'displayname'=>$dname,'pfpUrl'=>$pfp,'theme'=>'flame'],
+        'id'       => $id, 'type' => 'msg',
+        'time'     => (int)($p['time'] ?? 0),
+        'body'     => (string)($p['body'] ?? ''),
+        'imageUrl' => chat_image_url(is_array($p['image'] ?? null) ? $p['image'] : null),
+        'user'     => ['username'=>$uname,'displayname'=>$dname,'pfpUrl'=>$pfp,'theme'=>'flame'],
         'reactions' => (object)[], 'replyTo' => null,
     ];
 }
@@ -164,6 +183,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['stream'])) {
     stream_set_timeout($sock, 10);
 
     $got_init = false;
+    $buf      = []; // int mid → post data, buffered until '05' finalizes it
 
     while (!feof($sock) && !connection_aborted()) {
         $frame = ws_read($sock);
@@ -187,18 +207,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['stream'])) {
             sse($recent);
 
         } elseif ($op === '33') {
-            // Live events — only '01' sub-events carry full post+user data.
-            // Other sub-opcodes (02 = typing count, etc.) lack user info and would
-            // overwrite the name slot via in-place update if forwarded first.
+            // Buffer op 01 (new post), patch op 06 (image attached), flush on op 05 (finalized).
+            // This mirrors the Python chat client's state machine and ensures images are
+            // included before the post is broadcast to the browser.
             $posts = [];
             foreach ((json_decode($payload, true) ?? []) as $evt) {
-                if (!is_string($evt) || substr($evt, 0, 2) !== '01') continue;
-                $p = json_decode(substr($evt, 2), true);
-                if (!is_array($p) || empty($p['id'])) continue;
-                $body = trim($p['body'] ?? '');
-                if ($body !== '') {
-                    $posts[] = norm_full($p);
-                    $last_id = max($last_id, (int)$p['id']);
+                if (!is_string($evt) || strlen($evt) < 2) continue;
+                $esub = substr($evt, 0, 2);
+                $epay = substr($evt, 2);
+
+                if ($esub === '01') {
+                    $p = json_decode($epay, true);
+                    if (!is_array($p) || empty($p['id'])) continue;
+                    $mid = (int)$p['id'];
+                    $buf[$mid] = $p;
+                    if (count($buf) > 60) array_shift($buf); // keep buffer bounded
+
+                } elseif ($esub === '06') {
+                    // insertImage: merge sha1/file_type into the buffered post
+                    $img = json_decode($epay, true);
+                    if (!is_array($img) || empty($img['id'])) continue;
+                    $mid = (int)$img['id'];
+                    if (isset($buf[$mid])) {
+                        $buf[$mid]['image'] = array_diff_key($img, ['id' => 0]);
+                    }
+
+                } elseif ($esub === '05') {
+                    // Finalized — flush from buffer and emit
+                    $fin = json_decode($epay, true);
+                    $mid = (int)($fin['id'] ?? 0);
+                    if ($mid && isset($buf[$mid])) {
+                        $p = $buf[$mid];
+                        unset($buf[$mid]);
+                        if (trim($p['body'] ?? '') !== '' || !empty($p['image'])) {
+                            $posts[] = norm_full($p);
+                            $last_id = max($last_id, $mid);
+                        }
+                    }
                 }
             }
             sse($posts);

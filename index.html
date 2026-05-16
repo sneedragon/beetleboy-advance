@@ -196,8 +196,11 @@
             <span id="reply-bar-text">Replying to <strong id="reply-bar-name"></strong></span>
             <button id="reply-bar-cancel" type="button">✕</button>
           </div>
+          <div id="chat-attach-preview" class="hidden"></div>
           <div id="chat-input-row">
             <div id="chat-suggest"></div>
+            <input id="chat-file-input" type="file" accept="image/*" style="display:none">
+            <button id="chat-attach" type="button" title="Attach image">📎</button>
             <input id="chat-input" type="text" placeholder="Say something… (drag items or type [name])" maxlength="500" autocomplete="off">
             <button id="chat-send" type="button">▶</button>
           </div>

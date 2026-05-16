@@ -1338,10 +1338,24 @@ function bodyToPlainText(body) {
 }
 
 function renderChatBody(body) {
-  return esc(body).replace(/\[\[([a-z0-9_]+)\]\]/g, (_, key) => {
-    const col = LINK_COLORS[RARITY[key]] || '';
-    return `<span class="chat-item-link" data-key="${key}"${col ? ` style="color:${col}"` : ''}>[${esc(iname(key))}]</span>`;
-  });
+  const URL_RE   = /\bhttps?:\/\/\S+/g;
+  const IMG_EXT  = /\.(?:jpe?g|png|gif|webp)(?:[?#]\S*)?$/i;
+  const parts = [];
+  let last = 0;
+  for (const m of body.matchAll(URL_RE)) {
+    if (m.index > last) parts.push({ t: 'text', v: body.slice(last, m.index) });
+    parts.push({ t: IMG_EXT.test(m[0]) ? 'img' : 'url', v: m[0] });
+    last = m.index + m[0].length;
+  }
+  if (last < body.length) parts.push({ t: 'text', v: body.slice(last) });
+  return parts.map(p => {
+    if (p.t === 'img') return `<img class="chat-img" src="${esc(p.v)}" alt="" loading="lazy" onerror="this.style.display='none'">`;
+    if (p.t === 'url') return `<a class="chat-link" href="${esc(p.v)}" target="_blank" rel="noopener noreferrer">${esc(p.v)}</a>`;
+    return esc(p.v).replace(/\n/g, '<br>').replace(/\[\[([a-z0-9_]+)\]\]/g, (_, key) => {
+      const col = LINK_COLORS[RARITY[key]] || '';
+      return `<span class="chat-item-link" data-key="${key}"${col ? ` style="color:${col}"` : ''}>[${esc(iname(key))}]</span>`;
+    });
+  }).join('');
 }
 
 function resolveItemLinks(text) {
@@ -1393,10 +1407,57 @@ function insertChatLink(key) {
 }
 
 // ── CHAT ──────────────────────────────────────────────────────────────────────
+const MILADYCHAN_IMG_BASE  = 'https://boards.miladychan.org/assets/images/src';
+const MILADYCHAN_IMG_TYPES = {0:'jpg',1:'png',2:'gif',16:'avif'};
+
+function miladychanImageUrl(img) {
+  if (!img) return null;
+  const ext = MILADYCHAN_IMG_TYPES[img.file_type];
+  if (!ext || !img.sha1) return null;
+  return `${MILADYCHAN_IMG_BASE}/${img.sha1}.${ext}`;
+}
+
 const CHAT_REACTS     = ['😹', '🤍', '👍', '🪲'];
 let chatSource    = null; // EventSource
 let chatLastId    = null;
 let replyTarget       = null;
+let pendingAttachment = null; // { file }
+
+async function uploadChatImage(file) {
+  const { access } = getTokens();
+  if (!access) return null;
+  const fd = new FormData();
+  fd.append('token', access);
+  fd.append('image', file);
+  try {
+    const r = await fetch('upload.php', { method: 'POST', body: fd });
+    if (!r.ok) return null;
+    const j = await r.json();
+    if (!j.url) return null;
+    // Build absolute URL so it renders as an image everywhere
+    const base = location.href.replace(/[^/]*$/, '');
+    return base + j.url;
+  } catch { return null; }
+}
+
+function setPendingAttachment(file) {
+  pendingAttachment = { file };
+  const reader = new FileReader();
+  reader.onload = e => {
+    const prev = document.getElementById('chat-attach-preview');
+    prev.innerHTML = `<img class="attach-thumb" src="${esc(e.target.result)}" alt=""><button id="chat-attach-remove" type="button" title="Remove">✕</button>`;
+    prev.classList.remove('hidden');
+    document.getElementById('chat-attach-remove').addEventListener('click', clearPendingAttachment);
+  };
+  reader.readAsDataURL(file);
+}
+
+function clearPendingAttachment() {
+  pendingAttachment = null;
+  const prev = document.getElementById('chat-attach-preview');
+  prev.innerHTML = '';
+  prev.classList.add('hidden');
+}
 const renderedPostEls  = new Map(); // msgId → DOM element
 const sentQueue        = [];        // {body, user} — enriches our own posts when 33/01 lacks user data
 const profileCache     = new Map(); // username → {displayname, pfpUrl, theme}
@@ -1500,6 +1561,16 @@ async function enrichHistoryFromREST() {
           ph.replaceWith(img);
         }
       }
+      // Inject image from REST history if SSE didn't carry it
+      const imageUrl = miladychanImageUrl(p.image);
+      if (imageUrl && !el.querySelector('.chat-img')) {
+        const textEl = el.querySelector('.chat-text');
+        const imgEl  = document.createElement('img');
+        imgEl.className = 'chat-img'; imgEl.alt = ''; imgEl.loading = 'lazy';
+        imgEl.onerror = () => imgEl.style.display = 'none';
+        imgEl.src = imageUrl;
+        textEl?.insertAdjacentElement('afterend', imgEl);
+      }
     }
   } catch { /* silent — SSE live events still work */ }
 }
@@ -1535,6 +1606,14 @@ function appendChatPosts(posts, isInit) {
       const existing = renderedPostEls.get(p.id);
       const textEl = existing.querySelector('.chat-text');
       if (textEl) textEl.innerHTML = renderChatBody(p.body || '');
+      // Attach image if arriving late (op 06 fires after op 01)
+      if (p.imageUrl && !existing.querySelector('.chat-img')) {
+        const imgEl = document.createElement('img');
+        imgEl.className = 'chat-img'; imgEl.alt = ''; imgEl.loading = 'lazy';
+        imgEl.onerror = () => imgEl.style.display = 'none';
+        imgEl.src = p.imageUrl;
+        textEl?.insertAdjacentElement('afterend', imgEl);
+      }
       if (pdname) {
         const nameEl = existing.querySelector('.chat-user');
         const cur = nameEl?.textContent.trim() ?? '';
@@ -1595,12 +1674,14 @@ function appendChatPosts(posts, isInit) {
         CHAT_REACTS.map(e => `<button class="chat-action-btn react-trigger" data-emoji="${e}" data-msgid="${p.id}">${e}</button>`).join('')
       }<button class="chat-action-btn reply-trigger" data-msgid="${p.id}" data-uname="${esc(uname)}" data-dname="${name}" data-body="${esc(bodyToPlainText(p.body||'').slice(0,100))}">↩</button></div>`;
 
+      const imageUrl = p.imageUrl || miladychanImageUrl(p.image);
       el.innerHTML =
         profileLink(avatar) +
         `<div class="chat-body">` +
         `<div class="chat-meta">${profileLink(nameSpan)}<span class="chat-time">${time}</span></div>` +
         quoteHtml +
         `<div class="chat-text">${renderChatBody(p.body || '')}</div>` +
+        (imageUrl ? `<img class="chat-img" src="${esc(imageUrl)}" alt="" loading="lazy" onerror="this.style.display='none'">` : '') +
         `<div class="chat-reacts"></div>` +
         `</div>` +
         actionsHtml;
@@ -1661,14 +1742,22 @@ function stopChatPoll() {
 async function sendChatMsg() {
   const input = document.getElementById('chat-input');
   document.getElementById('chat-suggest').classList.remove('open');
-  const msg = resolveItemLinks((input.value || '').trim());
-  if (!msg) return;
+  let msg = resolveItemLinks((input.value || '').trim());
+  const attach = pendingAttachment;
+  if (!msg && !attach) return;
   const { access } = getTokens();
   if (!access) return;
   const rt = replyTarget;
   setReplyTarget(null);
   input.value = '';
   input.disabled = true;
+
+  if (attach) {
+    clearPendingAttachment();
+    const imgUrl = await uploadChatImage(attach.file);
+    if (imgUrl) msg = msg ? msg + '\n' + imgUrl : imgUrl;
+  }
+  if (!msg) { input.disabled = false; input.focus(); return; }
 
   const myUser = {
     username:    state.user?.username    || '',
@@ -1937,9 +2026,26 @@ function setupChatListeners() {
   const suggest = document.getElementById('chat-suggest');
 
   document.getElementById('chat-send').addEventListener('click', sendChatMsg);
+  document.getElementById('chat-attach').addEventListener('click', () => document.getElementById('chat-file-input').click());
+  document.getElementById('chat-file-input').addEventListener('change', e => {
+    const file = e.target.files[0];
+    if (file) setPendingAttachment(file);
+    e.target.value = '';
+  });
   input.addEventListener('keydown', e => {
     if (e.key === 'Enter')  { e.preventDefault(); sendChatMsg(); }
     if (e.key === 'Escape') suggest.classList.remove('open');
+  });
+  input.addEventListener('paste', e => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (const item of items) {
+      if (item.type.startsWith('image/')) {
+        e.preventDefault();
+        setPendingAttachment(item.getAsFile());
+        break;
+      }
+    }
   });
   input.addEventListener('input', () => updateChatSuggest(input));
   input.addEventListener('blur',  () => setTimeout(() => suggest.classList.remove('open'), 150));
