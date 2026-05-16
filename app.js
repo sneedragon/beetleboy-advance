@@ -1475,6 +1475,18 @@ function openChatStream() {
         tryRefresh().then(tokens => { if (tokens) { saveTokens(tokens.access, tokens.refresh); openChatStream(); } });
         return;
       }
+      if (d.type === 'imageUpdate' && d.id && d.imageUrl) {
+        const el = renderedPostEls.get(d.id);
+        if (el && !el.querySelector('.chat-img')) {
+          const textEl = el.querySelector('.chat-text');
+          const imgEl  = document.createElement('img');
+          imgEl.className = 'chat-img'; imgEl.alt = ''; imgEl.loading = 'lazy';
+          imgEl.onerror = () => imgEl.style.display = 'none';
+          imgEl.src = d.imageUrl;
+          textEl?.insertAdjacentElement('afterend', imgEl);
+        }
+        return;
+      }
       if (d.type === 'posts' && Array.isArray(d.posts) && d.posts.length) {
         for (const p of d.posts) {
           // Enrich posts that arrived without user data (finalized BeetleBoy sends)

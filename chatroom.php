@@ -183,7 +183,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['stream'])) {
     stream_set_timeout($sock, 10);
 
     $got_init = false;
-    $buf      = []; // int mid → post data, buffered until '05' finalizes it
 
     while (!feof($sock) && !connection_aborted()) {
         $frame = ws_read($sock);
@@ -207,9 +206,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['stream'])) {
             sse($recent);
 
         } elseif ($op === '33') {
-            // Buffer op 01 (new post), patch op 06 (image attached), flush on op 05 (finalized).
-            // This mirrors the Python chat client's state machine and ensures images are
-            // included before the post is broadcast to the browser.
+            // Forward new posts on '01' (full user data present).
+            // On '06' (image attached to an already-open post), emit a lightweight imageUpdate
+            // event so the browser can inject the image without re-rendering the whole post.
             $posts = [];
             foreach ((json_decode($payload, true) ?? []) as $evt) {
                 if (!is_string($evt) || strlen($evt) < 2) continue;
@@ -219,30 +218,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['stream'])) {
                 if ($esub === '01') {
                     $p = json_decode($epay, true);
                     if (!is_array($p) || empty($p['id'])) continue;
-                    $mid = (int)$p['id'];
-                    $buf[$mid] = $p;
-                    if (count($buf) > 60) array_shift($buf); // keep buffer bounded
-
-                } elseif ($esub === '06') {
-                    // insertImage: merge sha1/file_type into the buffered post
-                    $img = json_decode($epay, true);
-                    if (!is_array($img) || empty($img['id'])) continue;
-                    $mid = (int)$img['id'];
-                    if (isset($buf[$mid])) {
-                        $buf[$mid]['image'] = array_diff_key($img, ['id' => 0]);
+                    // Send immediately — body OR image present
+                    if (trim($p['body'] ?? '') !== '' || !empty($p['image'])) {
+                        $posts[] = norm_full($p);
+                        $last_id = max($last_id, (int)$p['id']);
                     }
 
-                } elseif ($esub === '05') {
-                    // Finalized — flush from buffer and emit
-                    $fin = json_decode($epay, true);
-                    $mid = (int)($fin['id'] ?? 0);
-                    if ($mid && isset($buf[$mid])) {
-                        $p = $buf[$mid];
-                        unset($buf[$mid]);
-                        if (trim($p['body'] ?? '') !== '' || !empty($p['image'])) {
-                            $posts[] = norm_full($p);
-                            $last_id = max($last_id, $mid);
-                        }
+                } elseif ($esub === '06') {
+                    // Image attached after the post was already opened — send a targeted update
+                    $img = json_decode($epay, true);
+                    if (!is_array($img) || empty($img['id'])) continue;
+                    $imgUrl = chat_image_url(array_diff_key($img, ['id' => 0]));
+                    if ($imgUrl) {
+                        echo "data: " . json_encode([
+                            'type'     => 'imageUpdate',
+                            'id'       => (int)$img['id'],
+                            'imageUrl' => $imgUrl,
+                        ]) . "\n\n";
+                        flush();
                     }
                 }
             }
