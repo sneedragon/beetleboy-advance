@@ -55,7 +55,7 @@
       <div id="dev-top">
         <button id="btn-esc" class="shoulder-btn">ESC</button>
         <div id="speaker-grille"></div>
-        <div id="dev-brand">BeetleBoy Advance<span class="sp-tag" id="sp-clickable">SP</span>
+        <div id="dev-brand">BeetleBoy Advance<span class="sp-tag" id="sp-clickable"> SP </span>
           <div id="theme-picker" class="hidden"></div>
         </div>
         <div id="user-info">
@@ -74,7 +74,15 @@
         <div id="screen-level"></div>
         <div id="screen-result-icon"></div>
         <div id="chat-notif"></div>
-        <div class="sp" id="sp-log"><div id="act-log"></div></div>
+        <div class="sp" id="sp-log">
+          <div id="act-log"></div>
+          <div class="log-search-wrap">
+            <div id="log-suggest"></div>
+            <div id="tip-bubble"></div>
+            <input id="log-search" type="text" placeholder="Look up item…" autocomplete="off" spellcheck="false">
+            <button id="tip-beetle" title="Get a tip">🪲</button>
+          </div>
+        </div>
         <div class="sp hidden" id="sp-assemble">
           <div class="sp-header">ASSEMBLE</div>
           <div class="sm-slots">
@@ -96,17 +104,22 @@
             <div class="sm-group-lbl">Items to Smash</div>
             <div class="sm-slots">
               <div class="sm-slot" data-slot="sm0"><span class="sm-slot-lbl">Slot 1</span></div>
-              <div class="sm-slot" data-slot="sm1"><span class="sm-slot-lbl">Slot 2 (opt)</span></div>
+              <div class="sm-slot" data-slot="sm1"><span class="sm-slot-lbl">Slot 2</span></div>
             </div>
           </div>
           <div class="sm-group sm-group-spec">
             <div class="sm-group-lbl">Sacrifice &amp; Hammer</div>
             <div class="sm-slots">
-              <div class="sm-slot" data-slot="smsac"><span class="sm-slot-lbl">Beetle</span></div>
+              <div class="sm-slot" data-slot="smsac"><span class="sm-slot-lbl">Sacrifice Beetle</span></div>
               <div class="sm-slot" data-slot="smhammer"><span class="sm-slot-lbl">Hammer</span></div>
+              <div class="sm-slot sm-slot-backup" data-slot="smhammer_bk"><span class="sm-slot-lbl">[Backup Hammer]</span></div>
             </div>
           </div>
           <div class="sp-preview" id="smash-preview">—</div>
+          <div class="hammer-quick" id="hammer-quick"></div>
+          <div class="sp-option-row">
+            <label><input type="checkbox" id="chk-auto-hammer"> Craft new Hammer on break</label>
+          </div>
           <div class="sp-row">
             <button class="sp-action-btn sp-smash-btn" id="do-smash">⚡ SMASH</button>
             <input class="sp-repeat-input" id="smash-repeat" type="number" min="1" max="99" value="1" title="Repeat count">

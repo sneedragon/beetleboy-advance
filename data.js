@@ -15,6 +15,7 @@ const IMAGES = {
   candycane_tiger_moth:     'icons/beetles/candycane_tiger_moth.png',
   christmas:                'icons/beetles/christmas.png',
   cucumber:                 'icons/beetles/cucumber.png',
+  death_feigning:           'icons/beetles/death_feigning.png',
   giraffe_weevil:           'icons/beetles/giraffe_weevil.png',
   golden:                   'icons/beetles/golden.png',
   golden_tiger:             'icons/beetles/golden_tiger.png',
@@ -50,6 +51,7 @@ const IMAGES = {
   petunia:                  'icons/flowers/petunia.png',
   pincushion:               'icons/flowers/pincushion.png',
   poppy:                    'icons/flowers/poppy.png',
+  passionflower:            'icons/flowers/passionflower.png',
   royal_poinciana:          'icons/flowers/royal_poinciana.png',
   snapdragon:               'icons/flowers/snapdragon.png',
   st_johns_wort:            'icons/flowers/st_johns_wort.png',
@@ -58,7 +60,7 @@ const IMAGES = {
   pollen_common:            'icons/flowers/pollen_common.png',
   pollen_uncommon:          'icons/flowers/pollen_uncommon.png',
   pollen_rare:              'icons/flowers/pollen_rare.png',
-  pollen_epic:              'icons/flowers/pollen_epic.png',
+  pollen_super_rare:        'icons/flowers/pollen_super_rare.png',
   // Hammers — icons
   hammer_t1:                'icons/hammers/hammer_t1.png',
   hammer_t2:                'icons/hammers/hammer_t2.png',
@@ -125,6 +127,28 @@ const IMAGES = {
   beetleboy_key:            'icons/unique/beetleboy_key.png',
   cheese:                   'icons/cheese/cheese.png',
   specimen_pin:             'icons/artifacts/specimen_pin.png',
+  // Trinkets — icons (trophy-items images where available, trophy fallback otherwise)
+  arrowhead:                'icons/trophy-items/arrowhead.png',
+  chinese_coin:             'icons/trophy-items/chinese_coin.png',
+  compass:                  'icons/trophy-items/compass.png',
+  cult_medallion:           'icons/trophy-items/cult_medallion.png',
+  d20:                      'icons/trophies/trophy_d20.webp',
+  deck_of_cards:            'icons/trophies/trophy_deck_of_cards.webp',
+  engraved_lighter:         'icons/trophies/trophy_engraved_lighter.webp',
+  joystick:                 'icons/trophies/trophy_joystick.webp',
+  goya_miniature:           'icons/trophies/trophy_goya_miniature.webp',
+  jade_cabbage:             'icons/trophy-items/jade_cabbage.png',
+  juex_card:                'icons/trophy-items/juex_card.png',
+  milady_fumoku:            'icons/trophy-items/milady_fumoku.png',
+  mokia:                    'icons/trophy-items/mokia.png',
+  oriental_fan:             'icons/trophy-items/oriental_fan.png',
+  police_badge:             'icons/trophies/trophy_police_badge.webp',
+  prism:                    'icons/trophy-items/prism.png',
+  remilianet_id:            'icons/trophies/trophy_remilianet_id.webp',
+  roman_dodeca:             'icons/trophy-items/roman_dodeca.png',
+  stradivarius:             'icons/trophy-items/stradivarius.png',
+  thumb_drive:              'icons/trophy-items/thumb_drive.png',
+  titanium_cube:            'icons/trophy-items/titanium_cube.png',
   // Trophies — icons
   trophy_arrowhead:         'icons/trophies/trophy_arrowhead.webp',
   trophy_chinese_coin:      'icons/trophies/trophy_chinese_coin.webp',
@@ -133,6 +157,7 @@ const IMAGES = {
   trophy_d20:               'icons/trophies/trophy_d20.webp',
   trophy_deck_of_cards:     'icons/trophies/trophy_deck_of_cards.webp',
   trophy_engraved_lighter:  'icons/trophies/trophy_engraved_lighter.webp',
+  trophy_joystick:          'icons/trophies/trophy_joystick.webp',
   trophy_goya_miniature:    'icons/trophies/trophy_goya_miniature.webp',
   trophy_jade_cabbage:      'icons/trophies/trophy_jade_cabbage.webp',
   trophy_juex_card:         'icons/trophies/trophy_juex_card.webp',
@@ -154,6 +179,7 @@ const IMAGES = {
   _card_trophy_d20:              'icons/trophies/trophy_d20.webp',
   _card_trophy_deck_of_cards:    'icons/trophies/trophy_deck_of_cards.webp',
   _card_trophy_engraved_lighter: 'icons/trophies/trophy_engraved_lighter.webp',
+  _card_trophy_joystick:         'icons/trophies/trophy_joystick.webp',
   _card_trophy_goya_miniature:   'icons/trophies/trophy_goya_miniature.webp',
   _card_trophy_jade_cabbage:     'icons/trophies/trophy_jade_cabbage.webp',
   _card_trophy_juex_card:        'icons/trophies/trophy_juex_card.webp',
@@ -167,6 +193,28 @@ const IMAGES = {
   _card_trophy_stradivarius:     'icons/trophies/trophy_stradivarius.webp',
   _card_trophy_thumb_drive:      'icons/trophies/trophy_thumb_drive.webp',
   _card_trophy_titanium_cube:    'icons/trophies/trophy_titanium_cube.webp',
+  // Card art — trinkets
+  _card_arrowhead:               'icons/trophy-items/arrowhead.png',
+  _card_chinese_coin:            'icons/trophy-items/chinese_coin.png',
+  _card_compass:                 'icons/trophy-items/compass.png',
+  _card_cult_medallion:          'icons/trophy-items/cult_medallion.png',
+  _card_d20:                     'icons/trophies/trophy_d20.webp',
+  _card_deck_of_cards:           'icons/trophies/trophy_deck_of_cards.webp',
+  _card_engraved_lighter:        'icons/trophies/trophy_engraved_lighter.webp',
+  _card_joystick:                'icons/trophies/trophy_joystick.webp',
+  _card_goya_miniature:          'icons/trophies/trophy_goya_miniature.webp',
+  _card_jade_cabbage:            'icons/trophy-items/jade_cabbage.png',
+  _card_juex_card:               'icons/trophy-items/juex_card.png',
+  _card_milady_fumoku:           'icons/trophy-items/milady_fumoku.png',
+  _card_mokia:                   'icons/trophy-items/mokia.png',
+  _card_oriental_fan:            'icons/trophy-items/oriental_fan.png',
+  _card_police_badge:            'icons/trophies/trophy_police_badge.webp',
+  _card_prism:                   'icons/trophy-items/prism.png',
+  _card_remilianet_id:           'icons/trophies/trophy_remilianet_id.webp',
+  _card_roman_dodeca:            'icons/trophy-items/roman_dodeca.png',
+  _card_stradivarius:            'icons/trophy-items/stradivarius.png',
+  _card_thumb_drive:             'icons/trophy-items/thumb_drive.png',
+  _card_titanium_cube:           'icons/trophy-items/titanium_cube.png',
   // Card art — beetles
   _card_blue_longicorn:     'icons/_card/blue_longicorn.webp',
   _card_bombardier:         'icons/_card/bombardier.webp',
@@ -174,6 +222,7 @@ const IMAGES = {
   _card_candycane_tiger_moth: 'icons/_card/candycane_tiger_moth.webp',
   _card_christmas:          'icons/_card/christmas.webp',
   _card_cucumber:           'icons/_card/cucumber.webp',
+  _card_death_feigning:     'icons/_card/death_feigning.webp',
   _card_giraffe_weevil:     'icons/_card/giraffe_weevil.webp',
   _card_golden:             'icons/_card/golden.webp',
   _card_golden_tiger:       'icons/_card/golden_tiger.webp',
@@ -208,6 +257,7 @@ const IMAGES = {
   _card_milk_thistle:       'icons/_card/milk_thistle.webp',
   _card_morning_glory:      'icons/_card/morning_glory.webp',
   _card_pincushion:         'icons/_card/pincushion.webp',
+  _card_passionflower:      'icons/_card/passionflower.webp',
   _card_poppy:              'icons/_card/poppy.webp',
   _card_royal_poinciana:    'icons/_card/royal_poinciana.webp',
   _card_sunflower:          'icons/_card/sunflower.webp',
@@ -283,6 +333,7 @@ const NAMES = {
   // Beetles — alphabetical by key
   blue_longicorn:'Blue Longicorn Beetle', bombardier:'Bombardier Beetle', bumblebee:'Bumble Bee',
   candycane_tiger_moth:'Candycane Tiger Moth', christmas:'Christmas Beetle', cucumber:'Striped Cucumber Beetle',
+  death_feigning:'Blue Death Feigning Beetle',
   giraffe_weevil:'Giraffe Weevil', golden:'Golden Scarab', golden_tiger:'Golden-Spotted Tiger Beetle',
   goliath:'Goliath Beetle', green:'Green Beetle', imperial_tortoise:'Imperial Tortoise Beetle',
   ladybug:'Ladybug', mars_rhino:'Mars Rhino Beetle', monarch:'Monarch', pillbug:'Pillbug',
@@ -294,11 +345,11 @@ const NAMES = {
   fringed_iris:'Fringed Iris', gallic_rose:'Gallic Rose', gazania:'Gazania', hellebore:'Green Hellebore',
   larkspur:'Two-spike Larkspur', magnolia:'Southern Magnolia', marigold:'Marigold',
   milk_thistle:'Milk Thistle', morning_glory:'Morning Glory', petunia:'Large White Petunia',
-  pincushion:'Pincushion', poppy:'Poppy', purple_passionflower:'Purple Passionflower',
+  pincushion:'Pincushion', poppy:'Poppy', passionflower:'Purple Passionflower',
   royal_poinciana:'Royal Poinciana', snapdragon:'Common Snapdragon',
   st_johns_wort:"Spotted St. John's Wort", sunflower:'Sunflower',
   // Pollen — tier order
-  pollen_common:'Tin Pollen', pollen_uncommon:'Bronze Pollen', pollen_rare:'Mithril Pollen', pollen_epic:'Adamantine Pollen',
+  pollen_common:'Tin Pollen', pollen_uncommon:'Bronze Pollen', pollen_rare:'Mithril Pollen', pollen_super_rare:'Adamantine Pollen',
   // Junk
   _junk_:'Junk', junk_cube_t1:'Junk Cube', junk_cube_t2:'Junk Tesseract',
   burger_wrapper:'Burger Wrapper', chewed_eraser:'Chewed Eraser', event_band:'Event Band',
@@ -313,7 +364,7 @@ const NAMES = {
   beetleboy_key:'BeetleBoy Key', cheese:'Cheese', specimen_pin:'Specimen Pin',
   // Trinkets — alphabetical
   arrowhead:'Arrowhead', chinese_coin:'Chinese Coin', compass:'Compass', cult_medallion:'CULT Medallion',
-  d20:'D20', deck_of_cards:'Deck of Cards', engraved_lighter:'Engraved Lighter',
+  d20:'D20', deck_of_cards:'Deck of Cards', engraved_lighter:'Engraved Lighter', joystick:'Joystick',
   goya_miniature:'Goya Miniature Painting', jade_cabbage:'Jade Cabbage', juex_card:'Juex Card',
   milady_fumoku:'Milady Fumoku', mokia:'Mokia', oriental_fan:'Oriental Fan', police_badge:'Police Badge',
   prism:'Prism', remilianet_id:'Reminet ID', roman_dodeca:'Roman Dodecahedron',
@@ -322,7 +373,7 @@ const NAMES = {
   trophy_arrowhead:'Arrowhead Trophy', trophy_chinese_coin:'Chinese Coin Trophy',
   trophy_compass:'Compass Trophy', trophy_cult_medallion:'CULT Medallion Trophy',
   trophy_d20:'D20 Trophy', trophy_deck_of_cards:'Deck of Cards Trophy',
-  trophy_engraved_lighter:'Engraved Lighter Trophy', trophy_goya_miniature:'Goya Miniature Trophy',
+  trophy_engraved_lighter:'Engraved Lighter Trophy', trophy_joystick:'Joystick Trophy', trophy_goya_miniature:'Goya Miniature Trophy',
   trophy_jade_cabbage:'Jade Cabbage Trophy', trophy_juex_card:'Juex Card Trophy',
   trophy_milady_fumoku:'Milady Fumoku Trophy', trophy_mokia:'Mokia Trophy',
   trophy_oriental_fan:'Oriental Fan Trophy', trophy_police_badge:'Police Badge Trophy',
@@ -336,18 +387,18 @@ const RARITY = {
   // Junk
   junk_cube_t1:'jnk', junk_cube_t2:'jnk',
   // Tin
-  beetleboy_key:'tin', carnation:'tin', daisy:'tin', green:'tin', hammer_t1:'tin', petunia:'tin', pollen_common:'tin', poppy:'tin', snapdragon:'tin',
+  beetleboy_key:'tin', carnation:'tin', daisy:'tin', green:'tin', hammer_t1:'tin', petunia:'tin', pollen_common:'tin', poppy:'tin', snapdragon:'tin', sunflower:'tin',
   // Bronze
   cucumber:'brz', gallic_rose:'brz', hammer_t2:'brz', ladybug:'brz', magnolia:'brz', marigold:'brz', milk_thistle:'brz', pollen_uncommon:'brz', purple:'brz', st_johns_wort:'brz',
   // Mithril
-  blue_longicorn:'mth', bumblebee:'mth', camellia:'mth', cattail:'mth', christmas:'mth', fringed_iris:'mth', giraffe_weevil:'mth', golden_tiger:'mth', hammer_t3:'mth', imperial_tortoise:'mth', monarch:'mth', morning_glory:'mth', nectar:'mth', pillbug:'mth', pollen_rare:'mth', pond:'mth', royal_poinciana:'mth', skull:'mth',
+  blue_longicorn:'mth', bumblebee:'mth', camellia:'mth', cattail:'mth', christmas:'mth', fringed_iris:'mth', giraffe_weevil:'mth', golden_tiger:'mth', hammer_t3:'mth', imperial_tortoise:'mth', larkspur:'mth', monarch:'mth', morning_glory:'mth', nectar:'mth', pillbug:'mth', pollen_rare:'mth', pond:'mth', royal_poinciana:'mth', skull:'mth',
   // Adamantine
-  bombardier:'adm', gazania:'adm', goliath:'adm', gunpowder:'adm', hammer_t4:'adm', hellebore:'adm', larkspur:'adm', moss:'adm', pinecone:'adm', pincushion:'adm', pollen_epic:'adm', pondhawk:'adm', purple_passionflower:'adm', sabertooth_longhorn:'adm', stag:'adm', sunset_moth:'adm',
+  bombardier:'adm', death_feigning:'adm', gazania:'adm', goliath:'adm', gunpowder:'adm', hammer_t4:'adm', hellebore:'adm', moss:'adm', pinecone:'adm', pincushion:'adm', pollen_super_rare:'adm', pondhawk:'adm', passionflower:'adm', sabertooth_longhorn:'adm', stag:'adm', sunset_moth:'adm',
   // Diamond
   black_lotus:'dia', candycane_tiger_moth:'dia', golden:'dia', hammer_t5:'dia', mars_rhino:'dia', widow:'dia',
   // Special
-  arrowhead:'pnk', chinese_coin:'pnk', compass:'pnk', cult_medallion:'pnk', d20:'pnk', deck_of_cards:'pnk', engraved_lighter:'pnk', goya_miniature:'pnk', jade_cabbage:'pnk', juex_card:'pnk', milady_fumoku:'pnk', mokia:'pnk', oriental_fan:'pnk', police_badge:'pnk', prism:'pnk', remilianet_id:'pnk', roman_dodeca:'pnk', specimen_pin:'pnk', stradivarius:'pnk', thumb_drive:'pnk', titanium_cube:'pnk',
-  trophy_arrowhead:'pnk', trophy_chinese_coin:'pnk', trophy_compass:'pnk', trophy_cult_medallion:'pnk', trophy_d20:'pnk', trophy_deck_of_cards:'pnk', trophy_engraved_lighter:'pnk', trophy_goya_miniature:'pnk', trophy_jade_cabbage:'pnk', trophy_juex_card:'pnk', trophy_milady_fumoku:'pnk', trophy_mokia:'pnk', trophy_oriental_fan:'pnk', trophy_police_badge:'pnk', trophy_prism:'pnk', trophy_remilianet_id:'pnk', trophy_roman_dodeca:'pnk', trophy_stradivarius:'pnk', trophy_thumb_drive:'pnk', trophy_titanium_cube:'pnk',
+  arrowhead:'pnk', chinese_coin:'pnk', compass:'pnk', cult_medallion:'pnk', d20:'pnk', deck_of_cards:'pnk', engraved_lighter:'pnk', joystick:'pnk', goya_miniature:'pnk', jade_cabbage:'pnk', juex_card:'pnk', milady_fumoku:'pnk', mokia:'pnk', oriental_fan:'pnk', police_badge:'pnk', prism:'pnk', remilianet_id:'pnk', roman_dodeca:'pnk', specimen_pin:'pnk', stradivarius:'pnk', thumb_drive:'pnk', titanium_cube:'pnk',
+  trophy_arrowhead:'pnk', trophy_chinese_coin:'pnk', trophy_compass:'pnk', trophy_cult_medallion:'pnk', trophy_d20:'pnk', trophy_deck_of_cards:'pnk', trophy_engraved_lighter:'pnk', trophy_joystick:'pnk', trophy_goya_miniature:'pnk', trophy_jade_cabbage:'pnk', trophy_juex_card:'pnk', trophy_milady_fumoku:'pnk', trophy_mokia:'pnk', trophy_oriental_fan:'pnk', trophy_police_badge:'pnk', trophy_prism:'pnk', trophy_remilianet_id:'pnk', trophy_roman_dodeca:'pnk', trophy_stradivarius:'pnk', trophy_thumb_drive:'pnk', trophy_titanium_cube:'pnk',
 };
 
 // ── SCIENTIFIC NAMES ──────────────────────────────────────────────────────────
@@ -358,6 +409,7 @@ const SCIENTIFIC = {
   candycane_tiger_moth: 'Spilosoma congrua',
   christmas:            'Stephanorrhina guttata',
   cucumber:             'Acalymma vittatum',
+  death_feigning:       'Asbolus verrucosus',
   giraffe_weevil:       'Trachelophorus giraffa',
   golden:               'Chrysina resplendens',
   golden_tiger:         'Cicindela aurulenta',
@@ -393,7 +445,7 @@ const SCIENTIFIC = {
   petunia:              'Petunia axillaris',
   pincushion:           'Leucospermum praecox',
   poppy:                'Papaver rhoeas',
-  purple_passionflower: 'Passiflora incarnata',
+  passionflower:        'Passiflora incarnata',
   royal_poinciana:      'Delonix regia',
   snapdragon:           'Antirrhinum majus',
   st_johns_wort:        'Hypericum punctatum',
@@ -402,7 +454,7 @@ const SCIENTIFIC = {
   pollen_common:        'Pulvis stannus',
   pollen_uncommon:      'Pulvis bronzium',
   pollen_rare:          'Pulvis mithrilum',
-  pollen_epic:          'Pulvis adamantinus',
+  pollen_super_rare:    'Pulvis adamantinus',
   // Junk — alphabetical
   bike_reflector:       'Speculatus velocipedus',
   bottle_cap:           'Operculum metallicum',
@@ -443,6 +495,7 @@ const DESCRIPTIONS = {
   candycane_tiger_moth: 'New Hope tiger moth',
   christmas:            'Spotted flower beetle',
   cucumber:             'Striped cucumber beetle',
+  death_feigning:       'Blue death-feigning beetle',
   giraffe_weevil:       'Giraffe weevil',
   golden:               'Jewel scarab',
   golden_tiger:         'Golden-spotted tiger beetle',
@@ -478,7 +531,7 @@ const DESCRIPTIONS = {
   petunia:              'Large white petunia',
   pincushion:           'Mossel bay pincushion',
   poppy:                'Common poppy',
-  purple_passionflower: 'Purple passionflower',
+  passionflower:        'Purple passionflower',
   royal_poinciana:      'Royal poinciana',
   snapdragon:           'Common snapdragon',
   st_johns_wort:        "Spotted St. John's wort",
@@ -487,7 +540,7 @@ const DESCRIPTIONS = {
   pollen_common:        'From Tin flowers',
   pollen_uncommon:      'From Bronze flowers',
   pollen_rare:          'From Mithril flowers',
-  pollen_epic:          'From Adamantine flowers',
+  pollen_super_rare:          'From Adamantine flowers',
   // Hammers
   hammer_t1:            '+0% craft bonus, 10% break chance',
   hammer_t2:            '+5% craft bonus, 5% break chance',
@@ -532,22 +585,22 @@ const CATEGORIES = [
   ['Beetles',   ['green','purple','ladybug','cucumber','monarch','pond','giraffe_weevil',
                  'pillbug','imperial_tortoise','christmas','skull',
                  'bumblebee','golden_tiger','blue_longicorn',
-                 'goliath','bombardier','pondhawk','stag','sabertooth_longhorn','sunset_moth',
+                 'goliath','bombardier','death_feigning','pondhawk','stag','sabertooth_longhorn','sunset_moth',
                  'golden','widow','candycane_tiger_moth','mars_rhino',
                  'radbro']],
   ['Flowers',   ['daisy','sunflower','poppy','petunia','snapdragon','carnation',
                  'gallic_rose','st_johns_wort','milk_thistle','marigold','magnolia',
-                 'royal_poinciana','morning_glory','camellia','fringed_iris',
-                 'pincushion','gazania','hellebore','larkspur','purple_passionflower',
+                 'royal_poinciana','larkspur','morning_glory','camellia','fringed_iris',
+                 'pincushion','gazania','hellebore','passionflower',
                  'black_lotus']],
-  ['Pollen',    ['pollen_common','pollen_uncommon','pollen_rare','pollen_epic']],
+  ['Pollen',    ['pollen_common','pollen_uncommon','pollen_rare','pollen_super_rare']],
   ['Junk',      ['junk_cube_t1','junk_cube_t2']],
   ['Artifacts', ['nectar','cattail','pinecone','moss','gunpowder']],
   ['Trinkets',  ['chinese_coin','prism','roman_dodeca','arrowhead',
                  'titanium_cube','oriental_fan','mokia','thumb_drive','jade_cabbage',
                  'juex_card','cult_medallion','d20',
                  'deck_of_cards','compass','stradivarius',
-                 'engraved_lighter','goya_miniature',
+                 'engraved_lighter','joystick','goya_miniature',
                  'police_badge','milady_fumoku','remilianet_id']],
   ['Hammers',   ['hammer_t1','hammer_t2','hammer_t3','hammer_t4','hammer_t5']],
   ['Special',   ['beetleboy_key','specimen_pin']],
@@ -584,6 +637,7 @@ const TROPHIES = [
   ['trophy_deck_of_cards',    'Deck of Cards Trophy',       true],
   ['trophy_d20',              'D20 Trophy',                 true],
   ['trophy_engraved_lighter', 'Engraved Lighter Trophy',   false],
+  ['trophy_joystick',         'Joystick Trophy',            false],
 ];
 
 // Populate KNOWN_KEYS with trophy keys (needs TROPHIES defined first)
@@ -592,8 +646,8 @@ TROPHIES.forEach(([k]) => KNOWN_KEYS.add(k));
 // ── FLOWER GROUPS ─────────────────────────────────────────────────────────────
 const TIN_FLOWERS     = ['daisy','sunflower','poppy','petunia','snapdragon','carnation'];
 const BRONZE_FLOWERS  = ['gallic_rose','st_johns_wort','milk_thistle','marigold','magnolia'];
-const MITHRIL_FLOWERS = ['royal_poinciana','morning_glory','camellia','fringed_iris'];
-const ADAM_FLOWERS    = ['pincushion','gazania','hellebore','larkspur','purple_passionflower'];
+const MITHRIL_FLOWERS = ['royal_poinciana','larkspur','morning_glory','camellia','fringed_iris'];
+const ADAM_FLOWERS    = ['pincushion','gazania','hellebore','passionflower'];
 const ALL_FLOWERS     = [...TIN_FLOWERS, ...BRONZE_FLOWERS, ...MITHRIL_FLOWERS, ...ADAM_FLOWERS, 'black_lotus'];
 
 const FLOWER_TIERS = [
@@ -621,13 +675,13 @@ const AR = [
   { out:'hammer_t1', unique:true, ing:[{key:'junk_cube_t1',qty:2}] },
   { out:'hammer_t2', unique:true, ing:[{key:'hammer_t1',qty:1},{key:'junk_cube_t2',qty:1},{key:'pollen_common',qty:1}] },
   { out:'hammer_t3', unique:true, ing:[{key:'hammer_t2',qty:1},{key:'junk_cube_t2',qty:1},{key:'pollen_uncommon',qty:1}] },
-  { out:'hammer_t4', unique:true, ing:[{key:'hammer_t3',qty:1},{key:'junk_cube_t2',qty:1},{key:'pollen_epic',qty:1}] },
-  { out:'hammer_t5', unique:true, ing:[{key:'hammer_t4',qty:1},{key:'junk_cube_t2',qty:1},{key:'pollen_epic',qty:1}] },
+  { out:'hammer_t4', unique:true, ing:[{key:'hammer_t3',qty:1},{key:'junk_cube_t2',qty:1},{key:'pollen_rare',qty:1}] },
+  { out:'hammer_t5', unique:true, ing:[{key:'hammer_t4',qty:1},{key:'junk_cube_t2',qty:1},{key:'pollen_super_rare',qty:1}] },
 
   { out:'pollen_common',   ing:[{group:TIN_FLOWERS,qty:2}] },
   { out:'pollen_uncommon', ing:[{group:BRONZE_FLOWERS,qty:2}] },
   { out:'pollen_rare',     ing:[{group:MITHRIL_FLOWERS,qty:2}] },
-  { out:'pollen_epic',     ing:[{group:ADAM_FLOWERS,qty:2}] },
+  { out:'pollen_super_rare',     ing:[{group:ADAM_FLOWERS,qty:2}] },
 
   { out:'beetleboy_key', unique:true, ing:[{group:BRONZE_FLOWERS,qty:1},{key:'junk_cube_t1',qty:1}] },
 
@@ -640,8 +694,8 @@ const AR = [
   { out:'roman_dodeca',    reqTrophy:'trophy_roman_dodeca',    ing:[{key:'junk_cube_t2',qty:2},{key:'pollen_uncommon',qty:1}] },
   { out:'trophy_arrowhead',     unique:true, ing:[{key:'junk_cube_t2',qty:2},{key:'pollen_rare',qty:1}] },
   { out:'arrowhead',       reqTrophy:'trophy_arrowhead',       ing:[{key:'junk_cube_t2',qty:2},{key:'pollen_rare',qty:1}] },
-  { out:'trophy_titanium_cube', unique:true, ing:[{key:'junk_cube_t2',qty:2},{key:'pollen_epic',qty:1}] },
-  { out:'titanium_cube',   reqTrophy:'trophy_titanium_cube',   ing:[{key:'junk_cube_t2',qty:2},{key:'pollen_epic',qty:1}] },
+  { out:'trophy_titanium_cube', unique:true, ing:[{key:'junk_cube_t2',qty:2},{key:'pollen_super_rare',qty:1}] },
+  { out:'titanium_cube',   reqTrophy:'trophy_titanium_cube',   ing:[{key:'junk_cube_t2',qty:2},{key:'pollen_super_rare',qty:1}] },
 
   // ── Trophies — Tier 2: coin-derived composites ────────────────────────────
   { out:'trophy_oriental_fan', unique:true, ing:[{key:'chinese_coin',qty:1},{key:'pollen_common',qty:1}] },
@@ -684,14 +738,14 @@ const TROPHY_REPEAT = Object.fromEntries(AR.filter(r => r.reqTrophy).map(r => [r
 // Displayed in the RCP tab. [ingredients, output, type, note]
 const RECIPES = [
   // Smash — tier-up (risky)
-  ['2× Tin Beetle',       'Bronze Beetle',              'smash', 'risky — use first smash of day only'],
-  ['2× Bronze Beetle',    'Mithril Beetle',             'smash', 'risky — use first smash of day only'],
-  ['2× Mithril Beetle',   'Adamantine Beetle',          'smash', 'risky — use first smash of day only'],
-  ['2× Adamantine Beetle','Diamond Beetle',             'smash', 'risky — use first smash of day only'],
-  ['2× Tin Flower',       'Bronze Flower',              'smash', 'risky — use first smash of day only'],
-  ['2× Bronze Flower',    'Mithril Flower',             'smash', 'risky — use first smash of day only'],
-  ['2× Mithril Flower',   'Adamantine Flower',          'smash', 'risky — use first smash of day only'],
-  ['2× Adamantine Flower','Diamond Flower',             'smash', 'risky — use first smash of day only'],
+  ['2× Tin Beetle',       'Bronze Beetle',              'smash', 'Low chance!'],
+  ['2× Bronze Beetle',    'Mithril Beetle',             'smash', 'Low chance!'],
+  ['2× Mithril Beetle',   'Adamantine Beetle',          'smash', 'Low chance!'],
+  ['2× Adamantine Beetle','Diamond Beetle',             'smash', 'Low chance!'],
+  ['2× Tin Flower',       'Bronze Flower',              'smash', 'Low chance!'],
+  ['2× Bronze Flower',    'Mithril Flower',             'smash', 'Low chance!'],
+  ['2× Mithril Flower',   'Adamantine Flower',          'smash', 'Low chance!'],
+  ['2× Adamantine Flower','Diamond Flower',             'smash', 'Low chance!'],
   // Smash — beetle → flower transmutation
   ['Tin Beetle + Junk Cube',       'Tin Flower (random)',         'smash', 'one-way only'],
   ['Bronze Beetle + Junk Cube',    'Bronze Flower (random)',      'smash', 'one-way only'],
@@ -708,50 +762,129 @@ const RECIPES = [
   ['Gunpowder + Pond Beetle',                        'Bombardier Beetle',          'smash', ''],
   ['Gunpowder + Moss + Pinecone',                    'Black Lotus',                'smash', ''],
   // Smash — flower beetlecraft
-  ['Fringed Iris + Monarch/Pond (sac Purple)',        'Blue Longicorn Beetle',      'smash', ''],
-  ['Royal Poinciana + Mithril Beetle',               'Giraffe Weevil',             'smash', ''],
-  ['Camellia + Mithril Beetle',                      'Pillbug',                    'smash', ''],
-  ['Morning Glory + Mithril Beetle',                 'Imperial Tortoise Beetle',   'smash', ''],
-  ['Pincushion + Adamantine Beetle',                 'Sabertooth Longhorn Beetle', 'smash', ''],
-  ['Gazania + Adamantine Beetle',                    'Sunset Moth',                'smash', ''],
+  ['Fringed Iris + Monarch',                         'Blue Longicorn Beetle',      'smash', ''],
+  ['Fringed Iris + Pond',                            'Blue Longicorn Beetle',      'smash', ''],
+  ['Royal Poinciana + Monarch',                      'Giraffe Weevil',             'smash', ''],
+  ['Royal Poinciana + Pond',                         'Giraffe Weevil',             'smash', ''],
+  ['Camellia + Monarch',                             'Pillbug',                    'smash', ''],
+  ['Camellia + Pond',                                'Pillbug',                    'smash', ''],
+  ['Morning Glory + Monarch',                        'Imperial Tortoise Beetle',   'smash', ''],
+  ['Morning Glory + Pond',                           'Imperial Tortoise Beetle',   'smash', ''],
+  ['Pincushion + Goliath',                           'Sabertooth Longhorn Beetle', 'smash', ''],
+  ['Pincushion + Stag',                              'Sabertooth Longhorn Beetle', 'smash', ''],
+  ['Pincushion + Bombardier',                        'Sabertooth Longhorn Beetle', 'smash', ''],
+  ['Gazania + Goliath',                              'Sunset Moth',                'smash', ''],
+  ['Gazania + Stag',                                 'Sunset Moth',                'smash', ''],
+  ['Gazania + Bombardier',                           'Sunset Moth',                'smash', ''],
+  ['Purple Passionflower + Adamantine Beetle',       'Blue Death Feigning Beetle', 'smash', ''],
+  ['Green Hellebore + Adamantine Beetle',            'Eastern Pondhawk',           'smash', ''],
   ['Black Lotus + Sabertooth Longhorn + Sunset Moth','Mars Rhino Beetle',          'smash', ''],
-  ['Monarch + Two-spike Larkspur + Purple (sac)',    'Golden-Spotted Tiger Beetle','smash', ''],
+  ['Two-spike Larkspur + Monarch',                   'Golden-Spotted Tiger Beetle','smash', ''],
+  ['Two-spike Larkspur + Pond',                      'Golden-Spotted Tiger Beetle','smash', ''],
   // Smash — special
-  ['Specimen Pin + Any Beetle + Green (sac)',         "That Beetle's Trophy",       'smash', 'any beetle species'],
+  ['Specimen Pin + Any Beetle',                      "That Beetle's Trophy",       'smash', 'any beetle species'],
 ];
 
 // ── SMASH AUTOFILL MAP ────────────────────────────────────────────────────────
 // Maps recipe label → slot fill spec for the SMASH UI autofill.
 // {k:'key'} = specific item. {t:'beetle'|'flower', r:'tin'|'brz'|'mth'|'adm'} = best of type/rarity.
 const SMASH_FILL_MAP = new Map([
-  ['2× Tin Beetle',         {sm0:{t:'beetle',r:'tin'}, sm1:{t:'beetle',r:'tin'}, sac:{t:'beetle',r:'tin'}}],
-  ['2× Bronze Beetle',      {sm0:{t:'beetle',r:'brz'}, sm1:{t:'beetle',r:'brz'}, sac:{t:'beetle',r:'tin'}}],
-  ['2× Mithril Beetle',     {sm0:{t:'beetle',r:'mth'}, sm1:{t:'beetle',r:'mth'}, sac:{t:'beetle',r:'tin'}}],
-  ['2× Adamantine Beetle',  {sm0:{t:'beetle',r:'adm'}, sm1:{t:'beetle',r:'adm'}, sac:{t:'beetle',r:'tin'}}],
-  ['2× Tin Flower',         {sm0:{t:'flower',r:'tin'}, sm1:{t:'flower',r:'tin'}, sac:{t:'beetle',r:'tin'}}],
-  ['2× Bronze Flower',      {sm0:{t:'flower',r:'brz'}, sm1:{t:'flower',r:'brz'}, sac:{t:'beetle',r:'tin'}}],
-  ['2× Mithril Flower',     {sm0:{t:'flower',r:'mth'}, sm1:{t:'flower',r:'mth'}, sac:{t:'beetle',r:'tin'}}],
-  ['2× Adamantine Flower',  {sm0:{t:'flower',r:'adm'}, sm1:{t:'flower',r:'adm'}, sac:{t:'beetle',r:'tin'}}],
-  ['Tin Beetle + Junk Cube',        {sm0:{t:'beetle',r:'tin'}, sm1:{k:'junk_cube_t1'}, sac:{t:'beetle',r:'tin'}}],
-  ['Bronze Beetle + Junk Cube',     {sm0:{t:'beetle',r:'brz'}, sm1:{k:'junk_cube_t1'}, sac:{t:'beetle',r:'tin'}}],
-  ['Mithril Beetle + Junk Cube',    {sm0:{t:'beetle',r:'mth'}, sm1:{k:'junk_cube_t1'}, sac:{t:'beetle',r:'tin'}}],
-  ['Adamantine Beetle + Junk Cube', {sm0:{t:'beetle',r:'adm'}, sm1:{k:'junk_cube_t1'}, sac:{t:'beetle',r:'tin'}}],
-  ['Bronze Beetle + Bronze Pollen', {sm0:{t:'beetle',r:'brz'}, sm1:{k:'pollen_uncommon'}, sac:{t:'beetle',r:'tin'}}],
-  ['Mithril Beetle + Mithril Pollen',{sm0:{t:'beetle',r:'mth'},sm1:{k:'pollen_rare'},     sac:{t:'beetle',r:'tin'}}],
-  ['Nectar + Ladybug',       {sm0:{k:'nectar'},   sm1:{k:'ladybug'}, sac:{t:'beetle',r:'tin'}}],
-  ['Cattail + Ladybug',      {sm0:{k:'cattail'},  sm1:{k:'ladybug'}, sac:{t:'beetle',r:'tin'}}],
-  ['Pinecone + Pond Beetle', {sm0:{k:'pinecone'}, sm1:{k:'pond'},    sac:{t:'beetle',r:'tin'}}],
-  ['Moss + Pond Beetle',     {sm0:{k:'moss'},     sm1:{k:'pond'},    sac:{t:'beetle',r:'tin'}}],
-  ['Gunpowder + Pond Beetle',{sm0:{k:'gunpowder'},sm1:{k:'pond'},    sac:{t:'beetle',r:'tin'}}],
+  ['2× Tin Beetle',         {sm0:{t:'beetle',r:'tin'}, sm1:{t:'beetle',r:'tin'}, sac:{t:'sac',high:false}}],
+  ['2× Bronze Beetle',      {sm0:{t:'beetle',r:'brz'}, sm1:{t:'beetle',r:'brz'}, sac:{t:'sac',high:false}}],
+  ['2× Mithril Beetle',     {sm0:{t:'beetle',r:'mth'}, sm1:{t:'beetle',r:'mth'}, sac:{t:'sac',high:true}}],
+  ['2× Adamantine Beetle',  {sm0:{t:'beetle',r:'adm'}, sm1:{t:'beetle',r:'adm'}, sac:{t:'sac',high:true}}],
+  ['2× Tin Flower',         {sm0:{t:'flower',r:'tin'}, sm1:{t:'flower',r:'tin'}, sac:{t:'sac',high:false}}],
+  ['2× Bronze Flower',      {sm0:{t:'flower',r:'brz'}, sm1:{t:'flower',r:'brz'}, sac:{t:'sac',high:false}}],
+  ['2× Mithril Flower',     {sm0:{t:'flower',r:'mth'}, sm1:{t:'flower',r:'mth'}, sac:{t:'sac',high:true}}],
+  ['2× Adamantine Flower',  {sm0:{t:'flower',r:'adm'}, sm1:{t:'flower',r:'adm'}, sac:{t:'sac',high:true}}],
+  ['Tin Beetle + Junk Cube',        {sm0:{t:'beetle',r:'tin'}, sm1:{k:'junk_cube_t1'}, sac:{t:'sac',high:false}}],
+  ['Bronze Beetle + Junk Cube',     {sm0:{t:'beetle',r:'brz'}, sm1:{k:'junk_cube_t1'}, sac:{t:'sac',high:false}}],
+  ['Mithril Beetle + Junk Cube',    {sm0:{t:'beetle',r:'mth'}, sm1:{k:'junk_cube_t1'}, sac:{t:'sac',high:true}}],
+  ['Adamantine Beetle + Junk Cube', {sm0:{t:'beetle',r:'adm'}, sm1:{k:'junk_cube_t1'}, sac:{t:'sac',high:true}}],
+  ['Bronze Beetle + Bronze Pollen', {sm0:{t:'beetle',r:'brz'}, sm1:{k:'pollen_uncommon'}, sac:{t:'sac',high:false}}],
+  ['Mithril Beetle + Mithril Pollen',{sm0:{t:'beetle',r:'mth'},sm1:{k:'pollen_rare'},     sac:{t:'sac',high:true}}],
+  ['Nectar + Ladybug',       {sm0:{k:'nectar'},   sm1:{k:'ladybug'}, sac:{t:'sac',high:true}}],
+  ['Cattail + Ladybug',      {sm0:{k:'cattail'},  sm1:{k:'ladybug'}, sac:{t:'sac',high:true}}],
+  ['Pinecone + Pond Beetle', {sm0:{k:'pinecone'}, sm1:{k:'pond'},    sac:{t:'sac',high:true}}],
+  ['Moss + Pond Beetle',     {sm0:{k:'moss'},     sm1:{k:'pond'},    sac:{t:'sac',high:true}}],
+  ['Gunpowder + Pond Beetle',{sm0:{k:'gunpowder'},sm1:{k:'pond'},    sac:{t:'sac',high:true}}],
   ['Gunpowder + Moss + Pinecone',   {sm0:{k:'gunpowder'}, sm1:{k:'moss'}, sac:{k:'pinecone'}}],
-  ['Fringed Iris + Monarch (sac Purple)', {sm0:{k:'fringed_iris'},sm1:{k:'monarch'},sac:{k:'purple'}}],
-  ['Fringed Iris + Pond (sac Purple)',    {sm0:{k:'fringed_iris'},sm1:{k:'pond'},   sac:{k:'purple'}}],
-  ['Royal Poinciana + Mithril Beetle',{sm0:{k:'royal_poinciana'},sm1:{t:'beetle',r:'mth'},sac:{t:'beetle',r:'tin'}}],
-  ['Camellia + Mithril Beetle',       {sm0:{k:'camellia'},      sm1:{t:'beetle',r:'mth'},sac:{t:'beetle',r:'tin'}}],
-  ['Morning Glory + Mithril Beetle',  {sm0:{k:'morning_glory'}, sm1:{t:'beetle',r:'mth'},sac:{t:'beetle',r:'tin'}}],
-  ['Pincushion + Adamantine Beetle',  {sm0:{k:'pincushion'},    sm1:{t:'beetle',r:'adm'},sac:{t:'beetle',r:'tin'}}],
-  ['Gazania + Adamantine Beetle',     {sm0:{k:'gazania'},       sm1:{t:'beetle',r:'adm'},sac:{t:'beetle',r:'tin'}}],
+  ['Fringed Iris + Monarch', {sm0:{k:'fringed_iris'},sm1:{k:'monarch'},sac:{t:'sac',high:true}}],
+  ['Fringed Iris + Pond',    {sm0:{k:'fringed_iris'},sm1:{k:'pond'},   sac:{t:'sac',high:true}}],
+  ['Royal Poinciana + Monarch',        {sm0:{k:'royal_poinciana'},sm1:{k:'monarch'},      sac:{t:'sac',high:true}}],
+  ['Royal Poinciana + Pond',           {sm0:{k:'royal_poinciana'},sm1:{k:'pond'},          sac:{t:'sac',high:true}}],
+  ['Camellia + Monarch',               {sm0:{k:'camellia'},       sm1:{k:'monarch'},        sac:{t:'sac',high:true}}],
+  ['Camellia + Pond',                  {sm0:{k:'camellia'},       sm1:{k:'pond'},           sac:{t:'sac',high:true}}],
+  ['Morning Glory + Monarch',          {sm0:{k:'morning_glory'},  sm1:{k:'monarch'},        sac:{t:'sac',high:true}}],
+  ['Morning Glory + Pond',             {sm0:{k:'morning_glory'},  sm1:{k:'pond'},           sac:{t:'sac',high:true}}],
+  ['Pincushion + Goliath',             {sm0:{k:'pincushion'},     sm1:{k:'goliath'},        sac:{t:'sac',high:true}}],
+  ['Pincushion + Stag',                {sm0:{k:'pincushion'},     sm1:{k:'stag'},           sac:{t:'sac',high:true}}],
+  ['Pincushion + Bombardier',          {sm0:{k:'pincushion'},     sm1:{k:'bombardier'},     sac:{t:'sac',high:true}}],
+  ['Gazania + Goliath',                {sm0:{k:'gazania'},        sm1:{k:'goliath'},        sac:{t:'sac',high:true}}],
+  ['Gazania + Stag',                   {sm0:{k:'gazania'},        sm1:{k:'stag'},           sac:{t:'sac',high:true}}],
+  ['Gazania + Bombardier',             {sm0:{k:'gazania'},        sm1:{k:'bombardier'},     sac:{t:'sac',high:true}}],
   ['Black Lotus + Sabertooth Longhorn + Sunset Moth',{sm0:{k:'black_lotus'},sm1:{k:'sabertooth_longhorn'},sac:{k:'sunset_moth'}}],
-  ['Monarch + Two-spike Larkspur + Purple (sac)',    {sm0:{k:'monarch'},sm1:{k:'larkspur'},sac:{k:'purple'}}],
-  ['Specimen Pin + Any Beetle + Green (sac)',         {sm0:{k:'specimen_pin'},sm1:{t:'beetle'},sac:{k:'green'}}],
+  ['Two-spike Larkspur + Monarch',     {sm0:{k:'larkspur'},       sm1:{k:'monarch'},        sac:{t:'sac',high:true}}],
+  ['Two-spike Larkspur + Pond',        {sm0:{k:'larkspur'},       sm1:{k:'pond'},           sac:{t:'sac',high:true}}],
+  ['Specimen Pin + Any Beetle',        {sm0:{k:'specimen_pin'},sm1:{t:'beetle'},sac:{t:'sac',high:false}}],
+  ['Purple Passionflower + Adamantine Beetle',{sm0:{k:'passionflower'},sm1:{t:'beetle',r:'adm'},sac:{t:'sac',high:true}}],
+  ['Green Hellebore + Adamantine Beetle',     {sm0:{k:'hellebore'},    sm1:{t:'beetle',r:'adm'},sac:{t:'sac',high:true}}],
 ]);
+
+// ── SEE ALSO ──────────────────────────────────────────────────────────────────
+// Quick-navigation cross-links for the item info "See also" section.
+// Trophy ↔ item links are auto-generated from TROPHY_REPEAT.
+// Most links here are auto-generated from SMASH_FILL_MAP + RECIPES.
+const SEE_ALSO = (() => {
+  const map = new Map();
+  const add = (a, b) => {
+    if (!a || !b || a === b) return;
+    if (!map.has(a)) map.set(a, []);
+    if (!map.get(a).includes(b)) map.get(a).push(b);
+  };
+  const link = (a, b) => { add(a, b); add(b, a); };
+
+  // Reverse name lookup: display name (lowercase) → item key
+  const nameRev = Object.fromEntries(Object.entries(NAMES).map(([k, v]) => [v.toLowerCase(), k]));
+
+  // Auto-generate from SMASH_FILL_MAP:
+  // — link every pair of concrete ingredient slots to each other
+  // — link every concrete ingredient to the recipe output
+  for (const [label, spec] of SMASH_FILL_MAP) {
+    const slots = [spec.sm0, spec.sm1, spec.sac].filter(s => s?.k).map(s => s.k);
+    for (let i = 0; i < slots.length; i++)
+      for (let j = i + 1; j < slots.length; j++)
+        link(slots[i], slots[j]);
+    const recipe = RECIPES.find(([ing]) => ing === label);
+    if (recipe) {
+      const outKey = nameRev[recipe[1].toLowerCase()];
+      if (outKey) slots.forEach(k => link(k, outKey));
+    }
+  }
+
+  // Auto-generate from AR (assemble recipes):
+  // — link every concrete ingredient ↔ the output
+  // — link sibling ingredients to each other (they go together in the same recipe)
+  for (const r of AR) {
+    const ingKeys = r.ing.filter(i => 'key' in i).map(i => i.key);
+    ingKeys.forEach(k => link(k, r.out));
+    for (let i = 0; i < ingKeys.length; i++)
+      for (let j = i + 1; j < ingKeys.length; j++)
+        link(ingKeys[i], ingKeys[j]);
+  }
+
+  // Trophy ↔ item cross-links for all trophies (including unknown ones with no repeat recipe)
+  for (const [trophyKey] of TROPHIES) {
+    const itemKey = trophyKey.replace('trophy_', '');
+    link(trophyKey, itemKey);
+  }
+
+  // Manual additions not captured by SMASH_FILL_MAP or AR
+  link('green',           'purple');           // sac beetle pair
+  link('pollen_common',   'pollen_uncommon');  // pollen progression chain
+  link('pollen_uncommon', 'pollen_rare');
+  link('pollen_rare',     'pollen_super_rare');
+  link('junk_cube_t1',    'junk_cube_t2');     // junk cube tiers
+
+  return map;
+})();

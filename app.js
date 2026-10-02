@@ -12,7 +12,7 @@ const CHAT_URL           = 'chatroom.php';
 // ── UI CONSTANTS ─────────────────────────────────────────────────────────────
 const ASM_SLOTS   = ['asm0','asm1','asm2','asm3'];
 const SMASH_SLOTS = ['sm0','sm1'];
-const ALL_SLOTS   = [...ASM_SLOTS, 'sm0','sm1','smsac','smhammer'];
+const ALL_SLOTS   = [...ASM_SLOTS, 'sm0','sm1','smsac','smhammer','smhammer_bk'];
 
 const SCREEN = { LOG:'log', ASSEMBLE:'assemble', SMASH:'smash', ITEM:'item' };
 
@@ -22,7 +22,8 @@ const RARITY_NAMES = {
 };
 
 // ── THEMES ────────────────────────────────────────────────────────────────────
-const LS_THEME  = 'bb_theme';
+const LS_THEME       = 'bb_theme';
+const LS_AUTO_HAMMER = 'bb_auto_hammer';
 const LS_SCHEME = 'bb_scheme'; // 'light' | 'dark' | unset (follows system)
 const THEMES = [
   { id: 'indigo', name: 'Indigo',  c1: '#20264c', c2: '#0c1020', lc1: '#4050b8', lc2: '#2c3890' },
@@ -35,6 +36,48 @@ const THEMES = [
   { id: 'orange', name: 'Orange',  c1: '#2e1a04', c2: '#0c0802', lc1: '#b84818', lc2: '#883010' },
 ];
 
+const TIPS = [
+  'Mithril Hammers have a higher break chance than bronze!',
+  'Diamond Hammers will dramatically improve your odds!',
+  'Have you heard about Junk Spheres?',
+  "Don't try to make diamond pollen!",
+  'Did you know you can get Specimen Pins from hunting?',
+  'The D20 and Deck of Cards can be dropped from hunting!',
+  'Click the SP to find the secret color picker!',
+  'Can a mouse have some cheddar?',
+  'Godzamn, I need more adamantine pollen.',
+  'Have you heard of Ray Peat?',
+  "Don't try to craft more than 30 things at once...",
+  'Contribute to the beetle wiki!',
+  'You should really tell Sneed about any bugs you find. No, not that kind of bug.',
+  "I'm just a Grigger in a Scarab World.",
+  'Give me money',
+  'Purple sacrifices increase your odds!',
+  'Nothing ever happens.',
+  'Can someone please give me the freaking lighter recipe?',
+  "Please don't smash me, please im begging you...",
+  "It's so over for a tincel like me.",
+  'I hate you.',
+  'I love you.',
+  'MUP DA DOO DIDDA PO MO GUB BIDDA BE DAT TUM MUHFUGEN BIX NOOD COF BIN DUB HO',
+  '/unlockchat',
+  '*pokes you*',
+  "I'm busy.",
+  'Leave me alone.',
+  'sport car',
+  'I love pineapple on pizza.',
+  'Set a backup hammer to use when your main one breaks.',
+  'If you have the materials ready, you can automatically replace broken hammers.',
+  'I use Arch btw.',
+  'Wayland is evil. X11 chuds will win.',
+  'Ethereum is the world computer.',
+  'Alt L1s are evil.',
+  'If it takes 1 hour to smash a batch of beetles and we have 15 hammers working 24 hours a day every day for 5 years, how long does it take us to smash 6000000 beetles?',
+  'yayo.supply/sneed',
+  'WAAAGH!',
+  '$CULT',
+  'Smoking weed makes you gay and retarded.'
+];
 
 function applyTheme(id) {
   if (id === 'indigo') delete document.body.dataset.theme;
@@ -161,6 +204,11 @@ function resolveSmashSpec(s, exclude = []) {
   if (!s) return null;
   const inv = state.inv;
   if (s.k) return (inv[s.k] || 0) > 0 ? s.k : null;
+  if (s.t === 'sac') {
+    if (s.high && (inv['purple'] || 0) > 0 && !exclude.includes('purple')) return 'purple';
+    if ((inv['green'] || 0) > 0 && !exclude.includes('green')) return 'green';
+    return null;
+  }
   const pool = s.t === 'beetle' ? BEETLES : s.t === 'flower' ? ALL_FLOWERS : [];
   return pool
     .filter(k => (!s.r || RARITY[k] === s.r) && !exclude.includes(k) && (inv[k] || 0) > 0)
@@ -173,6 +221,9 @@ function smashCraftable(spec) {
   const total = (s) => {
     if (!s) return Infinity;
     if (s.k) return inv[s.k] || 0;
+    if (s.t === 'sac') return s.high
+      ? (inv['purple'] || 0) + (inv['green'] || 0)
+      : (inv['green'] || 0);
     const pool = s.t === 'beetle' ? BEETLES : s.t === 'flower' ? ALL_FLOWERS : [];
     return pool.filter(k => !s.r || RARITY[k] === s.r).reduce((n, k) => n + (inv[k] || 0), 0);
   };
@@ -290,6 +341,44 @@ function autofillSmashHammer() {
   if (best) { slotState['smhammer'] = best; renderSlot('smhammer'); }
 }
 
+function renderHammerQuick() {
+  const el = document.getElementById('hammer-quick');
+  if (!el) return;
+  el.innerHTML = '';
+  const owned = HAMMERS.filter(h => (state.inv[h] || 0) > 0);
+  owned.forEach(h => {
+    const r = RARITY[h];
+    const isPrimary = slotState['smhammer'] === h;
+    const isBackup  = slotState['smhammer_bk'] === h;
+    const btn = document.createElement('button');
+    btn.className = 'hq-btn' + (isPrimary ? ' hq-active' : '') + (isBackup ? ' hq-backup' : '');
+    btn.style.setProperty('--hq-col', `var(--${r})`);
+    const img = document.createElement('img');
+    img.src = IMAGES[h];
+    img.alt = iname(h);
+    img.draggable = false;
+    btn.appendChild(img);
+    btn.title = iname(h) + (isPrimary ? ' (Primary)' : isBackup ? ' (Backup)' : '');
+    btn.addEventListener('click', () => {
+      if (isPrimary) {
+        slotState['smhammer'] = null; renderSlot('smhammer');
+      } else if (isBackup) {
+        slotState['smhammer_bk'] = null; renderSlot('smhammer_bk');
+      } else if (!slotState['smhammer']) {
+        slotState['smhammer'] = h; renderSlot('smhammer');
+      } else if (!slotState['smhammer_bk']) {
+        slotState['smhammer_bk'] = h; renderSlot('smhammer_bk');
+      } else {
+        slotState['smhammer'] = h; renderSlot('smhammer');
+      }
+      renderHammerQuick();
+      updatePreviews();
+    });
+    el.appendChild(btn);
+  });
+  updateAutoHammerCheckbox();
+}
+
 function previewSmash() {
   const s1 = slotState['sm0'] || null;
   const s2 = slotState['sm1'] || null;
@@ -348,6 +437,7 @@ function previewSmash() {
       'gazania+stag':          { out: 'Sunset Moth',             note: '' },
       'gazania+bombardier':    { out: 'Sunset Moth',             note: '' },
       'monarch+larkspur':      { out: 'Golden-Spotted Tiger Beetle', note: '' },
+      'pond+larkspur':         { out: 'Golden-Spotted Tiger Beetle', note: '' },
     })[pair] || null;
   };
   const exact = exactMatch(s1, s2) || exactMatch(s2, s1);
@@ -550,6 +640,15 @@ function renderLog() {
     if (cls) msgEl.className = `log-${cls}`;
     msgEl.textContent = msg;
     line.appendChild(msgEl);
+    const shareBtn = document.createElement('button');
+    shareBtn.className = 'log-share';
+    shareBtn.textContent = 'SHARE';
+    shareBtn.addEventListener('click', () => {
+      const input = document.getElementById('chat-input');
+      input.value = msg;
+      sendChatMsg();
+    });
+    line.appendChild(shareBtn);
     el.appendChild(line);
   }
 }
@@ -562,6 +661,7 @@ function renderAll() {
   renderBeetledex();
   renderTrophies();
   renderCraftable();
+  renderHammerQuick();
 }
 
 // ── NOTIFICATIONS ─────────────────────────────────────────────────────────────
@@ -681,10 +781,19 @@ function renderSlot(slotId) {
     });
   } else {
     const lbls = { asm0:'Slot 1', asm1:'Slot 2', asm2:'Slot 3', asm3:'Slot 4',
-                   sm0:'Slot 1', sm1:'Slot 2 (opt)', smsac:'Sacrifice', smhammer:'Hammer' };
+                   sm0:'Slot 1', sm1:'Slot 2 (opt)', smsac:'Sacrifice', smhammer:'Hammer', smhammer_bk:'Backup' };
     el.innerHTML = `<span class="sm-slot-lbl">${lbls[slotId] || slotId}</span>`;
   }
   updatePreviews();
+  if (slotId === 'smhammer_bk') updateAutoHammerCheckbox();
+}
+
+function updateAutoHammerCheckbox() {
+  const chk = document.getElementById('chk-auto-hammer');
+  if (!chk) return;
+  const hasBackup = !!slotState['smhammer_bk'];
+  chk.disabled = hasBackup;
+  chk.closest('label').style.opacity = hasBackup ? '0.4' : '';
 }
 
 function wireSlots() {
@@ -801,7 +910,7 @@ function openCard(key) {
     const ingDesc = recipe.ing.map(ing =>
       'group' in ing ? `${ingGroupLabel(ing.group)} ×${ing.qty}` : `${iname(ing.key)} ×${ing.qty}`
     ).join(' + ');
-    rcpHtml += `<div class="spi-rcp-title">ASSEMBLE</div><div class="spi-rcp-row spi-rcp-clickable" data-rcp="${idx}">${ingDesc}</div>`;
+    rcpHtml += `<div class="spi-rcp-title spi-rcp-title--assemble">ASSEMBLE</div><div class="spi-rcp-row spi-rcp-clickable" data-rcp="${idx}">${ingDesc}</div>`;
   }
 
   // Recipes that USE this item as an ingredient
@@ -814,7 +923,7 @@ function openCard(key) {
     return false;
   }));
   if (usedIn.length) {
-    rcpHtml += `<div class="spi-rcp-title">USED IN</div>`;
+    rcpHtml += `<div class="spi-rcp-title spi-rcp-title--used-in">USED IN</div>`;
     usedIn.forEach(r => {
       const idx = AR.indexOf(r);
       const ingDesc = r.ing.map(ing =>
@@ -826,11 +935,29 @@ function openCard(key) {
 
   // Smash recipes — match full item name to avoid false positives (e.g. "Junk" matching all junk smashes)
   const fullName = iname(key).toLowerCase();
-  const smashRows = HAMMERS.includes(key) ? [] : RECIPES.filter(([ing, out, typ]) =>
-    typ === 'smash' && (out.toLowerCase().includes(fullName) || ing.toLowerCase().includes(fullName))
-  );
+  const tierName = RARITY[key] ? RARITY_NAMES[RARITY[key]] : null;
+  const tierCategory = tierName && BEETLES.includes(key)     ? `${tierName.toLowerCase()} beetle`
+                     : tierName && ALL_FLOWERS.includes(key) ? `${tierName.toLowerCase()} flower`
+                     : null;
+  const smashIngRows = [], smashOutRows = [];
+  if (!HAMMERS.includes(key)) {
+    for (const row of RECIPES) {
+      const [ing, out, typ] = row;
+      if (typ !== 'smash') continue;
+      const ingL = ing.toLowerCase(), outL = out.toLowerCase();
+      const ingSpecific = ingL.includes(fullName);
+      const outSpecific = outL.includes(fullName);
+      const ingGeneric  = !ingSpecific && !outSpecific && tierCategory && ingL.includes(tierCategory);
+      const outGeneric  = !ingSpecific && !outSpecific && !ingGeneric && tierCategory && outL.includes(tierCategory);
+      if (ingSpecific) smashIngRows.push({ row, generic: false });
+      else if (outSpecific) smashOutRows.push({ row, generic: false });
+      else if (ingGeneric) smashIngRows.push({ row, generic: true });
+      else if (outGeneric) smashOutRows.push({ row, generic: true });
+    }
+  }
 
-  if (!rcpHtml && !smashRows.length) rcpHtml = `<div class="spi-rcp-title" style="margin-top:4px">No recipes found</div>`;
+  if (!rcpHtml && !smashIngRows.length && !smashOutRows.length)
+    rcpHtml = `<div class="spi-rcp-title" style="margin-top:4px">No recipes found</div>`;
   rcpEl.innerHTML = rcpHtml;
 
   // Make assemble rows clickable
@@ -846,19 +973,76 @@ function openCard(key) {
     });
   });
 
-  // Add smash rows with click support
-  if (smashRows.length) {
+  const makeSmashRowEl = (ing, out, note) => {
+    const spec = SMASH_FILL_MAP.get(ing);
+    const el = document.createElement('div');
+    el.className = 'spi-rcp-row' + (spec ? ' spi-rcp-clickable' : '');
+    el.innerHTML = `${esc(ing)} → ${esc(out)}${note ? ` <em>(${note})</em>` : ''}`;
+    if (spec) el.addEventListener('click', () => fillSmash(spec));
+    return el;
+  };
+
+  const addSmashSection = (entries, label, titleClass) => {
+    if (!entries.length) return;
+    const specific = entries.filter(e => !e.generic);
+    const generic  = entries.filter(e => e.generic);
+
     const title = document.createElement('div');
-    title.className = 'spi-rcp-title';
-    title.textContent = 'SMASH';
+    title.className = `spi-rcp-title ${titleClass}`;
+    title.textContent = label;
     rcpEl.appendChild(title);
-    smashRows.forEach(([ing, out,, note]) => {
-      const spec = SMASH_FILL_MAP.get(ing);
-      const row = document.createElement('div');
-      row.className = 'spi-rcp-row' + (spec ? ' spi-rcp-clickable' : '');
-      row.innerHTML = `${esc(ing)} → ${esc(out)}${note ? ` <em>(${note})</em>` : ''}`;
-      if (spec) row.addEventListener('click', () => fillSmash(spec));
-      rcpEl.appendChild(row);
+
+    specific.forEach(({ row: [ing, out,, note] }) => rcpEl.appendChild(makeSmashRowEl(ing, out, note)));
+
+    if (generic.length) {
+      if (generic.length <= 2) {
+        generic.forEach(({ row: [ing, out,, note] }) => rcpEl.appendChild(makeSmashRowEl(ing, out, note)));
+      } else {
+        const toggle = document.createElement('div');
+        toggle.className = 'spi-rcp-generic-toggle';
+        const updateToggle = open =>
+          toggle.textContent = `${open ? '▼' : '▶'} ${generic.length} tier recipes`;
+        updateToggle(false);
+
+        const container = document.createElement('div');
+        container.className = 'spi-rcp-generic-rows';
+        container.hidden = true;
+        generic.forEach(({ row: [ing, out,, note] }) => container.appendChild(makeSmashRowEl(ing, out, note)));
+
+        toggle.addEventListener('click', () => {
+          container.hidden = !container.hidden;
+          updateToggle(!container.hidden);
+        });
+
+        rcpEl.appendChild(toggle);
+        rcpEl.appendChild(container);
+      }
+    }
+  };
+
+  addSmashSection(smashIngRows, 'SMASH',      'spi-rcp-title--smash');
+  addSmashSection(smashOutRows, 'SMASH FROM', 'spi-rcp-title--smash-from');
+
+  // See also — trophy ↔ item cross-links + manual SEE_ALSO entries
+  const seeAlso = [];
+  const repeatItemKey = TROPHY_REPEAT[key];
+  const reqTrophyKey  = AR_BY_OUT[key]?.reqTrophy;
+  if (repeatItemKey) seeAlso.push(repeatItemKey);
+  if (reqTrophyKey)  seeAlso.push(reqTrophyKey);
+  (SEE_ALSO.get(key) || []).forEach(k => { if (!seeAlso.includes(k)) seeAlso.push(k); });
+
+  if (seeAlso.length) {
+    const saTitle = document.createElement('div');
+    saTitle.className = 'spi-rcp-title spi-rcp-title--see-also';
+    saTitle.textContent = 'SEE ALSO';
+    rcpEl.appendChild(saTitle);
+    seeAlso.forEach(k => {
+      const el = document.createElement('div');
+      el.className = 'spi-rcp-row spi-rcp-clickable';
+      const img = IMAGES[k];
+      el.innerHTML = (img ? `<img class="spi-see-also-icon" src="${esc(img)}" alt="">` : '') + esc(iname(k));
+      el.addEventListener('click', () => openCard(k));
+      rcpEl.appendChild(el);
     });
   }
 }
@@ -913,7 +1097,14 @@ function renderInventory() {
         }
       } else if (screenMode === SCREEN.SMASH) {
         if (HAMMERS.includes(k)) {
-          slotState['smhammer'] = k; renderSlot('smhammer'); return;
+          if (!slotState['smhammer'] || slotState['smhammer'] === k) {
+            slotState['smhammer'] = k; renderSlot('smhammer');
+          } else if (!slotState['smhammer_bk'] || slotState['smhammer_bk'] === k) {
+            slotState['smhammer_bk'] = k; renderSlot('smhammer_bk');
+          } else {
+            slotState['smhammer'] = k; renderSlot('smhammer');
+          }
+          renderHammerQuick(); return;
         }
         const slots = BEETLES.includes(k) ? ['smsac','sm0','sm1']
                     : k === '_junk_'       ? ['sm0','sm1']
@@ -938,10 +1129,13 @@ function renderTrophies() {
 
   const rows = TROPHIES.map(([key, tname, known]) => {
     const have = (inv[key] || 0) > 0;
+    const iconSrc = IMAGES[key];
+    const iconHtml = iconSrc
+      ? `<img class="tr-icon" src="${esc(iconSrc)}" alt="">`
+      : `<span class="tr-icon"></span>`;
     if (have) {
-      return `<div class="tr-row tr-owned">
-        <span class="tr-check">✓</span>
-        <span class="tr-name">${esc(tname)}</span>
+      return `<div class="tr-row tr-owned tr-clickable" data-key="${esc(key)}">
+        ${iconHtml}<span class="tr-check">✓</span><span class="tr-name">${esc(tname)}</span>
       </div>`;
     }
     if (known) {
@@ -963,27 +1157,30 @@ function renderTrophies() {
       } else {
         needHtml = `<div class="tr-ing tr-hunt">Obtained through beetle hunting</div>`;
       }
-      return `<div class="tr-row tr-uncollected">
-        <span class="tr-check">○</span>
-        <span class="tr-name">${esc(tname)}</span>
+      return `<div class="tr-row tr-uncollected tr-clickable" data-key="${esc(key)}">
+        ${iconHtml}<span class="tr-check">○</span><span class="tr-name">${esc(tname)}</span>
         ${needHtml}
       </div>`;
     }
-    return `<div class="tr-row tr-unknown">
-      <span class="tr-check">?</span>
-      <span class="tr-name">${esc(tname)}</span>
+    return `<div class="tr-row tr-unknown tr-clickable" data-key="${esc(key)}">
+      ${iconHtml}<span class="tr-check">?</span><span class="tr-name">${esc(tname)}</span>
     </div>`;
   }).join('');
 
-  document.getElementById('left-mode-trphy').innerHTML =
+  const container = document.getElementById('left-mode-trphy');
+  container.innerHTML =
     `<div class="tr-header">${owned} / ${total} collected</div>` +
     `<div class="tr-list">${rows}</div>`;
+
+  container.querySelectorAll('.tr-clickable[data-key]').forEach(row => {
+    row.addEventListener('click', () => openCard(row.dataset.key));
+  });
 }
 
 function renderCraftable() {
   const inv = state.inv;
   const craftable = AR
-    .filter(r => !(r.unique && (inv[r.out] || 0) > 0 && !TROPHY_REPEAT[r.out]))
+    .filter(r => !(r.unique && (inv[r.out] || 0) > 0))
     .filter(r => !r.reqTrophy || (inv[r.reqTrophy] || 0) > 0)
     .map(r => ({ r, n: craftCount(r, inv) }))
     .filter(({ n }) => n > 0);
@@ -1139,6 +1336,41 @@ function makeAsmRow(r, inv) {
   return row;
 }
 
+function smashSlotHtml(s, qty = 1) {
+  if (!s) return '';
+  const pre = qty > 1 ? `${qty}× ` : '';
+  if (s.k) return `<span class="${rcls(s.k)}">${pre}${esc(iname(s.k))}</span>`;
+  if (s.t === 'sac') {
+    const label = s.high ? 'Purple/Green Beetle' : 'Green Beetle';
+    return `<span class="${s.high ? 'r-brz' : 'r-tin'}">${pre}${label}</span>`;
+  }
+  const rStr = s.r || '';
+  const label = `${RARITY_NAMES[rStr] || ''} ${s.t === 'beetle' ? 'Beetle' : 'Flower'}`;
+  return `<span class="r-${rStr}">${pre}${esc(label.trim())}</span>`;
+}
+
+function smashIngHtml(spec, ingFallback) {
+  if (!spec) return esc(ingFallback);
+  const { sm0, sm1, sac } = spec;
+  const linked = sm0 && sm1 && (
+    (sm0.k && sm0.k === sm1.k) ||
+    (sm0.t && sm0.t === sm1.t && sm0.r === sm1.r)
+  );
+  const parts = [];
+  if (linked) parts.push(smashSlotHtml(sm0, 2));
+  else { if (sm0) parts.push(smashSlotHtml(sm0)); if (sm1) parts.push(smashSlotHtml(sm1)); }
+  if (sac?.k) parts.push(smashSlotHtml(sac));
+  return parts.filter(Boolean).join('<span class="rcp-plus"> + </span>');
+}
+
+function smashOutClass(out) {
+  const key = Object.entries(NAMES).find(([, n]) => n === out)?.[0];
+  if (key) return rcls(key);
+  for (const [r, name] of Object.entries(RARITY_NAMES))
+    if (out.toLowerCase().includes(name.toLowerCase())) return `r-${r}`;
+  return '';
+}
+
 function makeSmashRow(ing, out, note) {
   const inv       = state.inv;
   const spec      = SMASH_FILL_MAP.get(ing);
@@ -1150,9 +1382,9 @@ function makeSmashRow(ing, out, note) {
   const main = document.createElement('div');
   main.className = 'rcp-main';
   main.innerHTML =
-    `<span class="rcp-lhs">${esc(ing)}</span>` +
+    `<span class="rcp-lhs">${smashIngHtml(spec, ing)}</span>` +
     `<span class="rcp-arr">→</span>` +
-    `<span class="rcp-rhs">${esc(out)}</span>` +
+    `<span class="rcp-rhs ${smashOutClass(out)}">${esc(out)}</span>` +
     `<span class="rcp-ready-dot${craftable ? '' : ' rcp-dot-off'}"></span>`;
   row.appendChild(main);
 
@@ -1168,11 +1400,21 @@ function makeSmashRow(ing, out, note) {
   if (!craftable && spec) {
     const parts  = [];
     const rname  = r => RARITY_NAMES[r] || r || '';
-    const sLabel = s => s ? (s.k ? iname(s.k) : `${rname(s.r)} ${s.t === 'beetle' ? 'Beetle' : 'Flower'}`) : '';
+    const sLabel = s => {
+      if (!s) return '';
+      if (s.k) return iname(s.k);
+      if (s.t === 'sac') return s.high ? 'Purple or Green Beetle' : 'Green Beetle';
+      return `${rname(s.r)} ${s.t === 'beetle' ? 'Beetle' : 'Flower'}`;
+    };
     const checkSpec = (s, label) => {
       if (!s) return;
       if (s.k) {
         if ((inv[s.k] || 0) < 1) parts.push(`${iname(s.k)} ×1`);
+        return;
+      }
+      if (s.t === 'sac') {
+        const have = s.high ? (inv['purple'] || 0) + (inv['green'] || 0) : (inv['green'] || 0);
+        if (have < 1) parts.push(`${label} ×1`);
         return;
       }
       const pool = s.t === 'beetle' ? BEETLES : s.t === 'flower' ? ALL_FLOWERS : [];
@@ -1206,6 +1448,7 @@ function renderRecipes(filter = '') {
   const inv = state.inv;
 
   const asmRows = AR
+    .filter(r => !(TROPHY_REPEAT[r.out] && (inv[r.out] || 0) > 0))
     .filter(r => !r.reqTrophy || (inv[r.reqTrophy] || 0) > 0)
     .filter(r => !q ||
       (r.name ?? iname(r.out)).toLowerCase().includes(q) ||
@@ -1421,7 +1664,8 @@ const CHAT_REACTS     = ['😹', '🤍', '👍', '🪲'];
 let chatSource    = null; // EventSource
 let chatLastId    = null;
 let replyTarget       = null;
-let pendingAttachment = null; // { file }
+let pendingAttachment     = null; // { file }
+const pendingImageUpdates = new Map(); // postId → imageUrl (from op 06 arriving before op 01)
 
 async function uploadChatImage(file) {
   const { access } = getTokens();
@@ -1431,13 +1675,12 @@ async function uploadChatImage(file) {
   fd.append('image', file);
   try {
     const r = await fetch('upload.php', { method: 'POST', body: fd });
-    if (!r.ok) return null;
     const j = await r.json();
-    if (!j.url) return null;
-    // Build absolute URL so it renders as an image everywhere
+    console.log('[upload]', r.status, j);
+    if (!r.ok || !j.url) return null;
     const base = location.href.replace(/[^/]*$/, '');
     return base + j.url;
-  } catch { return null; }
+  } catch (e) { console.error('[upload] error', e); return null; }
 }
 
 function setPendingAttachment(file) {
@@ -1477,13 +1720,18 @@ function openChatStream() {
       }
       if (d.type === 'imageUpdate' && d.id && d.imageUrl) {
         const el = renderedPostEls.get(d.id);
-        if (el && !el.querySelector('.chat-img')) {
-          const textEl = el.querySelector('.chat-text');
-          const imgEl  = document.createElement('img');
-          imgEl.className = 'chat-img'; imgEl.alt = ''; imgEl.loading = 'lazy';
-          imgEl.onerror = () => imgEl.style.display = 'none';
-          imgEl.src = d.imageUrl;
-          textEl?.insertAdjacentElement('afterend', imgEl);
+        if (el) {
+          if (!el.querySelector('.chat-img')) {
+            const textEl = el.querySelector('.chat-text');
+            const imgEl  = document.createElement('img');
+            imgEl.className = 'chat-img'; imgEl.alt = ''; imgEl.loading = 'lazy';
+            imgEl.onerror = () => imgEl.style.display = 'none';
+            imgEl.src = d.imageUrl;
+            textEl?.insertAdjacentElement('afterend', imgEl);
+          }
+        } else {
+          // Post not rendered yet — buffer so appendChatPosts can apply it
+          pendingImageUpdates.set(d.id, d.imageUrl);
         }
         return;
       }
@@ -1608,7 +1856,7 @@ function appendChatPosts(posts, isInit) {
   const box = document.getElementById('chat-messages');
   if (!box) return;
   const atBottom = box.scrollHeight - box.scrollTop <= box.clientHeight + 60;
-  if (isInit) { box.innerHTML = ''; renderedPostEls.clear(); }
+  if (isInit) { box.innerHTML = ''; renderedPostEls.clear(); pendingImageUpdates.clear(); }
   const myUser = state.user?.username || '';
   for (const p of posts) {
     const pdname = p.user?.displayname || p.user?.username || p.name || '';
@@ -1686,7 +1934,8 @@ function appendChatPosts(posts, isInit) {
         CHAT_REACTS.map(e => `<button class="chat-action-btn react-trigger" data-emoji="${e}" data-msgid="${p.id}">${e}</button>`).join('')
       }<button class="chat-action-btn reply-trigger" data-msgid="${p.id}" data-uname="${esc(uname)}" data-dname="${name}" data-body="${esc(bodyToPlainText(p.body||'').slice(0,100))}">↩</button></div>`;
 
-      const imageUrl = p.imageUrl || miladychanImageUrl(p.image);
+      const imageUrl = p.imageUrl || miladychanImageUrl(p.image) || pendingImageUpdates.get(p.id) || null;
+      if (p.id > 0) pendingImageUpdates.delete(p.id);
       el.innerHTML =
         profileLink(avatar) +
         `<div class="chat-body">` +
@@ -1767,7 +2016,14 @@ async function sendChatMsg() {
   if (attach) {
     clearPendingAttachment();
     const imgUrl = await uploadChatImage(attach.file);
-    if (imgUrl) msg = msg ? msg + '\n' + imgUrl : imgUrl;
+    if (imgUrl) {
+      msg = msg ? msg + '\n' + imgUrl : imgUrl;
+    } else if (!msg) {
+      input.disabled = false;
+      showInAppNotif('Image upload failed.');
+      input.focus();
+      return;
+    }
   }
   if (!msg) { input.disabled = false; input.focus(); return; }
 
@@ -1857,7 +2113,7 @@ function renderBeetledex() {
       const scene  = getScene(k);
       const icon   = IMAGES[`_card_${k}`] || IMAGES[k];
       const bgStyle = scene ? `background-image:url('${scene}');background-size:cover;background-position:center` : '';
-      html += `<div class="dex-card ${have ? 'dex-have' : 'dex-missing'}" style="--rarity-col:${tier.color}" title="${esc(iname(k))}">
+      html += `<div class="dex-card ${have ? 'dex-have' : 'dex-missing'}" style="--rarity-col:${tier.color}" title="${esc(iname(k))}"${have ? ` data-key="${esc(k)}"` : ''}>
         <div class="dex-card-art" style="${bgStyle}">
           ${scene ? '<div class="dex-art-overlay"></div>' : ''}
           ${icon ? `<img class="dex-card-icon" src="${icon}" alt="" onerror="this.style.display='none'">` : ''}
@@ -1868,7 +2124,12 @@ function renderBeetledex() {
     }
     html += '</div>';
   }
-  document.getElementById('left-mode-dex').innerHTML = html;
+  const dexEl = document.getElementById('left-mode-dex');
+  dexEl.innerHTML = html;
+  dexEl.querySelectorAll('.dex-card[data-key]').forEach(card => {
+    card.style.cursor = 'pointer';
+    card.addEventListener('click', () => openCard(card.dataset.key));
+  });
 }
 
 // ── MODE SWITCHING ────────────────────────────────────────────────────────────
@@ -1953,6 +2214,95 @@ async function doAssemble() {
   btn.disabled = false;
 }
 
+async function autoRepairHammer(brokenKey) {
+  const brokenIdx = HAMMERS.indexOf(brokenKey);
+  if (brokenIdx < 0) return false;
+
+  log(`⚒ ${iname(brokenKey)} broke — attempting auto-repair…`, 'warn');
+
+  // Find the highest hammer we still own below the broken tier
+  let highestIdx = -1;
+  for (let i = brokenIdx - 1; i >= 0; i--) {
+    if ((state.inv[HAMMERS[i]] || 0) > 0) { highestIdx = i; break; }
+  }
+
+  // No hammer at all — try to craft T1 from scratch
+  if (highestIdx === -1) {
+    const t1r = AR_BY_OUT['hammer_t1'];
+    if (craftCount(t1r, state.inv) <= 0) {
+      log('⚒ No hammers and not enough materials to craft one.', 'warn');
+      return false;
+    }
+    log(`⚒ Crafting ${iname('hammer_t1')}…`);
+    const [s1, s2] = pickSlots(t1r, state.inv);
+    const r = await apiPost('/api/beetle/action/craft', { type:1, slot1:s1, ...(s2?{slot2:s2}:{}) });
+    if (!r || r.success === false) return false;
+    await loadState(true);
+    if ((state.inv['hammer_t1'] || 0) <= 0) return false;
+    highestIdx = 0;
+  }
+
+  // Simulate the full upgrade path to brokenIdx to verify it's affordable
+  const upSim = { ...state.inv };
+  for (let t = highestIdx + 1; t <= brokenIdx; t++) {
+    const r = AR_BY_OUT[HAMMERS[t]];
+    if (craftCount(r, upSim) <= 0) {
+      log(`⚒ Not enough materials to upgrade to ${iname(HAMMERS[t])}.`, 'warn');
+      return false;
+    }
+    for (const ing of r.ing) if ('key' in ing) upSim[ing.key] = (upSim[ing.key] || 0) - ing.qty;
+    upSim[HAMMERS[t]] = 1;
+  }
+
+  // Perform the upgrades
+  for (let t = highestIdx + 1; t <= brokenIdx; t++) {
+    const key = HAMMERS[t];
+    log(`⚒ Crafting ${iname(key)}…`);
+    const slots = pickSlots(AR_BY_OUT[key], state.inv);
+    if (!slots) return false;
+    const [s1, s2, s3] = slots;
+    const r = await apiPost('/api/beetle/action/craft', { type:1, slot1:s1, ...(s2?{slot2:s2}:{}), ...(s3?{slot3:s3}:{}) });
+    if (!r || r.success === false) { log(`⚒ Failed to craft ${iname(key)}.`, 'warn'); return false; }
+    await loadState(true);
+    log(`⚒ ✓ ${iname(key)} crafted.`);
+  }
+
+  // Put the repaired hammer back in the smash slot
+  slotState['smhammer'] = brokenKey;
+  log(`⚒ ${iname(brokenKey)} restored — resuming batch.`);
+
+  // Attempt full restoration of lower-tier hammers, but only if ALL can be restored
+  const restoreSim = { ...state.inv };
+  let canRestore = true;
+  for (let t = brokenIdx - 1; t >= 0; t--) {
+    if ((restoreSim[HAMMERS[t]] || 0) > 0) continue;
+    const r = AR_BY_OUT[HAMMERS[t]];
+    if (craftCount(r, restoreSim) <= 0) { canRestore = false; break; }
+    for (const ing of r.ing) if ('key' in ing) restoreSim[ing.key] = (restoreSim[ing.key] || 0) - ing.qty;
+    restoreSim[HAMMERS[t]] = 1;
+  }
+
+  if (canRestore) {
+    for (let t = brokenIdx - 1; t >= 0; t--) {
+      if ((state.inv[HAMMERS[t]] || 0) > 0) continue;
+      const key = HAMMERS[t];
+      log(`⚒ Restoring ${iname(key)}…`);
+      const slots = pickSlots(AR_BY_OUT[key], state.inv);
+      if (!slots) break;
+      const [s1, s2, s3] = slots;
+      await apiPost('/api/beetle/action/craft', { type:1, slot1:s1, ...(s2?{slot2:s2}:{}), ...(s3?{slot3:s3}:{}) });
+      await loadState(true);
+      log(`⚒ ✓ ${iname(key)} restored.`);
+    }
+  } else {
+    log('⚒ Not enough materials to restore lower hammers — skipping.');
+  }
+
+  renderSlot('smhammer');
+  renderHammerQuick();
+  return true;
+}
+
 async function doSmash() {
   if (!slotState['sm0'] || !slotState['smsac'] || !slotState['smhammer'])
     { setResult('smash-result2', 'Need Slot 1, Sacrifice and Hammer.'); return; }
@@ -1967,18 +2317,47 @@ async function doSmash() {
     const body = { type: 2, slot1: s1, sacrifice: slotState['smsac'] || '', hammer: slotState['smhammer'] || '', ...(s2 ? { slot2: s2 } : {}) };
     const result = await apiPost('/api/beetle/action/craft', body);
     if (!result) break;
-    if (result.success === false) { lastError = result.message || 'Failed.'; setResult('smash-result2', lastError); break; }
+    if (result.success === false) {
+      if (result.message === 'UNLUCKY_ROLL') { log('✗ Unlucky roll.', 'warn'); continue; }
+      lastError = result.message || 'Failed.'; setResult('smash-result2', lastError); break;
+    }
     lastLabel = resultLabel(result) || 'done';
     lastKey   = resultKey(result);
     successCount++;
-    if (i < repeatCount - 1) await loadState(true);
+    log(`✓ Got: ${lastLabel}`);
+    if (i < repeatCount - 1) {
+      await loadState(true);
+      if (slotState['smhammer'] && (state.inv[slotState['smhammer']] || 0) < 1) {
+        const brokenKey = slotState['smhammer'];
+        slotState['smhammer'] = null;
+        // Backup hammer takes over
+        if (slotState['smhammer_bk'] && (state.inv[slotState['smhammer_bk']] || 0) > 0) {
+          slotState['smhammer'] = slotState['smhammer_bk'];
+          slotState['smhammer_bk'] = null;
+          renderSlot('smhammer'); renderSlot('smhammer_bk');
+          renderHammerQuick(); updateAutoHammerCheckbox();
+          log(`⚒ ${iname(brokenKey)} broke — switched to backup ${iname(slotState['smhammer'])}.`, 'warn');
+          continue;
+        }
+        // No backup — try auto-repair
+        if (document.getElementById('chk-auto-hammer')?.checked) {
+          const repaired = await autoRepairHammer(brokenKey);
+          if (repaired) continue;
+        }
+        lastError = 'Hammer broke.';
+        break;
+      }
+    }
   }
   await loadState();
+  if (slotState['smhammer'] && (state.inv[slotState['smhammer']] || 0) < 1) {
+    slotState['smhammer'] = null;
+    renderSlot('smhammer');
+  }
   updatePreviews();
   if (successCount > 0) {
     const txt = repeatCount > 1 ? `✓ ×${successCount}: ${lastLabel}` : `✓ Got: ${lastLabel}`;
     setResult('smash-result2', txt, lastKey);
-    log(txt);
   } else if (lastError) {
     log(lastError, 'warn');
   }
@@ -2030,7 +2409,86 @@ function setupActionButtons() {
   document.getElementById('clear-assemble').addEventListener('click', () => clearSlots('asm'));
   document.getElementById('do-smash').addEventListener('click', doSmash);
   document.getElementById('clear-smash').addEventListener('click', () => clearSlots('sm'));
+  const autoHammerChk = document.getElementById('chk-auto-hammer');
+  autoHammerChk.checked = localStorage.getItem(LS_AUTO_HAMMER) === '1';
+  autoHammerChk.addEventListener('change', () => localStorage.setItem(LS_AUTO_HAMMER, autoHammerChk.checked ? '1' : '0'));
   document.getElementById('btn-esc').addEventListener('click', () => setScreenMode(SCREEN.LOG));
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && !e.target.matches('input, textarea')) setScreenMode(SCREEN.LOG);
+  });
+
+  let tipTimeout = null;
+  const tipBeetle = document.getElementById('tip-beetle');
+  const tipBubble = document.getElementById('tip-bubble');
+  tipBeetle.addEventListener('click', () => {
+    tipBeetle.classList.remove('shaking');
+    void tipBeetle.offsetWidth;
+    tipBeetle.classList.add('shaking');
+    const tip = TIPS[Math.floor(Math.random() * TIPS.length)];
+    tipBubble.textContent = tip;
+    tipBubble.classList.add('visible');
+    clearTimeout(tipTimeout);
+    tipTimeout = setTimeout(() => tipBubble.classList.remove('visible'), 4000);
+  });
+}
+
+function setupLogSearchListeners() {
+  const input   = document.getElementById('log-search');
+  const suggest = document.getElementById('log-suggest');
+  let activeIdx = -1;
+
+  const items = () => [...suggest.querySelectorAll('.log-sug-item')];
+  const setActive = idx => {
+    items().forEach((el, i) => el.classList.toggle('active', i === idx));
+    activeIdx = idx;
+  };
+  const close = () => { suggest.classList.remove('open'); activeIdx = -1; };
+  const pick  = key => { openCard(key); input.value = ''; close(); };
+
+  const update = () => {
+    const q = input.value.trim().toLowerCase();
+    if (!q) { close(); return; }
+    const matches = Object.entries(NAMES)
+      .filter(([, n]) => n.toLowerCase().includes(q))
+      .sort(([ka, na], [kb, nb]) => {
+        const aStarts = na.toLowerCase().startsWith(q) ? 0 : 1;
+        const bStarts = nb.toLowerCase().startsWith(q) ? 0 : 1;
+        return aStarts - bStarts || na.localeCompare(nb);
+      })
+      .slice(0, 10);
+    if (!matches.length) { close(); return; }
+    suggest.innerHTML = '';
+    matches.forEach(([k, n]) => {
+      const col = LINK_COLORS[RARITY[k]] || '';
+      const el = document.createElement('div');
+      el.className = 'log-sug-item';
+      el.textContent = n;
+      if (col) el.style.color = col;
+      el.dataset.key = k;
+      suggest.appendChild(el);
+    });
+    suggest.classList.add('open');
+    activeIdx = -1;
+  };
+
+  input.addEventListener('input', update);
+  input.addEventListener('blur',  () => setTimeout(close, 150));
+  input.addEventListener('keydown', e => {
+    const list = items();
+    if (e.key === 'ArrowDown') { e.preventDefault(); setActive(Math.min(activeIdx + 1, list.length - 1)); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setActive(Math.max(activeIdx - 1, 0)); }
+    else if (e.key === 'Enter') {
+      e.preventDefault();
+      const active = list[activeIdx];
+      if (active) pick(active.dataset.key);
+      else if (list.length === 1) pick(list[0].dataset.key);
+    }
+    else if (e.key === 'Escape') close();
+  });
+  suggest.addEventListener('click', e => {
+    const item = e.target.closest('.log-sug-item');
+    if (item) pick(item.dataset.key);
+  });
 }
 
 function setupChatListeners() {
@@ -2132,6 +2590,7 @@ function setupThemePicker() {
 document.addEventListener('DOMContentLoaded', () => {
   setupAuthListeners();
   setupActionButtons();
+  setupLogSearchListeners();
   setupChatListeners();
   setupPanelListeners();
   setupThemePicker();

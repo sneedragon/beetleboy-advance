@@ -17,7 +17,9 @@ const ALLOWED_MIME = ['image/jpeg','image/png','image/gif','image/webp'];
 function jwt_claims(string $tok): ?array {
     $p = explode('.', $tok);
     if (count($p) !== 3) return null;
-    $c = json_decode(base64_decode(str_replace(['-','_'],['+','/'], $p[1])), true);
+    $b64 = str_replace(['-','_'],['+','/'], $p[1]);
+    $b64 = str_pad($b64, strlen($b64) + (4 - strlen($b64) % 4) % 4, '=');
+    $c = json_decode(base64_decode($b64), true);
     if (!$c || ($c['exp'] ?? 0) < time()) return null;
     return $c;
 }

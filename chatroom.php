@@ -207,9 +207,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['stream'])) {
 
         } elseif ($op === '33') {
             // Forward new posts on '01' (full user data present).
-            // On '06' (image attached to an already-open post), emit a lightweight imageUpdate
-            // event so the browser can inject the image without re-rendering the whole post.
-            $posts = [];
+            // On '06' (image attached after post creation), queue an imageUpdate event.
+            // Posts MUST be emitted before imageUpdates so the element is in renderedPostEls
+            // by the time the browser processes the imageUpdate.
+            $posts        = [];
+            $img_updates  = [];
             foreach ((json_decode($payload, true) ?? []) as $evt) {
                 if (!is_string($evt) || strlen($evt) < 2) continue;
                 $esub = substr($evt, 0, 2);
@@ -218,28 +220,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['stream'])) {
                 if ($esub === '01') {
                     $p = json_decode($epay, true);
                     if (!is_array($p) || empty($p['id'])) continue;
-                    // Send immediately — body OR image present
                     if (trim($p['body'] ?? '') !== '' || !empty($p['image'])) {
                         $posts[] = norm_full($p);
                         $last_id = max($last_id, (int)$p['id']);
                     }
 
                 } elseif ($esub === '06') {
-                    // Image attached after the post was already opened — send a targeted update
                     $img = json_decode($epay, true);
                     if (!is_array($img) || empty($img['id'])) continue;
                     $imgUrl = chat_image_url(array_diff_key($img, ['id' => 0]));
                     if ($imgUrl) {
-                        echo "data: " . json_encode([
-                            'type'     => 'imageUpdate',
-                            'id'       => (int)$img['id'],
-                            'imageUrl' => $imgUrl,
-                        ]) . "\n\n";
-                        flush();
+                        $img_updates[] = ['type'=>'imageUpdate','id'=>(int)$img['id'],'imageUrl'=>$imgUrl];
                     }
                 }
             }
+            // Emit posts first, then image updates
             sse($posts);
+            foreach ($img_updates as $upd) {
+                echo "data: " . json_encode($upd) . "\n\n";
+            }
+            if ($img_updates) flush();
 
         } elseif ($op === '32') {
             fwrite($sock, ws_frame('05'));
