@@ -24,6 +24,7 @@ const RARITY_NAMES = {
 // ── THEMES ────────────────────────────────────────────────────────────────────
 const LS_THEME       = 'bb_theme';
 const LS_AUTO_HAMMER = 'bb_auto_hammer';
+const LS_ANNOUNCE    = 'bb_announce';
 const LS_SCHEME = 'bb_scheme'; // 'light' | 'dark' | unset (follows system)
 const THEMES = [
   { id: 'indigo', name: 'Indigo',  c1: '#20264c', c2: '#0c1020', lc1: '#4050b8', lc2: '#2c3890' },
@@ -117,7 +118,12 @@ function buildThemePicker() {
 function esc(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
+// A pinned specimen (made with a Specimen Pin) is "trophy_<beetle>"
+const pinnedBeetle = key => key.startsWith('trophy_') && BEETLES.includes(key.slice(7)) ? key.slice(7) : null;
+
 function iname(key) {
+  const pinned = pinnedBeetle(key);
+  if (pinned && !NAMES[key]) return `Pinned ${iname(pinned)}`;
   return NAMES[key] || key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 }
 function rcls(key) { const r = RARITY[key]; return r ? `r-${r}` : ''; }
@@ -125,7 +131,7 @@ function rcls(key) { const r = RARITY[key]; return r ? `r-${r}` : ''; }
 function ingGroupLabel(group) {
   if (group === 'junk') return 'Any Junk';
   const tier = FLOWER_TIERS.find(([g]) => g === group);
-  return tier ? tier[1] : iname(group[0]);
+  return tier ? tier[1] : group.map(iname).join(' or ');
 }
 
 function arDisplay(r, inv) {
@@ -150,7 +156,7 @@ function fmtMs(ms) {
 function junkPool(inv) {
   const pool = [];
   for (const [k, qty] of Object.entries(inv))
-    if (!KNOWN_KEYS.has(k) && !HIDDEN.has(k) && k !== 'cheese' && qty > 0)
+    if (isJunk(k) && qty > 0)
       pool.push(...Array(qty).fill(k));
   return pool;
 }
@@ -187,14 +193,24 @@ function pickSlots(recipe, inv) {
 }
 
 
-const _FLOWER_SCENES = Object.entries(BG_SCENES).filter(([k]) => ALL_FLOWERS.includes(k)).map(([,v]) => v);
-const _BEETLE_SCENES = Object.entries(BG_SCENES).filter(([k]) => BEETLES.includes(k)).map(([,v]) => v);
+// Scene behind a card: the official background if we ship it (icons/_bg),
+// else the category's background, else a wiki scene, else a hashed pick.
+const localBg = k => LOCAL_BG.has(k) ? `icons/_bg/${k}.webp` : null;
+const _sceneOf = k => localBg(k) || BG_SCENES[k];
+const _FLOWER_SCENES = ALL_FLOWERS.map(_sceneOf).filter(Boolean);
+const _BEETLE_SCENES = BEETLES.map(_sceneOf).filter(Boolean);
 function _hashPick(arr, key) { return arr[key.split('').reduce((s,c) => s + c.charCodeAt(0), 0) % arr.length]; }
+const _CAT_BG = { Trinkets: 'trinkets', Artifacts: 'artifacts', Special: 'unique' };
 
 function getScene(key) {
-  if (BG_SCENES[key]) return BG_SCENES[key];
-  if (key.startsWith('pollen_')) return 'pollen_common.webp';
-  if (key === 'junk_cube_t1' || key === 'junk_cube_t2' || (!KNOWN_KEYS.has(key) && !HIDDEN.has(key) && key !== 'cheese')) return 'junk.webp';
+  const own = _sceneOf(key);
+  if (own) return own;
+  if (key.startsWith('pollen_')) return localBg('pollen_common') || 'pollen_common.webp';
+  if (key === 'junk_cube_t1' || key === 'junk_cube_t2' || isJunk(key)) return localBg('junk') || 'junk.webp';
+  if (key === 'cheese') return localBg('cheese');
+  if (key.startsWith('trophy_')) return localBg(pinnedBeetle(key) || 'trinkets') || localBg('trinkets');
+  const cat = CATEGORIES.find(([, keys]) => keys.includes(key))?.[0];
+  if (_CAT_BG[cat]) return localBg(_CAT_BG[cat]);
   if (ALL_FLOWERS.includes(key)) return _hashPick(_FLOWER_SCENES, key);
   if (BEETLES.includes(key)) return _hashPick(_BEETLE_SCENES, key);
   return null;
@@ -283,7 +299,7 @@ function previewAssemble() {
           const k = remaining[i];
           if ('group' in ing) {
             if (ing.group === 'junk') {
-              if (k === '_junk_' || (!KNOWN_KEYS.has(k) && !HIDDEN.has(k) && k !== 'cheese'))
+              if (k === '_junk_' || isJunk(k))
                 { foundIdx = i; break; }
             } else if (Array.isArray(ing.group) && ing.group.includes(k)) {
               foundIdx = i; break;
@@ -590,7 +606,11 @@ let lastRateLimitLog = 0;
 async function loadState(silent = false) {
   const user = await apiGet('/api/beetle/user');
   if (!user) return;
-  state.user    = user;
+  if (!state.me) {
+    const w = await apiGet('/api/profile/whoami');
+    if (w?.userHandle) state.me = { username: w.userHandle, displayname: w.displayName || w.userHandle, pfpUrl: rnUrl(w.pfpUrl || '') };
+  }
+  state.user    = { ...user, ...(state.me || {}) };
   state.inv     = user.inventory || {};
   state.hammers = user.hammers   || [];
   // Preserve locally-tracked cooldowns when the API doesn't return them
@@ -684,9 +704,14 @@ function tick() {
   ];
   for (const [cdId, btnId, key, label] of map) {
     const cdEl = document.getElementById(cdId);
-    if (key === 'beetleHunt' && cds[key] === null) {
-      cdEl.innerHTML = '<span class="hunt-null-hint">Try once to get CD</span>';
-      cdEl.className = 'btn-cd';
+    if (key === 'beetleHunt' && !cds[key]) {
+      // Hunting costs one cheese; there's no timer unless the game sends one
+      const cheese = state.inv.cheese || 0;
+      cdEl.innerHTML = cheese ? `🧀 ×${cheese.toLocaleString()}` : '<span class="hunt-null-hint">Needs cheese</span>';
+      cdEl.className = `btn-cd ${cheese ? 'ready' : ''}`;
+      document.getElementById(btnId).classList.toggle('is-ready', cheese > 0);
+      prevCdStates[key] = cds[key];
+      continue;
     } else {
       const { text, cls } = fmtMs(cds[key]);
       cdEl.textContent = text;
@@ -917,7 +942,7 @@ function openCard(key) {
   const usedIn = AR.filter(r => r.ing.some(ing => {
     if ('key' in ing) return ing.key === key;
     if ('group' in ing) {
-      if (ing.group === 'junk') return !KNOWN_KEYS.has(key) && !HIDDEN.has(key) && key !== 'cheese';
+      if (ing.group === 'junk') return isJunk(key);
       return Array.isArray(ing.group) && ing.group.includes(key);
     }
     return false;
@@ -1167,10 +1192,21 @@ function renderTrophies() {
     </div>`;
   }).join('');
 
+  // Pinned specimens: one per beetle species, made with a Specimen Pin
+  const pinned = Object.keys(inv).filter(k => (inv[k] || 0) > 0 && pinnedBeetle(k));
+  const pinRows = pinned.map(key => {
+    const b = pinnedBeetle(key);
+    const iconSrc = IMAGES[key] || IMAGES[b];
+    return `<div class="tr-row tr-owned tr-clickable" data-key="${esc(b)}">
+      ${iconSrc ? `<img class="tr-icon" src="${esc(iconSrc)}" alt="">` : '<span class="tr-icon"></span>'}<span class="tr-check">📌</span><span class="tr-name">${esc(iname(b))}</span>
+    </div>`;
+  }).join('');
+
   const container = document.getElementById('left-mode-trphy');
   container.innerHTML =
     `<div class="tr-header">${owned} / ${total} collected</div>` +
-    `<div class="tr-list">${rows}</div>`;
+    `<div class="tr-list">${rows}</div>` +
+    (pinRows ? `<div class="tr-header">📌 ${pinned.length} pinned specimen${pinned.length > 1 ? 's' : ''}</div><div class="tr-list">${pinRows}</div>` : '');
 
   container.querySelectorAll('.tr-clickable[data-key]').forEach(row => {
     row.addEventListener('click', () => openCard(row.dataset.key));
@@ -1182,7 +1218,7 @@ function renderCraftable() {
   const craftable = AR
     .filter(r => !(r.unique && (inv[r.out] || 0) > 0))
     .filter(r => !r.reqTrophy || (inv[r.reqTrophy] || 0) > 0)
-    .map(r => ({ r, n: craftCount(r, inv) }))
+    .map(r => ({ r, n: r.unique ? Math.min(1, craftCount(r, inv)) : craftCount(r, inv) }))
     .filter(({ n }) => n > 0);
 
   const el = document.getElementById('craftable-list');
@@ -1524,31 +1560,19 @@ async function doAction(actionName, label) {
   }
 }
 
+// Posting finds to global chat is opt-in: it goes to everyone on RemiliaNET.
+const announceOn = () => localStorage.getItem(LS_ANNOUNCE) === '1';
+
 async function announceTrophy(trophyKey) {
-  const { access } = getTokens();
-  if (!access) return;
-  try {
-    await fetch('chatroom.php', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token: access, body: `🏆 Crafted [[${trophyKey}]]!`, theme: localStorage.getItem(LS_THEME) || 'flame' }),
-    });
-  } catch {}
+  if (!announceOn()) return;
+  await postToChat(`🏆 Crafted [[${trophyKey}]]!`);
 }
 
 async function announceRareDrops(actionLabel, gainedKeys) {
+  if (!announceOn()) return;
   const rare = gainedKeys.filter(k => RARITY[k] === 'adm' || RARITY[k] === 'dia');
   if (!rare.length) return;
-  const { access } = getTokens();
-  if (!access) return;
-  const names = rare.map(k => iname(k)).join(', ');
-  try {
-    await fetch('chatroom.php', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token: access, body: `🪲 Got ${names} from ${actionLabel}!`, theme: localStorage.getItem(LS_THEME) || 'flame' }),
-    });
-  } catch {}
+  await postToChat(`🪲 Got ${rare.map(k => `[[${k}]]`).join(', ')} from ${actionLabel}!`);
 }
 
 async function doJunkCrunch() {
@@ -1650,22 +1674,21 @@ function insertChatLink(key) {
 }
 
 // ── CHAT ──────────────────────────────────────────────────────────────────────
-const MILADYCHAN_IMG_BASE  = 'https://boards.miladychan.org/assets/images/src';
-const MILADYCHAN_IMG_TYPES = {0:'jpg',1:'png',2:'gif',16:'avif'};
-
-function miladychanImageUrl(img) {
-  if (!img) return null;
-  const ext = MILADYCHAN_IMG_TYPES[img.file_type];
-  if (!ext || !img.sha1) return null;
-  return `${MILADYCHAN_IMG_BASE}/${img.sha1}.${ext}`;
-}
-
+// RemiliaNET global chat (chat 1). Messages are read through proxy.php and
+// sent/reacted through chatroom.php, which talks to RemiliaNET's chat websocket.
+const CHAT_ID         = 1;
+const CHAT_POLL_MS    = 4000;
 const CHAT_REACTS     = ['😹', '🤍', '👍', '🪲'];
-let chatSource    = null; // EventSource
-let chatLastId    = null;
+let chatTimer         = null;
+let chatLoaded        = false;
+let chatBusy          = false;
 let replyTarget       = null;
-let pendingAttachment     = null; // { file }
-const pendingImageUpdates = new Map(); // postId → imageUrl (from op 06 arriving before op 01)
+let pendingAttachment = null; // { file }
+const renderedPostEls = new Map(); // msgId → DOM element
+const chatUsers       = new Map(); // user id → { handle, display_name, profile_pic_url }
+const chatMsgs        = new Map(); // msg id → raw message (for reply quotes)
+
+const rnUrl = u => !u ? '' : (u.startsWith('/') ? BASE_URL + u : u);
 
 async function uploadChatImage(file) {
   const { access } = getTokens();
@@ -1676,7 +1699,6 @@ async function uploadChatImage(file) {
   try {
     const r = await fetch('upload.php', { method: 'POST', body: fd });
     const j = await r.json();
-    console.log('[upload]', r.status, j);
     if (!r.ok || !j.url) return null;
     const base = location.href.replace(/[^/]*$/, '');
     return base + j.url;
@@ -1701,150 +1723,99 @@ function clearPendingAttachment() {
   prev.innerHTML = '';
   prev.classList.add('hidden');
 }
-const renderedPostEls  = new Map(); // msgId → DOM element
-const sentQueue        = [];        // {body, user} — enriches our own posts when 33/01 lacks user data
-const profileCache     = new Map(); // username → {displayname, pfpUrl, theme}
 
-function openChatStream() {
-  const { access } = getTokens();
-  if (!access) return;
-  if (chatSource) chatSource.close();
-  chatSource = new EventSource(`${CHAT_URL}?stream=1&token=${encodeURIComponent(access)}`);
-  chatSource.onmessage = e => {
-    try {
-      const d = JSON.parse(e.data);
-      if (d.type === 'token_expired') {
-        chatSource.close(); chatSource = null;
-        tryRefresh().then(tokens => { if (tokens) { saveTokens(tokens.access, tokens.refresh); openChatStream(); } });
-        return;
-      }
-      if (d.type === 'imageUpdate' && d.id && d.imageUrl) {
-        const el = renderedPostEls.get(d.id);
-        if (el) {
-          if (!el.querySelector('.chat-img')) {
-            const textEl = el.querySelector('.chat-text');
-            const imgEl  = document.createElement('img');
-            imgEl.className = 'chat-img'; imgEl.alt = ''; imgEl.loading = 'lazy';
-            imgEl.onerror = () => imgEl.style.display = 'none';
-            imgEl.src = d.imageUrl;
-            textEl?.insertAdjacentElement('afterend', imgEl);
-          }
-        } else {
-          // Post not rendered yet — buffer so appendChatPosts can apply it
-          pendingImageUpdates.set(d.id, d.imageUrl);
-        }
-        return;
-      }
-      if (d.type === 'posts' && Array.isArray(d.posts) && d.posts.length) {
-        for (const p of d.posts) {
-          // Enrich posts that arrived without user data (finalized BeetleBoy sends)
-          if (!p.user?.username && !p.user?.displayname) {
-            const qi = sentQueue.findIndex(s => s.body === p.body);
-            if (qi >= 0) {
-              const entry = sentQueue[qi];
-              p.user = entry.user;
-              // Remap optimistic placeholder element to the real post ID
-              if (entry.optId !== undefined && renderedPostEls.has(entry.optId)) {
-                renderedPostEls.set(p.id, renderedPostEls.get(entry.optId));
-                renderedPostEls.delete(entry.optId);
-              }
-              sentQueue.splice(qi, 1);
-            }
-          }
-          // Cache any profile data we receive so history slots can be upgraded later
-          const uname = p.user?.username;
-          if (uname && p.user.pfpUrl) {
-            profileCache.set(uname, { displayname: p.user.displayname || uname, pfpUrl: p.user.pfpUrl, theme: p.user.theme || 'flame' });
-          }
-        }
-        const isInit = chatLastId === null;
-        chatLastId = d.posts[d.posts.length - 1].id;
-        appendChatPosts(d.posts, isInit);
-        if (isInit) enrichHistoryFromREST();
-      }
-    } catch {}
+function chatUser(id) {
+  const u = chatUsers.get(id);
+  return {
+    username:    u?.handle || '',
+    displayname: u?.display_name || u?.handle || '',
+    pfpUrl:      rnUrl(u?.profile_pic_url || ''),
   };
 }
 
-// Fetch recent posts with full user data directly from miladychan REST API.
-// The token goes in the URL path; credentials:omit so it works cross-origin.
-async function enrichHistoryFromREST() {
-  const { access } = getTokens();
-  if (!access) return;
-  try {
-    // Try direct fetch first (fast). Falls back to PHP proxy if CORS is still restricted.
-    let r;
-    try {
-      r = await fetch(
-        `https://boards.miladychan.org/json/chat/beetle/201346/${encodeURIComponent(access)}?last=100`,
-        { mode: 'cors', credentials: 'omit' }
-      );
-    } catch {
-      r = await fetch(`${CHAT_URL}?history=1&token=${encodeURIComponent(access)}`);
-    }
-    if (!r) return;
-    if (!r.ok) return;
-    const data = await r.json();
-    // Handle both array and object response shapes
-    const posts = Array.isArray(data) ? data
-      : Array.isArray(data.posts)   ? data.posts
-      : Array.isArray(data.recent)  ? data.recent
-      : Object.values(data.recent ?? data.posts ?? {});
-
-    for (const p of posts) {
-      const id   = parseInt(p.id ?? p.postId, 10);
-      if (!id) continue;
-      const u     = p.user || {};
-      const uname = u.username    || p.username || p.name || '';
-      const dname = u.displayname || u.displayName || p.displayName || p.name || uname;
-      const pfpUrl = u.pfpUrl || p.pfpUrl || '';
-      const theme  = u.theme  || 'flame';
-      if (uname && pfpUrl) profileCache.set(uname, { displayname: dname, pfpUrl, theme });
-      if (!renderedPostEls.has(id)) continue;
-      const el = renderedPostEls.get(id);
-      if (dname) {
-        const nameEl = el.querySelector('.chat-user');
-        const cur = nameEl?.textContent.trim() ?? '';
-        if (nameEl && (!cur || cur === 'Some Grigger')) {
-          nameEl.textContent = dname;
-          if (uname) nameEl.setAttribute('data-chat-theme', theme);
-        }
-      }
-      if (pfpUrl) {
-        const src = pfpUrl.startsWith('/') ? 'https://www.remilia.net' + pfpUrl : pfpUrl;
-        const ph = el.querySelector('.chat-avatar-ph');
-        if (ph) {
-          const img = document.createElement('img');
-          img.className = 'chat-avatar'; img.alt = '';
-          img.onerror = () => img.style.display = 'none';
-          img.src = src;
-          ph.replaceWith(img);
-        }
-      }
-      // Inject image from REST history if SSE didn't carry it
-      const imageUrl = miladychanImageUrl(p.image);
-      if (imageUrl && !el.querySelector('.chat-img')) {
-        const textEl = el.querySelector('.chat-text');
-        const imgEl  = document.createElement('img');
-        imgEl.className = 'chat-img'; imgEl.alt = ''; imgEl.loading = 'lazy';
-        imgEl.onerror = () => imgEl.style.display = 'none';
-        imgEl.src = imageUrl;
-        textEl?.insertAdjacentElement('afterend', imgEl);
-      }
-    }
-  } catch { /* silent — SSE live events still work */ }
+// RemiliaNET message → the post shape the renderer uses
+function toPost(m) {
+  const reactions = {};
+  for (const r of m.reactions || []) {
+    (reactions[r.emoji] ||= []).push(chatUsers.get(r.user_id)?.handle || String(r.user_id));
+  }
+  let replyTo = null;
+  if (m.reply_to_message_id) {
+    const q = chatMsgs.get(m.reply_to_message_id);
+    const qu = q ? chatUser(q.author_id) : {};
+    replyTo = { id: m.reply_to_message_id, username: qu.username || '', displayname: qu.displayname || '', body: q?.body || '…' };
+  }
+  const media = [];
+  for (const im of m.images || []) media.push({ kind: 'img', url: rnUrl(im.url) });
+  if (m.video) media.push({ kind: 'video', url: rnUrl(m.video.url), thumb: rnUrl(m.video.thumbnail_url) });
+  return {
+    id: m.id, type: 'msg',
+    time: Math.floor(m.created_at / 1000),
+    body: m.is_deleted ? '(deleted)' : (m.body || ''),
+    user: chatUser(m.author_id),
+    reactions, replyTo, media,
+  };
 }
 
+async function fetchChat() {
+  if (chatBusy) return;
+  chatBusy = true;
+  try {
+    const d = await apiGet(`/api/chats/${CHAT_ID}/messages?limit=50`);
+    if (!d?.global) return;
+    for (const [id, u] of Object.entries(d.global.users || {})) chatUsers.set(Number(id), u);
+    for (const [id, m] of Object.entries(d.global.messages || {})) chatMsgs.set(Number(id), m);
+    const ids = (d.message_ids || []).slice().sort((a, b) => a - b);
+    const posts = ids.map(id => chatMsgs.get(id)).filter(Boolean).map(toPost);
+    const isInit = !chatLoaded;
+    chatLoaded = true;
+    appendChatPosts(posts, isInit);
+  } finally { chatBusy = false; }
+}
+
+async function chatAction(payload) {
+  const { access } = getTokens();
+  if (!access) return { ok: false, error: 'not logged in' };
+  try {
+    let r = await fetch(CHAT_URL, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: access, ...payload }),
+    });
+    if (r.status === 502) {            // expired session: refresh once and retry
+      const t = await tryRefresh();
+      if (t) {
+        saveTokens(t.access, t.refresh);
+        r = await fetch(CHAT_URL, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token: t.access, ...payload }),
+        });
+      }
+    }
+    return await r.json().catch(() => ({ ok: r.ok }));
+  } catch (e) { return { ok: false, error: e.message }; }
+}
+
+async function sendReact(msgId, emoji) {
+  if (!msgId || msgId < 0) return;
+  const me = state.user?.username;
+  const el = renderedPostEls.get(msgId);
+  const mine = el?.querySelector(`.react-pill.mine[data-emoji="${emoji}"]`);
+  const res = await chatAction({ action: mine ? 'unreact' : 'react', messageId: msgId, emoji });
+  if (!res.ok) { showInAppNotif(res.error || 'Reaction failed.'); return; }
+  if (me) fetchChat();
+}
 
 function renderReactPills(container, reactions, msgId) {
   const myUser = state.user?.username || '';
   container.innerHTML = '';
-  for (const emoji of CHAT_REACTS) {
+  const emojis = [...new Set([...CHAT_REACTS, ...Object.keys(reactions || {})])];
+  for (const emoji of emojis) {
     const users = reactions?.[emoji];
     if (!users || !users.length) continue;
     const mine = users.includes(myUser);
     const pill = document.createElement('button');
     pill.className = `react-pill${mine ? ' mine' : ''}`;
+    pill.dataset.emoji = emoji;
     pill.title = users.join(', ');
     pill.textContent = `${emoji} ${users.length}`;
     pill.addEventListener('click', () => sendReact(msgId, emoji));
@@ -1852,116 +1823,78 @@ function renderReactPills(container, reactions, msgId) {
   }
 }
 
+function mediaHtml(media) {
+  return (media || []).map(m => m.kind === 'video'
+    ? `<video class="chat-img" src="${esc(m.url)}"${m.thumb ? ` poster="${esc(m.thumb)}"` : ''} controls preload="none" playsinline></video>`
+    : `<img class="chat-img" src="${esc(m.url)}" alt="" loading="lazy" onerror="this.style.display='none'">`).join('');
+}
+
 function appendChatPosts(posts, isInit) {
   const box = document.getElementById('chat-messages');
   if (!box) return;
   const atBottom = box.scrollHeight - box.scrollTop <= box.clientHeight + 60;
-  if (isInit) { box.innerHTML = ''; renderedPostEls.clear(); pendingImageUpdates.clear(); }
+  if (isInit) { box.innerHTML = ''; renderedPostEls.clear(); }
   const myUser = state.user?.username || '';
   for (const p of posts) {
-    const pdname = p.user?.displayname || p.user?.username || p.name || '';
-
-    // ── Same post ID: update body + upgrade name/pfp if now available ──────────
+    // Known message: refresh text and reactions (edits, deletions, new reactions)
     if (renderedPostEls.has(p.id)) {
-      const existing = renderedPostEls.get(p.id);
-      const textEl = existing.querySelector('.chat-text');
-      if (textEl) textEl.innerHTML = renderChatBody(p.body || '');
-      // Attach image if arriving late (op 06 fires after op 01)
-      if (p.imageUrl && !existing.querySelector('.chat-img')) {
-        const imgEl = document.createElement('img');
-        imgEl.className = 'chat-img'; imgEl.alt = ''; imgEl.loading = 'lazy';
-        imgEl.onerror = () => imgEl.style.display = 'none';
-        imgEl.src = p.imageUrl;
-        textEl?.insertAdjacentElement('afterend', imgEl);
-      }
-      if (pdname) {
-        const nameEl = existing.querySelector('.chat-user');
-        const cur = nameEl?.textContent.trim() ?? '';
-        if (nameEl && (!cur || cur === 'Some Grigger')) {
-          nameEl.textContent = pdname;
-          nameEl.setAttribute('data-chat-theme', p.user?.theme || 'flame');
-        }
-      }
-      const pfpSrc = p.user?.pfpUrl ? (p.user.pfpUrl.startsWith('/') ? 'https://www.remilia.net' + p.user.pfpUrl : p.user.pfpUrl) : '';
-      if (pfpSrc) {
-        const ph = existing.querySelector('.chat-avatar-ph');
-        if (ph) {
-          const img = document.createElement('img');
-          img.className = 'chat-avatar'; img.alt = '';
-          img.onerror = () => img.style.display = 'none';
-          img.src = pfpSrc;
-          ph.replaceWith(img);
-        }
-      }
+      const el = renderedPostEls.get(p.id);
+      const textEl = el.querySelector('.chat-text');
+      const html = renderChatBody(resolveItemLinks(p.body || ''));
+      if (textEl && textEl.innerHTML !== html) textEl.innerHTML = html;
+      const pillsEl = el.querySelector('.chat-reacts');
+      if (pillsEl) renderReactPills(pillsEl, p.reactions || {}, p.id);
       continue;
     }
 
     const el = document.createElement('div');
+    el.className = 'chat-msg';
     const uname = p.user?.username || '';
-    // Fill missing pfp from cache if we've seen this user's live event before
-    const cached = uname ? profileCache.get(uname) : null;
-    const resolvedPfp = p.user?.pfpUrl || cached?.pfpUrl || '';
-    const resolvedName = pdname || cached?.displayname || '';
-    const name = esc(resolvedName || 'Some Grigger');
-    const profileUrl = uname ? `https://www.remilia.net/~${esc(uname)}` : '';
-    const profileLink = (inner) => profileUrl
+    const name = esc(p.user?.displayname || uname || '?');
+    const profileUrl = uname ? `${BASE_URL}/~${encodeURIComponent(uname)}` : '';
+    const profileLink = inner => profileUrl
       ? `<a class="chat-profile-link" href="${profileUrl}" target="_blank" rel="noopener">${inner}</a>`
       : inner;
-    // Only apply theme color when we have a real username — anon uses default accent
-    const nameSpan = `<span class="chat-user"${uname ? ` data-chat-theme="${esc(p.user?.theme || cached?.theme || 'flame')}"` : ''}>${name}</span>`;
-    if (p.type === 'join') {
-      el.className = 'chat-join';
-      el.innerHTML = `<span>• ${profileLink(nameSpan)} entered the chat</span>`;
-    } else {
-      el.className = 'chat-msg';
-      let pfp = resolvedPfp;
-      if (pfp.startsWith('/')) pfp = 'https://www.remilia.net' + pfp;
-      const time = p.time > 0 ? new Date(p.time * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
-      const avatar = pfp
-        ? `<img class="chat-avatar" src="${esc(pfp)}" alt="" onerror="this.style.display='none'">`
-        : '<div class="chat-avatar-ph"></div>';
+    const nameSpan = `<span class="chat-user"${uname === myUser ? ` data-chat-theme="${esc(localStorage.getItem(LS_THEME) || 'flame')}"` : ''}>${name}</span>`;
+    const time = p.time > 0 ? new Date(p.time * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+    const avatar = p.user?.pfpUrl
+      ? `<img class="chat-avatar" src="${esc(p.user.pfpUrl)}" alt="" onerror="this.style.display='none'">`
+      : '<div class="chat-avatar-ph"></div>';
 
-      // Reply quote
-      let quoteHtml = '';
-      if (p.replyTo) {
-        const qname = esc(p.replyTo.displayname || p.replyTo.username || '?');
-        const qbody = esc(bodyToPlainText(p.replyTo.body || '').slice(0, 80));
-        quoteHtml = `<div class="chat-reply-quote" data-reply-id="${p.replyTo.id}">↩ ${qname}: ${qbody}</div>`;
-      }
+    let quoteHtml = '';
+    if (p.replyTo) {
+      const qname = esc(p.replyTo.displayname || p.replyTo.username || '…');
+      const qbody = esc(bodyToPlainText(p.replyTo.body || '').slice(0, 80));
+      quoteHtml = `<div class="chat-reply-quote" data-reply-id="${p.replyTo.id}">↩ ${qname}: ${qbody}</div>`;
+    }
+    const actionsHtml = p.id > 0 ? `<div class="chat-actions">${
+      CHAT_REACTS.map(e => `<button class="chat-action-btn react-trigger" data-emoji="${e}" data-msgid="${p.id}">${e}</button>`).join('')
+    }<button class="chat-action-btn reply-trigger" data-msgid="${p.id}" data-uname="${esc(uname)}" data-dname="${name}" data-body="${esc(bodyToPlainText(p.body || '').slice(0, 100))}">↩</button></div>` : '';
 
-      // Action buttons
-      const actionsHtml = `<div class="chat-actions">${
-        CHAT_REACTS.map(e => `<button class="chat-action-btn react-trigger" data-emoji="${e}" data-msgid="${p.id}">${e}</button>`).join('')
-      }<button class="chat-action-btn reply-trigger" data-msgid="${p.id}" data-uname="${esc(uname)}" data-dname="${name}" data-body="${esc(bodyToPlainText(p.body||'').slice(0,100))}">↩</button></div>`;
+    el.innerHTML =
+      profileLink(avatar) +
+      `<div class="chat-body">` +
+      `<div class="chat-meta">${profileLink(nameSpan)}<span class="chat-time">${time}</span></div>` +
+      quoteHtml +
+      `<div class="chat-text">${renderChatBody(resolveItemLinks(p.body || ''))}</div>` +
+      mediaHtml(p.media) +
+      `<div class="chat-reacts"></div>` +
+      `</div>` +
+      actionsHtml;
+    renderReactPills(el.querySelector('.chat-reacts'), p.reactions || {}, p.id);
 
-      const imageUrl = p.imageUrl || miladychanImageUrl(p.image) || pendingImageUpdates.get(p.id) || null;
-      if (p.id > 0) pendingImageUpdates.delete(p.id);
-      el.innerHTML =
-        profileLink(avatar) +
-        `<div class="chat-body">` +
-        `<div class="chat-meta">${profileLink(nameSpan)}<span class="chat-time">${time}</span></div>` +
-        quoteHtml +
-        `<div class="chat-text">${renderChatBody(p.body || '')}</div>` +
-        (imageUrl ? `<img class="chat-img" src="${esc(imageUrl)}" alt="" loading="lazy" onerror="this.style.display='none'">` : '') +
-        `<div class="chat-reacts"></div>` +
-        `</div>` +
-        actionsHtml;
-
-      // Render initial reactions
-      const pillsEl = el.querySelector('.chat-reacts');
-      if (pillsEl) renderReactPills(pillsEl, p.reactions || {}, p.id);
-
-      // Reply notification
-      if (!isInit && p.replyTo?.username === myUser && uname !== myUser) {
-        if (document.hidden) {
-          notify(`${p.user?.displayname || uname} replied to you`);
-        } else {
-          showInAppNotif(`${p.user?.displayname || uname} replied to you!`);
-        }
-      }
+    if (!isInit && myUser && p.replyTo?.username === myUser && uname !== myUser) {
+      if (document.hidden) notify(`${p.user?.displayname || uname} replied to you`);
+      else showInAppNotif(`${p.user?.displayname || uname} replied to you!`);
     }
     renderedPostEls.set(p.id, el);
     box.appendChild(el);
+  }
+  // drop optimistic placeholders once the real messages have arrived
+  if (posts.length) {
+    for (const [id, el] of renderedPostEls) {
+      if (id < 0 && Date.now() + id > 8000) { el.remove(); renderedPostEls.delete(id); }
+    }
   }
   if (isInit || atBottom) box.scrollTop = box.scrollHeight;
 }
@@ -1989,15 +1922,21 @@ function setReplyTarget(target) {
 }
 
 function startChatPoll() {
-  if (chatSource && chatSource.readyState !== EventSource.CLOSED) return;
-  chatLastId = null;
-  openChatStream();
+  if (chatTimer) return;
+  fetchChat();
+  chatTimer = setInterval(() => { if (!document.hidden) fetchChat(); }, CHAT_POLL_MS);
 }
 
 function stopChatPoll() {
-  if (chatSource) { chatSource.close(); chatSource = null; }
-  // Don't reset chatLastId — keeps names/pfps intact when returning to the chat tab
+  clearInterval(chatTimer);
+  chatTimer = null;
   setReplyTarget(null);
+}
+
+// Posts to global chat. Item links go out as plain "[Item Name]" so everyone
+// on RemiliaNET can read them; BeetleBoy turns them back into links.
+async function postToChat(text, replyTo = null) {
+  return chatAction({ action: 'submit', text: bodyToPlainText(text), ...(replyTo ? { replyTo } : {}) });
 }
 
 async function sendChatMsg() {
@@ -2006,8 +1945,7 @@ async function sendChatMsg() {
   let msg = resolveItemLinks((input.value || '').trim());
   const attach = pendingAttachment;
   if (!msg && !attach) return;
-  const { access } = getTokens();
-  if (!access) return;
+  if (!getTokens().access) return;
   const rt = replyTarget;
   setReplyTarget(null);
   input.value = '';
@@ -2016,61 +1954,32 @@ async function sendChatMsg() {
   if (attach) {
     clearPendingAttachment();
     const imgUrl = await uploadChatImage(attach.file);
-    if (imgUrl) {
-      msg = msg ? msg + '\n' + imgUrl : imgUrl;
-    } else if (!msg) {
+    if (imgUrl) msg = msg ? msg + '\n' + imgUrl : imgUrl;
+    else if (!msg) {
       input.disabled = false;
       showInAppNotif('Image upload failed.');
       input.focus();
       return;
     }
   }
-  if (!msg) { input.disabled = false; input.focus(); return; }
 
-  const myUser = {
-    username:    state.user?.username    || '',
-    displayname: state.user?.displayname || state.user?.username || '',
-    pfpUrl:      state.user?.pfpUrl      || '',
-    theme:       localStorage.getItem(LS_THEME) || 'flame',
-  };
-
-  // Optimistic: render immediately with a negative placeholder ID
+  // Optimistic: show it right away with a negative placeholder id
   const optId = -Date.now();
   appendChatPosts([{
-    id: optId, type: 'msg',
-    time: Math.floor(Date.now() / 1000),
-    body: msg, user: myUser,
+    id: optId, type: 'msg', time: Math.floor(Date.now() / 1000), body: msg,
+    user: { username: state.user?.username || '', displayname: state.user?.displayname || '', pfpUrl: state.user?.pfpUrl || '' },
     reactions: {}, replyTo: rt || null,
   }], false);
 
-  // Queue so the incoming 33/01 echo gets remapped to the real post ID
-  sentQueue.push({ body: msg, user: myUser, optId });
-  if (sentQueue.length > 10) sentQueue.shift();
-
-  try {
-    const payload = {
-      token: access, body: msg,
-      uname: myUser.username,
-      theme: myUser.theme,
-    };
-    if (rt) payload.replyTo = rt;
-    const r = await fetch(CHAT_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-    if (!r.ok) {
-      // Remove optimistic element on failure
-      const optEl = renderedPostEls.get(optId);
-      if (optEl) optEl.remove();
-      renderedPostEls.delete(optId);
-      input.value = msg;
-    }
-  } catch {
-    const optEl = renderedPostEls.get(optId);
-    if (optEl) optEl.remove();
-    renderedPostEls.delete(optId);
-    input.value = msg;
+  const res = await postToChat(msg, rt?.id);
+  const optEl = renderedPostEls.get(optId);
+  if (optEl) optEl.remove();
+  renderedPostEls.delete(optId);
+  if (!res.ok) {
+    input.value = bodyToPlainText(msg);
+    showInAppNotif(res.error || 'Message failed.');
+  } else {
+    await fetchChat();
   }
   input.disabled = false;
   input.focus();
@@ -2412,6 +2321,11 @@ function setupActionButtons() {
   const autoHammerChk = document.getElementById('chk-auto-hammer');
   autoHammerChk.checked = localStorage.getItem(LS_AUTO_HAMMER) === '1';
   autoHammerChk.addEventListener('change', () => localStorage.setItem(LS_AUTO_HAMMER, autoHammerChk.checked ? '1' : '0'));
+  const announceChk = document.getElementById('chk-announce');
+  if (announceChk) {
+    announceChk.checked = announceOn();
+    announceChk.addEventListener('change', () => localStorage.setItem(LS_ANNOUNCE, announceChk.checked ? '1' : '0'));
+  }
   document.getElementById('btn-esc').addEventListener('click', () => setScreenMode(SCREEN.LOG));
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape' && !e.target.matches('input, textarea')) setScreenMode(SCREEN.LOG);

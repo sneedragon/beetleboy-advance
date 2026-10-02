@@ -150,6 +150,7 @@ const IMAGES = {
   thumb_drive:              'icons/trophy-items/thumb_drive.png',
   titanium_cube:            'icons/trophy-items/titanium_cube.png',
   // Trophies — icons
+  trophy_green:             'icons/trophies/trophy_green.webp',  // pinned specimen
   trophy_arrowhead:         'icons/trophies/trophy_arrowhead.webp',
   trophy_chinese_coin:      'icons/trophies/trophy_chinese_coin.webp',
   trophy_compass:           'icons/trophies/trophy_compass.webp',
@@ -302,7 +303,6 @@ const IMAGES = {
 // Background scenes shown behind card art in the item info modal
 const BG_SCENES = {
   black_lotus:         `${W}/f/f5/Beetleboy_Black_Lotus_Background.webp`,
-  bombardier:          `${W}/3/3f/Beetleboy_Bombardier_Background.webp`,
   camellia:            `${W}/2/2f/Beetleboy_Camellia_Background.webp`,
   christmas:           `${W}/f/f9/Beetleboy_Christmas_Background.webp`,
   daisy:               `${W}/6/67/Beetleboy_Daisy_Background.webp`,
@@ -327,6 +327,9 @@ const BG_SCENES = {
   sunflower:           `${W}/c/c2/Beetleboy_Sunflower_Background.webp`,
   sunset_moth:         `${W}/d/d3/Beetleboy_Sunset_Moth_Background.webp`,
 };
+
+// Official card art shipped locally (see gen_assets.py) fills in missing cards
+for (const k of LOCAL_CARD) IMAGES[`_card_${k}`] ||= `icons/_card/${k}.webp`;
 
 // ── ITEM NAMES ────────────────────────────────────────────────────────────────
 const NAMES = {
@@ -614,6 +617,11 @@ const KNOWN_KEYS = new Set(CATEGORIES.flatMap(([, keys]) => keys));
 // Items that match this predicate are hidden from inventory (e.g. shelf items)
 const HIDDEN = { has: (id) => id.endsWith('_shelf') };
 
+// Loose junk: anything the game hands out that isn't a known item.
+// Pinned specimens (trophy_<beetle>) and cheese are not junk.
+const isJunk = (k) => k !== 'junk_cube_t1' && k !== 'junk_cube_t2' && k !== 'cheese'
+  && !HIDDEN.has(k) && !k.startsWith('trophy_') && !KNOWN_KEYS.has(k);
+
 // ── TROPHIES ──────────────────────────────────────────────────────────────────
 // [key, displayName, hasImage]
 const TROPHIES = [
@@ -637,7 +645,7 @@ const TROPHIES = [
   ['trophy_deck_of_cards',    'Deck of Cards Trophy',       true],
   ['trophy_d20',              'D20 Trophy',                 true],
   ['trophy_engraved_lighter', 'Engraved Lighter Trophy',   false],
-  ['trophy_joystick',         'Joystick Trophy',            false],
+  ['trophy_joystick',         'Joystick Trophy',            true],
 ];
 
 // Populate KNOWN_KEYS with trophy keys (needs TROPHIES defined first)
@@ -728,6 +736,8 @@ const AR = [
   { out:'milady_fumoku',   reqTrophy:'trophy_milady_fumoku',   ing:[{key:'cult_medallion',qty:1},{key:'arrowhead',qty:1}] },
   { out:'trophy_remilianet_id', unique:true, ing:[{key:'juex_card',qty:1},{key:'milady_fumoku',qty:1}] },
   { out:'remilianet_id',   reqTrophy:'trophy_remilianet_id',   ing:[{key:'juex_card',qty:1},{key:'milady_fumoku',qty:1}] },
+  { out:'trophy_joystick', unique:true, ing:[{group:['d20','deck_of_cards'],qty:1},{key:'thumb_drive',qty:1}] },
+  { out:'joystick',        reqTrophy:'trophy_joystick',        ing:[{group:['d20','deck_of_cards'],qty:1},{key:'thumb_drive',qty:1}] },
 ];
 
 // Fast lookup: output key → recipe (first match wins)
