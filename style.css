@@ -1606,7 +1606,10 @@ body[data-scheme="light"] .chat-card { background: rgba(255,255,255,0.5); }
 #sp-chat { padding-top: 16px; position: relative; z-index: 5; }
 #sp-chat #mode-chat { display: flex; flex-direction: column; height: 100%; min-height: 0; }
 #sp-chat #chat-messages { flex: 1; min-height: 0; background: rgba(4,6,14,0.72); border-radius: 4px; }
-#sp-chat .chat-option { color: rgba(220,230,255,.6); }
+#chat-input-row .chat-option { flex-shrink: 0; padding: 0 6px; align-self: stretch; border: 1px solid var(--border2); border-radius: 4px; opacity: .45; }
+#chat-input-row .chat-option span, #chat-input-row .chat-option input { display: none; }
+#chat-input-row .chat-option::before { content: '📣'; font-size: 12px; }
+#chat-input-row .chat-option:has(input:checked) { opacity: 1; border-color: var(--accent, #f2c618); }
 
 /* mini profile (js/profile.js) */
 #profile-modal { position: fixed; inset: 0; z-index: 60; display: none; align-items: center; justify-content: center; background: rgba(0,0,0,.55); padding: 16px; }

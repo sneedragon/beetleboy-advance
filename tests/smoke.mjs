@@ -111,6 +111,7 @@ async function check(label, viewport) {
   await page.click('#chat-big-btn', { force: true }).catch(() => fail(`${label}: no big chat button`));
   await page.waitForTimeout(300);
   if (!(await page.evaluate(() => screenMode === 'chat' && document.getElementById('sp-chat').contains(document.getElementById('chat-messages'))))) fail(`${label}: chat did not move to the main screen`);
+  if (!(await page.evaluate(() => { const o = document.querySelector('#chat-input-row .chat-option'); if (!o) return false; const c = document.getElementById('chk-announce').checked; o.click(); const ok = document.getElementById('chk-announce').checked !== c; o.click(); return ok; }))) fail(`${label}: announce toggle missing or dead on the big screen`);
   await page.screenshot({ path: `${ROOT}tests/out/${label}-bigchat.png` });
   await page.click('[data-mode="next"]', { force: true });
   await page.waitForTimeout(200);

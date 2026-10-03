@@ -461,6 +461,9 @@ function placeChat(onScreen) {
     pane.classList.toggle('hidden', !panelOnChat);
     if (!panelOnChat) stopChatPoll();
   } else return;
+  // on the big screen the announce tickbox becomes a small 📣 toggle in the input row
+  const opt = pane.querySelector('.chat-option');
+  if (opt) onScreen ? btn.before(opt) : pane.appendChild(opt);
   if (btn) { btn.textContent = onScreen ? '⤡' : '⤢'; btn.setAttribute('aria-pressed', onScreen); btn.title = onScreen ? 'Back to the side panel' : 'Chat on the big screen'; }
   const box = document.getElementById('chat-messages');
   if (box) box.scrollTop = box.scrollHeight;
