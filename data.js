@@ -329,6 +329,9 @@ const BG_SCENES = {
 };
 
 // Official card art shipped locally (see gen_assets.py) fills in missing cards
+// (a page cached from before assets.js existed won't have these lists)
+var LOCAL_BG   = globalThis.LOCAL_BG   || new Set();
+var LOCAL_CARD = globalThis.LOCAL_CARD || new Set();
 for (const k of LOCAL_CARD) IMAGES[`_card_${k}`] ||= `icons/_card/${k}.webp`;
 
 // ── ITEM NAMES ────────────────────────────────────────────────────────────────

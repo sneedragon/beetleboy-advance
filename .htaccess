@@ -1,0 +1,6 @@
+# Always revalidate the page itself so new app.js/data.js versions load right away
+<IfModule mod_headers.c>
+  <FilesMatch "^(index\.html)?$">
+    Header set Cache-Control "no-cache"
+  </FilesMatch>
+</IfModule>
