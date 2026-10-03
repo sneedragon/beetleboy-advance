@@ -132,8 +132,9 @@ async function uploadChatImage(file) {
   try {
     let r = await send(getTokens().access);
     if (r.status === 502) {
-      const t = await tryRefresh();
-      if (t) { saveTokens(t.access, t.refresh); r = await send(t.access); }
+      const stale = getTokens().access;
+      const t = await tryRefresh(stale);
+      if (t?.access) r = await send(t.access);
     }
     const j = await r.json().catch(() => ({}));
     if (!r.ok || !j.mediaId) { showInAppNotif(j.error || 'Image upload failed.'); return null; }
@@ -236,9 +237,8 @@ async function chatAction(payload) {
       body: JSON.stringify({ token: access, ...payload }),
     });
     if (r.status === 502) {            // expired session: refresh once and retry
-      const t = await tryRefresh();
-      if (t) {
-        saveTokens(t.access, t.refresh);
+      const t = await tryRefresh(access);
+      if (t?.access) {
         r = await fetch(CHAT_URL, {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ token: t.access, ...payload }),

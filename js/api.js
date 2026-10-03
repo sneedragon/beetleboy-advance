@@ -19,17 +19,39 @@ async function oidc(params) {
   } catch { return null; }
 }
 
-async function tryRefresh() {
-  const { refresh } = getTokens();
-  if (!refresh) return null;
-  const r = await oidc({ grant_type: 'refresh_token', refresh_token: refresh });
-  return r?.access ? r : null;
+// One refresh at a time. Refresh tokens are single-use, so parallel requests
+// (chat poll, state refresh, push sync, other tabs) must not each try their
+// own: the losers would get invalid_grant and log the user out.
+let refreshing = null;
+function tryRefresh(staleAccess = null) {
+  return refreshing ||= (async () => {
+    const before = getTokens();
+    // another request or tab already refreshed: use its tokens
+    if (staleAccess && before.access && before.access !== staleAccess) return before;
+    if (!before.refresh) return null;
+    const r = await oidc({ grant_type: 'refresh_token', refresh_token: before.refresh });
+    if (r?.access) { saveTokens(r.access, r.refresh); return r; }
+    const now = getTokens();
+    if (now.refresh && now.refresh !== before.refresh) return now;   // another tab won the race
+    if (r?.error === 'invalid_grant') return { expired: true };       // really logged out
+    return null;                                                      // network trouble: keep the login
+  })().finally(() => { refreshing = null; });
 }
 
 // ── API ───────────────────────────────────────────────────────────────────────
+// seconds-since-epoch expiry of a JWT access token (0 if unreadable)
+function jwtExp(tok) {
+  try { return JSON.parse(atob(tok.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))).exp || 0; } catch { return 0; }
+}
+
 async function apiCall(method, path, body = null, _retry = true) {
-  const { access } = getTokens();
+  let { access } = getTokens();
   if (!access) { showLogin(); return null; }
+  // renew a little before it runs out instead of letting every request hit a 401
+  if (jwtExp(access) && jwtExp(access) * 1000 - Date.now() < 45000) {
+    const t = await tryRefresh(access);
+    if (t?.access) access = t.access;
+  }
   let r;
   try {
     if (USE_PROXY) {
@@ -45,10 +67,12 @@ async function apiCall(method, path, body = null, _retry = true) {
     }
   } catch (e) { log(`Network error: ${e.message}`, 'err'); return null; }
 
-  if ((r.status === 401 || r.status === 403) && _retry) {
-    const tokens = await tryRefresh();
-    if (tokens) { saveTokens(tokens.access, tokens.refresh); return apiCall(method, path, body, false); }
-    showLogin(); return null;
+  if (r.status === 401 && _retry) {
+    const tokens = await tryRefresh(access);
+    if (tokens?.access) return apiCall(method, path, body, false);
+    if (tokens?.expired) showLogin();
+    else log('Connection trouble, retrying soon…', 'warn');
+    return null;
   }
   if (r.status === 429) {
     if (Date.now() - lastRateLimitLog > 5000) {
