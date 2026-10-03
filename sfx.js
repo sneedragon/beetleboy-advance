@@ -14,10 +14,12 @@ const SFX = (() => {
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return null;
     ctx = new AC();
+    // a gentle limiter only: a low threshold makes the compressor add a lot of
+    // automatic make-up gain, which turned soft blips into loud zaps
     out = ctx.createDynamicsCompressor();
-    out.threshold.value = -18; out.ratio.value = 4;
+    out.threshold.value = -3; out.knee.value = 6; out.ratio.value = 3;
     const master = ctx.createGain();
-    master.gain.value = 0.55;
+    master.gain.value = 0.5;
     out.connect(master); master.connect(ctx.destination);
     // short fake reverb: a few quiet echoes
     verb = ctx.createGain(); verb.gain.value = 0.18;
@@ -75,10 +77,10 @@ const SFX = (() => {
     unlucky:  () => tone(220, { type: 'sawtooth', dur: 0.3, vol: 0.05, slide: 0.6 }),
     fail:     () => { tone(330, { type: 'square', dur: 0.09, vol: 0.04, wet: false }); tone(247, { type: 'square', at: 0.1, dur: 0.14, vol: 0.04, wet: false }); },
     hammerBreak: () => { noise({ dur: 0.25, vol: 0.22, freq: 3000, q: 0.8, type: 'highpass' }); tone(180, { dur: 0.2, vol: 0.1, slide: 0.4 }); },
-    ready:    () => arp([880, 1174.66], 0.09, { dur: 0.3, vol: 0.06 }),
-    message:  () => tone(vary(1046.5, 1), { dur: 0.1, vol: 0.05, slide: 1.1 }),
+    ready:    () => arp([880, 1174.66], 0.09, { dur: 0.25, vol: 0.04 }),
+    message:  () => tone(vary(880, 1), { dur: 0.08, vol: 0.025, attack: 0.01, wet: false }),
     send:     () => tone(784, { type: 'triangle', dur: 0.1, vol: 0.06, slide: 1.5 }),
-    mention:  () => arp([1046.5, 1318.5, 1046.5], 0.08, { dur: 0.15, vol: 0.07 }),
+    mention:  () => arp([1046.5, 1318.5], 0.08, { dur: 0.15, vol: 0.05 }),
     react:    () => tone(vary(1567.98, 1), { dur: 0.08, vol: 0.05 }),
     beetle:   () => { const f = vary(1800, 3); tone(f, { type: 'triangle', dur: 0.05, vol: 0.06, slide: 1.4 }); tone(f * 1.2, { type: 'triangle', at: 0.06, dur: 0.05, vol: 0.05, slide: 1.3 }); },
     beetleMad: () => tone(300, { type: 'sawtooth', dur: 0.15, vol: 0.05, slide: 0.7 }),

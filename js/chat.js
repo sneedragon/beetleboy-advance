@@ -399,7 +399,9 @@ function appendChatPosts(posts, isInit, prepend = false) {
     if (p.id > 0 && !(p.media || []).length) attachEmbed(el, p.body || '');
 
     const forMe = uname !== myUser && (p.replyTo?.username === myUser || p.mentionsMe);
-    if (!isInit && !prepend && uname !== myUser) sfx(forMe ? 'mention' : 'message');
+    // ordinary messages only make a (soft) sound while you're looking at the chat
+    const chatInView = !document.hidden && !!document.getElementById('chat-messages')?.offsetParent;
+    if (!isInit && !prepend && uname !== myUser && (forMe || chatInView)) sfx(forMe ? 'mention' : 'message');
     if (!isInit && !prepend && p.mentionsMe && uname !== myUser && p.replyTo?.username !== myUser) {
       if (document.hidden) notify(`${p.user?.displayname || uname} mentioned you`, 'mention');
       else showInAppNotif(`${p.user?.displayname || uname} mentioned you!`);
