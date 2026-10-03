@@ -63,6 +63,7 @@ async function doAction(actionName, label) {
       const diff = qty - (invBefore[k] || 0);
       if (diff > 0) { gainedKeys.push(k); gained.push(diff > 1 ? `${iname(k)} ×${diff}` : iname(k)); }
     }
+    recordEvent('action', { a: actionName, got: Object.fromEntries(gainedKeys.map(k => [k, state.inv[k] - (invBefore[k] || 0)])) });
     sfx({ claimUBC: 'cheese', junkFaucet: 'junk' }[actionName] || 'claim');
     if (gainedKeys.some(isRareKey)) setTimeout(() => sfx('rare'), 350);
     if (gained.length) log(`✓ ${label} — ${gained.join(', ')}`);
@@ -133,6 +134,7 @@ async function doAssemble() {
     lastLabel = resultLabel(result) || 'done';
     lastKey   = resultKey(result);
     craftSound(lastKey);
+    recordEvent('craft', { out: lastKey });
     if (lastKey?.startsWith('trophy_') && !trophyCrafted) trophyCrafted = lastKey;
     successCount++;
     if (i < repeatCount - 1) await loadState(true);
@@ -206,6 +208,7 @@ async function handleHammerBreak() {
   if (!hammer || (state.inv[hammer] || 0) > 0) return true;
   slotState['smhammer'] = null;
   renderSlot('smhammer');
+  recordEvent('break', { h: hammer });
   const bk = slotState['smhammer_bk'];
   if (bk && (state.inv[bk] || 0) > 0) {
     sfx('hammerBreak');
@@ -238,6 +241,7 @@ async function doSmash() {
     const result = await apiPost('/api/beetle/action/craft', body);
     if (!result) break;
     sfx('smash');
+    if (result.success !== false || result.message === 'UNLUCKY_ROLL') recordEvent('smash', { h: body.hammer, ok: result.success !== false, out: resultKey(result) });
     if (result.success === false && result.message !== 'UNLUCKY_ROLL') {
       sfx('fail'); lastError = result.message || 'Failed.'; setResult('smash-result2', lastError); break;
     }

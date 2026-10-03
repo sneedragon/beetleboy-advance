@@ -262,6 +262,7 @@ function setupPanelListeners() {
     document.getElementById(`left-mode-${mode}`).classList.remove('hidden');
     if (mode === 'dex')   renderBeetledex();
     if (mode === 'trphy') renderTrophies();
+    if (mode === 'stats') renderStats();
   });
   document.querySelectorAll('.panel-toggle-btn').forEach(btn =>
     btn.addEventListener('click', () => openPanel(btn.dataset.panel)));

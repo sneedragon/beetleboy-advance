@@ -46,12 +46,14 @@
             <button class="mode-btn active" data-left-mode="inv">INV</button>
             <button class="mode-btn" data-left-mode="dex">DEX</button>
             <button class="mode-btn" data-left-mode="trphy">TRPHY</button>
+            <button class="mode-btn" data-left-mode="stats" title="Your drop stats">STATS</button>
           </div>
         </div>
         <div class="panel-body">
           <div id="left-mode-inv" class="left-pane"></div>
           <div id="left-mode-dex" class="left-pane hidden"></div>
           <div id="left-mode-trphy" class="left-pane hidden"></div>
+          <div id="left-mode-stats" class="left-pane hidden"></div>
         </div>
       </div>
     </div>
@@ -198,6 +200,7 @@
       <div class="panel-titlebar">
         <div id="mode-btns">
           <button class="mode-btn active" data-mode="craft">EZ-CRFT</button>
+          <button class="mode-btn" data-mode="next" title="What can I make next?">NEXT</button>
           <button class="mode-btn" data-mode="recipes">RCP</button>
           <button class="mode-btn" data-mode="wiki">WIKI</button>
           <button class="mode-btn" data-mode="chat">CHAT</button>
@@ -205,6 +208,7 @@
       </div>
       <div class="panel-body">
         <div id="mode-craft"    class="mode-pane"><div id="craftable-list"></div></div>
+        <div id="mode-next" class="mode-pane hidden"><div id="advisor-list"></div></div>
         <div id="mode-recipes" class="mode-pane hidden">
           <input id="recipe-search" type="search" placeholder="Search recipes…" autocomplete="off">
           <div id="recipe-table-wrap"></div>
@@ -242,6 +246,8 @@
   <script src="js/screen.js?v=202610031202"></script>
   <script src="js/actions.js?v=202610031202"></script>
   <script src="js/chat.js?v=202610031202"></script>
+  <script src="js/advisor.js?v=0"></script>
+  <script src="js/stats.js?v=0"></script>
   <script src="js/ui.js?v=202610031202"></script>
   <script src="js/season.js?v=202610031202"></script>
   <script src="js/shader.js?v=202610031202"></script>

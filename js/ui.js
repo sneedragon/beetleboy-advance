@@ -64,6 +64,7 @@ function setMode(mode) {
   const pane = document.getElementById(`mode-${mode}`);
   if (pane) pane.classList.remove('hidden');
   if (mode === 'recipes') renderRecipes(document.getElementById('recipe-search').value);
+  if (mode === 'next') renderAdvisor();
   const rightBody = document.querySelector('#panel-right .panel-body');
   if (rightBody) {
     rightBody.classList.toggle('wiki-active', mode === 'wiki');

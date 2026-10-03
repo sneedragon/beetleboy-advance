@@ -111,6 +111,7 @@ async function loadState(silent = false) {
   state.user    = { ...user, ...(state.me || {}) };
   schedulePushSync();
   renderStreak();
+  if (!document.getElementById('mode-next')?.classList.contains('hidden')) renderAdvisor();
   state.inv     = user.inventory || {};
   state.hammers = user.hammers   || [];
   // Preserve locally-tracked cooldowns when the API doesn't return them

@@ -8,3 +8,5 @@ chat.php
 miladychan-deno.ts
 miladychan-worker.js
 devlogin.html
+node_modules/
+tests/out/

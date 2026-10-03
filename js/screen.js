@@ -552,6 +552,7 @@ function renderCraftable() {
         lastLabel = resultLabel(result) || 'done';
         const rk = resultKey(result);
         craftSound(rk);
+        recordEvent('craft', { out: rk });
         if (rk?.startsWith('trophy_') && !trophyCrafted) trophyCrafted = rk;
         successCount++;
         if (i < repeatCount - 1) await loadState(true);

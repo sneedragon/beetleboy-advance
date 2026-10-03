@@ -1527,3 +1527,38 @@ body[data-scheme="light"] .chat-card { background: rgba(255,255,255,0.5); }
 .lvl-xp { opacity: .7; font-size: .9em; margin-left: 4px; }
 .lvl-bar { display: inline-block; width: 46px; height: 4px; margin-left: 6px; vertical-align: middle; background: rgba(255,255,255,.12); border-radius: 2px; overflow: hidden; }
 .lvl-bar i { display: block; height: 100%; background: var(--ready); }
+
+/* NEXT tab: what you can make next (js/advisor.js) */
+#advisor-list { display: flex; flex-direction: column; gap: 6px; padding: 6px; font-size: 11px; }
+.adv-head { font-size: 10px; color: var(--dim); padding: 2px 2px 4px; }
+.adv-row { border: 1px solid var(--border); border-radius: 5px; padding: 6px 7px; display: flex; flex-direction: column; gap: 4px; background: rgba(0,0,0,0.15); }
+.adv-row.ready { border-color: var(--ready); box-shadow: inset 2px 0 0 var(--ready); }
+.adv-title { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.adv-title img { width: 20px; height: 20px; object-fit: contain; flex-shrink: 0; }
+.adv-name { font-weight: bold; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.adv-status { margin-left: auto; font-size: 9px; letter-spacing: .06em; color: var(--dim); white-space: nowrap; }
+.adv-row.ready .adv-status { color: var(--ready); font-weight: bold; }
+.adv-setup { font: inherit; font-size: 10px; padding: 2px 8px; border-radius: 3px; border: 1px solid var(--ready); background: transparent; color: var(--ready); cursor: pointer; }
+.adv-setup:hover { background: var(--ready); color: #000; }
+.adv-recipe { display: flex; flex-wrap: wrap; align-items: center; gap: 3px 5px; }
+.adv-kind { width: 100%; font-size: 9px; letter-spacing: .06em; color: var(--dim); }
+.adv-ing { padding: 1px 5px; border-radius: 3px; font-size: 10px; }
+.adv-ing.ok { color: var(--ready); background: rgba(64,192,96,.1); }
+.adv-ing.need { color: #ff7a6a; background: rgba(255,90,70,.1); }
+.adv-ing em { font-style: normal; color: var(--wait); }
+.adv-plus { color: var(--dim); font-size: 9px; }
+.adv-more { font-size: 9px; color: var(--dim); }
+
+/* STATS tab (js/stats.js) */
+#left-mode-stats { padding: 6px; display: flex; flex-direction: column; gap: 6px; font-size: 11px; }
+.st-range { display: flex; gap: 4px; flex-wrap: wrap; }
+.st-range button { font: inherit; font-size: 10px; padding: 2px 7px; border-radius: 3px; border: 1px solid var(--border); background: transparent; color: var(--dim); cursor: pointer; }
+.st-range button.active { border-color: var(--accent); color: var(--text); }
+.st-block { border: 1px solid var(--border); border-radius: 5px; padding: 6px 7px; display: flex; flex-direction: column; gap: 3px; background: rgba(0,0,0,0.15); }
+.st-title { font-weight: bold; display: flex; justify-content: space-between; }
+.st-title span { color: var(--dim); font-weight: normal; font-variant-numeric: tabular-nums; }
+.st-line { display: flex; flex-wrap: wrap; gap: 3px 6px; font-variant-numeric: tabular-nums; }
+.st-chip { font-size: 10px; padding: 0 5px; border-radius: 3px; background: rgba(255,255,255,.06); }
+.st-chip.r-tin { color: var(--tin); } .st-chip.r-brz { color: var(--brz); } .st-chip.r-mth { color: var(--mth); }
+.st-chip.r-adm { color: var(--adm); } .st-chip.r-dia { color: var(--dia); } .st-chip.r-pnk { color: var(--pnk); }
+.st-dim { color: var(--dim); font-size: 10px; }

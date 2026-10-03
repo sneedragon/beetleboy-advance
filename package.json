@@ -1,0 +1,6 @@
+{
+  "name": "beetleboy-sp",
+  "private": true,
+  "scripts": { "test": "node tests/smoke.mjs" },
+  "devDependencies": { "playwright-core": "1.63.0" }
+}
