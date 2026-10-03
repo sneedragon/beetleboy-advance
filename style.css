@@ -1226,6 +1226,8 @@ body[data-scheme="light"] #theme-picker {
 .chat-body { flex: 1; min-width: 0; }
 .chat-meta { display: flex; gap: 6px; align-items: baseline; margin-bottom: 1px; }
 .chat-user { font-size: 0.72em; font-weight: bold; color: var(--accent); }
+.chat-user[style*="--name-h"] { color: hsl(var(--name-h), 70%, 62%); }
+body[data-scheme="light"] .chat-user[style*="--name-h"] { color: hsl(var(--name-h), 70%, 38%); }
 .chat-time { font-size: 0.63em; color: var(--dim); }
 .chat-text { font-size: 0.8em; word-break: break-word; line-height: 1.4; color: var(--text); }
 /* Image in chat body */

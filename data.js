@@ -132,19 +132,19 @@ const IMAGES = {
   chinese_coin:             'icons/trophy-items/chinese_coin.png',
   compass:                  'icons/trophy-items/compass.png',
   cult_medallion:           'icons/trophy-items/cult_medallion.png',
-  d20:                      'icons/trophies/trophy_d20.webp',
-  deck_of_cards:            'icons/trophies/trophy_deck_of_cards.webp',
-  engraved_lighter:         'icons/trophies/trophy_engraved_lighter.webp',
-  joystick:                 'icons/trophies/trophy_joystick.webp',
-  goya_miniature:           'icons/trophies/trophy_goya_miniature.webp',
+  d20:                      'icons/trophy-items/d20.png',
+  deck_of_cards:            'icons/trophy-items/deck_of_cards.png',
+  engraved_lighter:         'icons/trophy-items/engraved_lighter.png',
+  joystick:                 'icons/trophy-items/joystick.png',
+  goya_miniature:           'icons/trophy-items/goya_miniature.png',
   jade_cabbage:             'icons/trophy-items/jade_cabbage.png',
   juex_card:                'icons/trophy-items/juex_card.png',
   milady_fumoku:            'icons/trophy-items/milady_fumoku.png',
   mokia:                    'icons/trophy-items/mokia.png',
   oriental_fan:             'icons/trophy-items/oriental_fan.png',
-  police_badge:             'icons/trophies/trophy_police_badge.webp',
+  police_badge:             'icons/trophy-items/police_badge.webp',
   prism:                    'icons/trophy-items/prism.png',
-  remilianet_id:            'icons/trophies/trophy_remilianet_id.webp',
+  remilianet_id:            'icons/trophy-items/remilianet_id.webp',
   roman_dodeca:             'icons/trophy-items/roman_dodeca.png',
   stradivarius:             'icons/trophy-items/stradivarius.png',
   thumb_drive:              'icons/trophy-items/thumb_drive.png',
@@ -201,7 +201,7 @@ const IMAGES = {
   _card_cult_medallion:          'icons/trophy-items/cult_medallion.png',
   _card_d20:                     'icons/trophies/trophy_d20.webp',
   _card_deck_of_cards:           'icons/trophies/trophy_deck_of_cards.webp',
-  _card_engraved_lighter:        'icons/trophies/trophy_engraved_lighter.webp',
+  _card_engraved_lighter:        'icons/trophy-items/engraved_lighter.png',
   _card_joystick:                'icons/trophies/trophy_joystick.webp',
   _card_goya_miniature:          'icons/trophies/trophy_goya_miniature.webp',
   _card_jade_cabbage:            'icons/trophy-items/jade_cabbage.png',
@@ -332,7 +332,8 @@ const BG_SCENES = {
 // (a page cached from before assets.js existed won't have these lists)
 var LOCAL_BG   = globalThis.LOCAL_BG   || new Set();
 var LOCAL_CARD = globalThis.LOCAL_CARD || new Set();
-for (const k of LOCAL_CARD) IMAGES[`_card_${k}`] ||= `icons/_card/${k}.webp`;
+// official card art beats the small placeholder icons some cards used
+for (const k of LOCAL_CARD) IMAGES[`_card_${k}`] = `icons/_card/${k}.webp`;
 
 // ── ITEM NAMES ────────────────────────────────────────────────────────────────
 const NAMES = {

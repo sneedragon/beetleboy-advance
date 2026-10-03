@@ -1,6 +1,6 @@
 // ── CONFIG ────────────────────────────────────────────────────────────────────
 const USE_PROXY  = true;
-const APP_VERSION = '20261003d'; // sent to proxy.php; a request without it comes from a stale cached page
+const APP_VERSION = '20261003f'; // sent to proxy.php; a request without it comes from a stale cached page
 const PROXY_PATH = 'proxy.php';
 const BASE_URL   = 'https://www.remilia.net';
 const OIDC_URL   = 'https://www.remilia.net/oidc/realms/remilia/protocol/openid-connect/token';
@@ -1957,7 +1957,7 @@ function appendChatPosts(posts, isInit) {
     const profileLink = inner => profileUrl
       ? `<a class="chat-profile-link" href="${profileUrl}" target="_blank" rel="noopener">${inner}</a>`
       : inner;
-    const nameSpan = `<span class="chat-user"${uname === myUser ? ` data-chat-theme="${esc(localStorage.getItem(LS_THEME) || 'flame')}"` : ''}>${name}</span>`;
+    const nameSpan = `<span class="chat-user" style="--name-h:${nameHue(p.user?.displayname || uname)}">${name}</span>`;
     const time = p.time > 0 ? new Date(p.time * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
     const avatar = p.user?.pfpUrl
       ? `<img class="chat-avatar" src="${esc(p.user.pfpUrl)}" alt="" onerror="this.style.display='none'">`
@@ -2000,6 +2000,14 @@ function appendChatPosts(posts, isInit) {
     }
   }
   if (isInit || atBottom) box.scrollTop = box.scrollHeight;
+}
+
+// Same per-name colors as RemiliaNET chat: the hue comes from a hash of the
+// display name (lightness is set in CSS per color scheme).
+function nameHue(name) {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = name.charCodeAt(i) + ((h << 5) - h);
+  return Math.abs(h % 360);
 }
 
 function showInAppNotif(text) {
