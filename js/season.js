@@ -3,18 +3,15 @@
 
 // ── SEASONS ───────────────────────────────────────────────────────────────────
 // Halloween runs from Oct 24 until the morning of Nov 1 (local time).
-// Preview any time with ?halloween in the address (?nohalloween turns it off).
+// Preview with ?halloween in the address (only while it's there).
 const LS_SEASON_PREV = 'bb_theme_before_season';   // colorway to go back to afterwards
 const LS_SEASON_SEEN = 'bb_season_seen';           // season we already auto-switched for
 
 function currentSeason() {
+  // preview only while the address says so; nothing sticks afterwards
   const q = new URLSearchParams(location.search);
-  try {
-    if (q.has('halloween')) sessionStorage.setItem('bb_season_force', 'halloween');
-    if (q.has('nohalloween')) sessionStorage.setItem('bb_season_force', 'off');
-    const forced = sessionStorage.getItem('bb_season_force');
-    if (forced) return forced === 'off' ? null : forced;
-  } catch {}
+  if (q.has('halloween')) return 'halloween';
+  if (q.has('nohalloween')) return null;
   const d = new Date(), m = d.getMonth(), day = d.getDate();
   if ((m === 9 && day >= 24) || (m === 10 && day === 1 && d.getHours() < 6)) return 'halloween';
   return null;
@@ -52,7 +49,8 @@ function initSeason() {
     return;
   }
   document.body.dataset.season = 'halloween';
-  const key = 'halloween-' + new Date().getFullYear();
+  const preview = new URLSearchParams(location.search).has('halloween');
+  const key = 'halloween-' + new Date().getFullYear() + (preview ? '-preview' : '');
   let seen = null;
   try { seen = localStorage.getItem(LS_SEASON_SEEN); } catch {}
   if (halloweenTheme && seen !== key) {           // switch once per season; people can switch back
