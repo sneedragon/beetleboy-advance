@@ -316,10 +316,14 @@ body::after {
   letter-spacing: 0.2em; text-transform: uppercase; white-space: nowrap;
   position: relative;
 }
+#speaker-grille { cursor: pointer; padding: 4px 6px; border-radius: 4px; user-select: none; transition: background .15s; }
+#speaker-grille:hover { background: rgba(255,255,255,0.05); }
 #speaker-grille::before {
   content: '· · · · · · ·';
   color: rgba(255,255,255,0.12); font-size: 11px; letter-spacing: 3px; font-family: monospace;
 }
+#speaker-grille:hover::before { color: rgba(255,255,255,0.3); }
+#speaker-grille.muted::before { content: '·  ·  ✕  ·  ·'; color: rgba(255,90,90,0.35); }
 #user-info { margin-left: auto; display: flex; align-items: center; gap: 12px; }
 #header-user { font-size: 14px; font-weight: bold; color: var(--text); letter-spacing: 0.05em; }
 #cheese-wrap { color: var(--brz); font-size: 14px; }
@@ -1403,7 +1407,8 @@ body[data-scheme="light"] .chat-user[data-chat-theme="orange"] { color: #883010;
   /* Compact top bar */
   #dev-top { gap: 6px; padding: 0 4px; margin-bottom: 6px; }
   #dev-brand { font-size: 10px; letter-spacing: 0.12em; }
-  #speaker-grille { display: none; }
+  #speaker-grille { padding: 2px 4px; }
+  #speaker-grille::before { letter-spacing: 1px; }
   #screen-label { margin-bottom: 4px; }
 
   /* Screen: give controls enough room */

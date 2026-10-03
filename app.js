@@ -1,6 +1,6 @@
 // ── CONFIG ────────────────────────────────────────────────────────────────────
 const USE_PROXY  = true;
-const APP_VERSION = '20261003c'; // sent to proxy.php; a request without it comes from a stale cached page
+const APP_VERSION = '20261003d'; // sent to proxy.php; a request without it comes from a stale cached page
 const PROXY_PATH = 'proxy.php';
 const BASE_URL   = 'https://www.remilia.net';
 const OIDC_URL   = 'https://www.remilia.net/oidc/realms/remilia/protocol/openid-connect/token';
@@ -753,6 +753,7 @@ function requestNotifPermission() {
     Notification.requestPermission();
 }
 function notify(body) {
+  sfx('ready');
   if (!('Notification' in window) || Notification.permission !== 'granted') return;
   new Notification('BeetleBoy SP', { body, icon: 'icons/beetles/green.png' });
 }
@@ -1369,9 +1370,10 @@ function renderCraftable() {
         const body = { type: 1, slot1: s1, slot2: s2, ...(s3 ? { slot3: s3 } : {}), ...(s4 ? { slot4: s4 } : {}) };
         const result = await apiPost('/api/beetle/action/craft', body);
         if (!result) break;
-        if (result.success === false) { log(result.message || 'Failed.', 'warn'); break; }
+        if (result.success === false) { sfx('fail'); log(result.message || 'Failed.', 'warn'); break; }
         lastLabel = resultLabel(result) || 'done';
         const rk = resultKey(result);
+        craftSound(rk);
         if (rk?.startsWith('trophy_') && !trophyCrafted) trophyCrafted = rk;
         successCount++;
         if (i < repeatCount - 1) await loadState(true);
@@ -1621,6 +1623,7 @@ async function doAction(actionName, label) {
   const result = await apiPost(`/api/beetle/action/${actionName}`);
   if (!result) return;
   if (result.success === false) {
+    sfx('fail');
     if (result.cooldownMs > 0) {
       state.storedCds[ACTION_CD_KEY[actionName]] = result.cooldownMs;
       state.fetchedAt = Date.now();
@@ -1642,6 +1645,8 @@ async function doAction(actionName, label) {
       const diff = qty - (invBefore[k] || 0);
       if (diff > 0) { gainedKeys.push(k); gained.push(diff > 1 ? `${iname(k)} ×${diff}` : iname(k)); }
     }
+    sfx({ claimUBC: 'cheese', junkFaucet: 'junk' }[actionName] || 'claim');
+    if (gainedKeys.some(isRareKey)) setTimeout(() => sfx('rare'), 350);
     if (gained.length) log(`✓ ${label} — ${gained.join(', ')}`);
     else if (actionName === 'beetleHunt') log(`✓ ${label} — no beetles this time`);
     else log(`✓ ${label}`);
@@ -1671,6 +1676,7 @@ async function doJunkCrunch() {
   if (screenMode === SCREEN.ASSEMBLE || screenMode === SCREEN.SMASH) setScreenMode(SCREEN.LOG);
   updateScreenBg(SCREEN.SMASH);
   log(`Crunching ${pool.length} junk items…`);
+  sfx('junk');
   let made = 0, skipped = 0;
   for (let i = 0; i < pairs * 2; i += 2) {
     const result = await apiPost('/api/beetle/action/craft', { type: 1, slot1: pool[i], slot2: pool[i+1] });
@@ -1680,11 +1686,16 @@ async function doJunkCrunch() {
     else { log(result.message || 'Failed mid-crunch.', 'warn'); break; }
     await new Promise(r => setTimeout(r, 200));
   }
+  if (made) sfx('craft');
   log(`✓ Made ${made}/${pairs} Junk Cube(s)` + (skipped ? ` (${skipped} pair${skipped>1?'s':''} skipped — unknown item)` : ''));
   updateScreenBg(screenMode);
   await loadState();
 }
 
+
+// sound for a crafted result: rare things sparkle
+const isRareKey = k => !!k && (k.startsWith('trophy_') || RARITY[k] === 'adm' || RARITY[k] === 'dia');
+const craftSound = k => sfx(isRareKey(k) ? 'rare' : 'craft');
 
 // ── ITEM LINKS ────────────────────────────────────────────────────────────────
 const LINK_COLORS = { tin:'var(--tin)',brz:'var(--brz)',mth:'var(--mth)',adm:'var(--adm)',dia:'var(--dia)',pnk:'var(--pnk)',jnk:'var(--jnk)' };
@@ -1891,7 +1902,8 @@ async function sendReact(msgId, emoji) {
   const el = renderedPostEls.get(msgId);
   const mine = el?.querySelector(`.react-pill.mine[data-emoji="${emoji}"]`);
   const res = await chatAction({ action: mine ? 'unreact' : 'react', messageId: msgId, emoji });
-  if (!res.ok) { showInAppNotif(res.error || 'Reaction failed.'); return; }
+  if (!res.ok) { sfx('fail'); showInAppNotif(res.error || 'Reaction failed.'); return; }
+  sfx('react');
   if (me) fetchChat();
 }
 
@@ -1973,6 +1985,7 @@ function appendChatPosts(posts, isInit) {
       actionsHtml;
     renderReactPills(el.querySelector('.chat-reacts'), p.reactions || {}, p.id);
 
+    if (!isInit && uname !== myUser) sfx(p.replyTo?.username === myUser ? 'mention' : 'message');
     if (!isInit && myUser && p.replyTo?.username === myUser && uname !== myUser) {
       if (document.hidden) notify(`${p.user?.displayname || uname} replied to you`);
       else showInAppNotif(`${p.user?.displayname || uname} replied to you!`);
@@ -2061,6 +2074,7 @@ async function sendChatMsg() {
     reactions: {}, replyTo: rt || null,
   }], false);
 
+  sfx('send');
   const res = await postToChat(msg, rt?.id);
   const optEl = renderedPostEls.get(optId);
   if (optEl) optEl.remove();
@@ -2193,9 +2207,10 @@ async function doAssemble() {
     const body = { type: 1, slot1: s1, slot2: s2 || undefined, ...(s3 ? { slot3: s3 } : {}), ...(s4 ? { slot4: s4 } : {}) };
     const result = await apiPost('/api/beetle/action/craft', body);
     if (!result) break;
-    if (result.success === false) { lastError = result.message || 'Failed.'; setResult('asm-result', lastError); break; }
+    if (result.success === false) { sfx('fail'); lastError = result.message || 'Failed.'; setResult('asm-result', lastError); break; }
     lastLabel = resultLabel(result) || 'done';
     lastKey   = resultKey(result);
+    craftSound(lastKey);
     if (lastKey?.startsWith('trophy_') && !trophyCrafted) trophyCrafted = lastKey;
     successCount++;
     if (i < repeatCount - 1) await loadState(true);
@@ -2252,6 +2267,7 @@ async function autoRepairHammer(brokenKey) {
     if (!r || r.success === false) { log(`⚒ Crafting ${iname(step.key)} failed${r?.message ? ': ' + r.message : ''}.`, 'warn'); return false; }
     await loadState(true);
     log(`⚒ ✓ ${iname(step.key)}`);
+    sfx('craft');
   }
   if ((state.inv[brokenKey] || 0) < 1) return false;
   slotState['smhammer'] = brokenKey;
@@ -2270,6 +2286,7 @@ async function handleHammerBreak() {
   renderSlot('smhammer');
   const bk = slotState['smhammer_bk'];
   if (bk && (state.inv[bk] || 0) > 0) {
+    sfx('hammerBreak');
     slotState['smhammer'] = bk;
     slotState['smhammer_bk'] = null;
     renderSlot('smhammer'); renderSlot('smhammer_bk');
@@ -2278,6 +2295,7 @@ async function handleHammerBreak() {
     return true;
   }
   log(`⚒ ${iname(hammer)} broke.`, 'warn');
+  sfx('hammerBreak');
   if (document.getElementById('chk-auto-hammer')?.checked) return autoRepairHammer(hammer);
   renderHammerQuick();
   return false;
@@ -2297,13 +2315,15 @@ async function doSmash() {
     const body = { type: 2, slot1: s1, sacrifice: slotState['smsac'] || '', hammer: slotState['smhammer'] || '', ...(s2 ? { slot2: s2 } : {}) };
     const result = await apiPost('/api/beetle/action/craft', body);
     if (!result) break;
+    sfx('smash');
     if (result.success === false && result.message !== 'UNLUCKY_ROLL') {
-      lastError = result.message || 'Failed.'; setResult('smash-result2', lastError); break;
+      sfx('fail'); lastError = result.message || 'Failed.'; setResult('smash-result2', lastError); break;
     }
-    if (result.success === false) log('✗ Unlucky roll.', 'warn');
+    if (result.success === false) { sfx('unlucky'); log('✗ Unlucky roll.', 'warn'); }
     else {
       lastLabel = resultLabel(result) || 'done';
       lastKey   = resultKey(result);
+      if (isRareKey(lastKey)) setTimeout(() => sfx('rare'), 150);
       successCount++;
       log(`✓ Got: ${lastLabel}`);
     }
@@ -2415,11 +2435,13 @@ function setupActionButtons() {
     if (recent.length >= 12) {               // had enough: runs away for a bit
       fled = true; recent = [];
       say('That\'s it. I\'m leaving. 💨', 3000);
+      sfx('flee');
       tipBeetle.classList.add('fled');
       setTimeout(() => { fled = false; tipBeetle.classList.remove('fled'); say('...fine, I\'m back. Be nice.'); }, 30000);
       return;
     }
-    if (recent.length >= 6) return say(BEETLE_ANNOYED[Math.min(BEETLE_ANNOYED.length - 1, recent.length - 6)]);
+    if (recent.length >= 6) { sfx('beetleMad'); return say(BEETLE_ANNOYED[Math.min(BEETLE_ANNOYED.length - 1, recent.length - 6)]); }
+    sfx('beetle');
     const ctx = beetleContextLines();
     say(ctx.length && Math.random() < 0.4 ? ctx[Math.floor(Math.random() * ctx.length)] : nextRandom());
   });
