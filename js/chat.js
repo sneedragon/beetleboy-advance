@@ -278,6 +278,63 @@ function renderReactPills(container, reactions, msgId) {
   }
 }
 
+// ── LINK EMBEDS: like RemiliaNET, a card for the first link in a message,
+// and YouTube links as a thumbnail that turns into the player on click.
+const previewCache = new Map();   // url → Promise<preview|null>
+
+function youtubeId(url) {
+  try {
+    const u = new URL(url);
+    const host = u.hostname.replace(/^(www\.|m\.)/, '');
+    if (host === 'youtu.be') return { id: u.pathname.slice(1, 12), short: false };
+    if (host === 'youtube.com') {
+      if (u.searchParams.get('v')) return { id: u.searchParams.get('v').slice(0, 11), short: false };
+      const m = u.pathname.match(/^\/(shorts|embed|live)\/([\w-]{11})/);
+      if (m) return { id: m[2], short: m[1] === 'shorts' };
+    }
+  } catch {}
+  return null;
+}
+
+function linkPreview(url) {
+  if (!previewCache.has(url)) {
+    previewCache.set(url, apiGet('/api/link_preview?url=' + encodeURIComponent(url))
+      .then(p => (p && p.title && p.success !== false) ? p : null).catch(() => null));
+  }
+  return previewCache.get(url);
+}
+
+async function attachEmbed(el, body) {
+  const url = (body.match(/\bhttps?:\/\/[^\s<>"]+/) || [])[0];
+  if (!url || /\.(?:jpe?g|png|gif|webp)(?:[?#]|$)/i.test(url)) return;
+  let host = '';
+  try { host = new URL(url).hostname.replace(/^www\./, ''); } catch { return; }
+  if (host === location.hostname) return;
+  const at = el.querySelector('.chat-reacts');
+  const yt = youtubeId(url);
+  if (yt && /^[\w-]{11}$/.test(yt.id)) {
+    const box = document.createElement('div');
+    box.className = 'chat-yt' + (yt.short ? ' short' : '');
+    box.innerHTML = `<button type="button" class="chat-yt-facade" aria-label="Play YouTube video" style="background-image:url(https://i.ytimg.com/vi/${yt.id}/hqdefault.jpg)"><span class="chat-yt-play"></span></button>`;
+    box.querySelector('button').addEventListener('click', () => {
+      box.innerHTML = `<iframe src="https://www.youtube-nocookie.com/embed/${yt.id}?autoplay=1" title="YouTube video" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>`;
+    });
+    at?.before(box);
+    return;
+  }
+  const p = await linkPreview(url);
+  if (!p || !el.isConnected) return;
+  const card = document.createElement('a');
+  card.className = 'chat-card';
+  card.href = url; card.target = '_blank'; card.rel = 'noopener noreferrer';
+  card.innerHTML =
+    (p.image_url ? `<img class="chat-card-img" src="${esc(p.image_url)}" alt="" loading="lazy" onerror="this.remove()">` : '') +
+    `<span class="chat-card-text"><span class="chat-card-site">${esc(host)}</span>` +
+    `<span class="chat-card-title">${esc(p.title)}</span>` +
+    (p.description ? `<span class="chat-card-desc">${esc(p.description.slice(0, 160))}</span>` : '') + `</span>`;
+  el.querySelector('.chat-reacts')?.before(card);
+}
+
 function mediaHtml(media) {
   return (media || []).map(m => m.kind === 'video'
     ? `<video class="chat-img" src="${esc(m.url)}"${m.thumb ? ` poster="${esc(m.thumb)}"` : ''} controls preload="none" playsinline></video>`
@@ -339,6 +396,7 @@ function appendChatPosts(posts, isInit, prepend = false) {
       `</div>` +
       actionsHtml;
     renderReactPills(el.querySelector('.chat-reacts'), p.reactions || {}, p.id);
+    if (p.id > 0 && !(p.media || []).length) attachEmbed(el, p.body || '');
 
     const forMe = uname !== myUser && (p.replyTo?.username === myUser || p.mentionsMe);
     if (!isInit && !prepend && uname !== myUser) sfx(forMe ? 'mention' : 'message');

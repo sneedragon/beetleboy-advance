@@ -4,6 +4,30 @@
 // ── ACTIONS ───────────────────────────────────────────────────────────────────
 const ACTION_CD_KEY = { catchBeetle:'catchBeetle', beetleHunt:'beetleHunt', claimUBC:'claimUBC', junkFaucet:'junkFaucet' };
 
+// The daily-cheese streak only comes back from claiming; remember it for the button
+const LS_STREAK = 'bb_cheese_streak';
+function reportCheeseStreak(r) {
+  if (r.streak) {
+    log(`🧀 Claimed ${r.cheese ?? '?'} cheese · 🔥 Streak ${r.streak}`);
+    try { localStorage.setItem(LS_STREAK, String(r.streak)); } catch {}
+  }
+  if (r.cheeseShieldsUsed) log(`🛡 ${r.cheeseShieldsUsed} cheese shield${r.cheeseShieldsUsed > 1 ? 's' : ''} saved your streak.`, 'warn');
+  if (r.cheeseShieldsGained) log(`🛡 +${r.cheeseShieldsGained} cheese shield${r.cheeseShieldsGained > 1 ? 's' : ''}.`);
+  renderStreak();
+}
+
+function renderStreak() {
+  const el = document.getElementById('ubc-streak');
+  if (!el) return;
+  let streak = 0;
+  try { streak = Number(localStorage.getItem(LS_STREAK) || 0); } catch {}
+  const risk = !!state.user?.isStreakAtRisk;
+  const shields = state.user?.cheeseShields || 0;
+  el.className = 'ubc-streak' + (risk ? ' at-risk' : '');
+  el.textContent = risk ? `⚠ streak at risk${shields ? ` · 🛡${shields}` : ''}` : (streak ? `🔥${streak}${shields ? ` · 🛡${shields}` : ''}` : (shields ? `🛡${shields}` : ''));
+  el.title = risk ? 'Claim your daily cheese or the streak breaks' : (streak ? `Daily cheese streak: ${streak} days` : '');
+}
+
 async function doAction(actionName, label) {
   if (screenMode === SCREEN.ASSEMBLE || screenMode === SCREEN.SMASH) setScreenMode(SCREEN.LOG);
   if (actionName === 'catchBeetle' || actionName === 'beetleHunt') lastActionCtx = 'beetle';
@@ -32,6 +56,7 @@ async function doAction(actionName, label) {
       log(result.message || `${label} failed.`, 'warn');
     }
   } else {
+    if (actionName === 'claimUBC') reportCheeseStreak(result.result || {});
     await loadState();
     const gainedKeys = [], gained = [];
     for (const [k, qty] of Object.entries(state.inv)) {

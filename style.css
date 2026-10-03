@@ -1499,3 +1499,26 @@ body[data-season="halloween"] #tip-beetle::after { content: '🎃'; font-size: 9
 body[data-season="halloween"] #bg-shader { filter: sepia(0.45) saturate(1.4) hue-rotate(-28deg) brightness(0.55) contrast(1.1); }
 body[data-season="halloween"]::before { content: ''; position: fixed; inset: 0; z-index: 0; pointer-events: none;
   background: radial-gradient(ellipse at 50% 120%, rgba(255,110,20,0.22), transparent 60%), radial-gradient(ellipse at 50% -20%, rgba(70,20,110,0.35), transparent 65%); }
+
+/* chat link embeds (js/chat.js attachEmbed) */
+.chat-card { display: flex; gap: 8px; margin-top: 5px; max-width: 100%; padding: 6px; border: 1px solid var(--border); border-left: 3px solid var(--accent);
+  border-radius: 4px; background: rgba(0,0,0,0.18); color: inherit; text-decoration: none; overflow: hidden; }
+.chat-card:hover { border-color: var(--border2); }
+.chat-card-img { width: 64px; height: 64px; object-fit: cover; border-radius: 3px; flex-shrink: 0; }
+.chat-card-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.chat-card-site { font-size: 9px; letter-spacing: .06em; text-transform: uppercase; color: var(--dim); }
+.chat-card-title { font-size: 11px; font-weight: bold; color: var(--accent); overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.chat-card-desc { font-size: 10px; opacity: .75; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.chat-yt { margin-top: 5px; width: 100%; max-width: 320px; aspect-ratio: 16 / 9; border-radius: 4px; overflow: hidden; background: #000; }
+.chat-yt.short { max-width: 180px; aspect-ratio: 9 / 16; }
+.chat-yt iframe { width: 100%; height: 100%; border: 0; display: block; }
+.chat-yt-facade { width: 100%; height: 100%; border: 0; padding: 0; cursor: pointer; background-size: cover; background-position: center; position: relative; }
+.chat-yt-play { position: absolute; left: 50%; top: 50%; width: 46px; height: 32px; transform: translate(-50%, -50%); border-radius: 8px; background: rgba(230,30,30,.92); }
+.chat-yt-play::after { content: ''; position: absolute; left: 18px; top: 9px; border-left: 13px solid #fff; border-top: 7px solid transparent; border-bottom: 7px solid transparent; }
+body[data-scheme="light"] .chat-card { background: rgba(255,255,255,0.5); }
+
+/* daily cheese streak under the Claim UBC timer */
+.ubc-streak { font-size: 9px; letter-spacing: .04em; color: var(--brz); min-height: 1em; line-height: 1.2; }
+.ubc-streak.at-risk { color: #ff6a50; font-weight: bold; animation: streak-pulse 1.6s ease-in-out infinite; }
+@keyframes streak-pulse { 50% { opacity: .55; } }
+@media (prefers-reduced-motion: reduce) { .ubc-streak.at-risk { animation: none; } }
