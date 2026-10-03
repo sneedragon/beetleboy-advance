@@ -89,6 +89,7 @@ function renderAdvisor() {
       return `<div class="adv-row ${t.best === 0 ? 'ready' : ''}">
         <div class="adv-title">${icon ? `<img src="${esc(icon)}" alt="">` : ''}<span class="adv-name ${rcls(t.key)}" data-key="${esc(t.key)}">${esc(iname(t.key))}</span>
           <span class="adv-status">${t.best === 0 ? 'READY' : `missing ${t.best}`}</span>
+          <button class="tree-open" data-tree="${esc(t.key)}" type="button" title="Crafting tree">🌳</button>
           ${t.best === 0 ? `<button class="adv-setup" data-t="${ti}" type="button">Set up</button>` : ''}</div>
         <div class="adv-recipe"><span class="adv-kind">${p.kind === 'smash' ? 'SMASH' : 'ASSEMBLE'}${p.random ? ' · random outcome' : ''}${p.note ? ` · ${esc(p.note)}` : ''}</span>${p.ings.map(ingHtml).join('<span class="adv-plus">+</span>')}</div>
         ${t.plans.length > 1 ? `<div class="adv-more">${t.plans.length - 1} other recipe${t.plans.length > 2 ? 's' : ''}</div>` : ''}
@@ -106,4 +107,5 @@ function renderAdvisor() {
     log(`Set up: ${iname(withPlans[+btn.dataset.t].key)}. Check the slots, then press the button.`);
   }));
   el.querySelectorAll('.adv-name[data-key]').forEach(n => n.addEventListener('click', () => openCard(n.dataset.key)));
+  el.querySelectorAll('[data-tree]').forEach(b => b.addEventListener('click', () => openTree(b.dataset.tree)));
 }

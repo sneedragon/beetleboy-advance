@@ -82,6 +82,16 @@ async function check(label, viewport) {
   for (const [sel, what] of [['#left-mode-stats', 'stats tab'], ['#advisor-list .adv-row, #advisor-list .adv-head', 'advisor'], ['.chat-msg', 'chat messages'], ['.chat-msg-mention', 'mention highlight'], ['.chat-yt', 'YouTube embed']]) {
     if (!(await page.$(sel))) fail(`${label}: ${what} missing`);
   }
+  // crafting tree: a deep trophy, every branch open
+  const tree = await page.evaluate(() => {
+    openTree('trophy_remilianet_id');
+    document.getElementById('tree-expand').click();
+    const n = { recipes: document.querySelectorAll('#tree-modal .tree-recipe').length, items: document.querySelectorAll('#tree-modal .tree-item').length };
+    return n;
+  });
+  if (!tree.recipes || tree.items < 3) fail(`${label}: crafting tree looks empty (${JSON.stringify(tree)})`);
+  await page.screenshot({ path: `${ROOT}tests/out/${label}-tree.png` });
+  await page.evaluate(() => closeTree());
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   if (overflow > 2) fail(`${label}: page scrolls sideways by ${overflow}px`);
   await page.screenshot({ path: `${ROOT}tests/out/${label}.png` });

@@ -166,6 +166,10 @@ function openCard(key) {
   const nameTxt = document.createElement('div');
   nameTxt.className = 'spi-name-main';
   nameTxt.textContent = iname(key);
+  const treeBtn = document.createElement('button');
+  treeBtn.type = 'button'; treeBtn.className = 'tree-open'; treeBtn.title = 'Crafting tree'; treeBtn.textContent = '🌳';
+  treeBtn.addEventListener('click', e => { e.stopPropagation(); openTree(key); });
+  nameTxt.appendChild(treeBtn);
   nameEl.appendChild(nameTxt);
   const r = RARITY[key];
   if (r && RARITY_NAMES[r]) {
