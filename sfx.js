@@ -85,6 +85,13 @@ const SFX = (() => {
     flee:     () => noise({ dur: 0.35, vol: 0.08, freq: 1800, q: 0.5 }),
     unmute:   () => arp([659.25, 987.77], 0.07, { type: 'triangle', dur: 0.15, vol: 0.06 }),
   };
+  // Halloween: minor, a bit wobbly
+  const SPOOKY = {
+    claim:  () => arp([440, 523.25, 622.25, 880], 0.08, { type: 'triangle', dur: 0.3, vol: 0.08 }),
+    ready:  () => { arp([659.25, 622.25], 0.12, { dur: 0.4, vol: 0.06 }); tone(330, { at: 0.05, dur: 0.6, vol: 0.03, type: 'sine', slide: 0.97 }); },
+    beetle: () => { tone(vary(900, 2), { type: 'sawtooth', dur: 0.12, vol: 0.03, slide: 0.7 }); tone(1350, { at: 0.08, dur: 0.18, vol: 0.03, slide: 0.6 }); },
+    rare:   () => { arp([523.25, 622.25, 783.99, 1046.5, 1244.5], 0.07, { dur: 0.45, vol: 0.06 }); noise({ at: 0.3, dur: 0.5, vol: 0.03, freq: 5000, q: 4 }); },
+  };
 
   function play(name) {
     if (muted || !SOUNDS[name]) return;
@@ -93,7 +100,8 @@ const SFX = (() => {
     if (now - (last[name] || 0) < gap) return;
     last[name] = now;
     if (!ensure()) return;
-    try { SOUNDS[name](); } catch {}
+    const spooky = document.body.dataset.season === 'halloween' && SPOOKY[name];
+    try { (spooky || SOUNDS[name])(); } catch {}
   }
 
   function setMuted(m) {

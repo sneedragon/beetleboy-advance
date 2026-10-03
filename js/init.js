@@ -82,8 +82,9 @@ function setupActionButtons() {
   };
   // every line once before any repeats
   const nextRandom = () => {
-    if (!bag.length) bag = TIPS.map((_, i) => i).sort(() => Math.random() - 0.5);
-    return TIPS[bag.pop()];
+    const pool = isHalloween() ? [...TIPS, ...HALLOWEEN_TIPS, ...HALLOWEEN_TIPS] : TIPS;   // spooky lines twice as likely
+    if (!bag.length) bag = pool.map((_, i) => i).sort(() => Math.random() - 0.5);
+    return pool[bag.pop()] ?? pool[0];
   };
   tipBeetle.addEventListener('click', () => {
     if (fled) return;
@@ -288,7 +289,9 @@ document.addEventListener('DOMContentLoaded', () => {
   setupThemePicker();
   wireSlots();
 
-  applyTheme(localStorage.getItem(LS_THEME) || THEMES[Math.floor(Math.random() * THEMES.length)].id);
+  initSeason();
+  const everyday = THEMES.filter(t => !t.seasonal);
+  applyTheme(localStorage.getItem(LS_THEME) || everyday[Math.floor(Math.random() * everyday.length)].id);
   updateScreenBg(SCREEN.LOG);
 
   if (getTokens().access) { showApp(); loadState().then(startTimers); }

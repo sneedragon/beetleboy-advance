@@ -1470,3 +1470,28 @@ body[data-scheme="light"] .chat-sug-user { color: hsl(var(--name-h), 70%, 38%); 
   .hunt-null-hint { font-size: 9px; }
   #bell-btn { font-size: 12px; padding: 2px; }
 }
+
+/* ── HALLOWEEN (js/season.js) ── */
+[data-theme="halloween"] {
+  --chassis: #1c0f24; --chassis2: #130a19; --chassis3: #09050d;
+  --chassis-grad-1: #26142f; --chassis-grad-2: #150b1c;
+  --panel: #221329; --panel2: #150b1a;
+  --panel-bg-1: #221329; --panel-bg-2: #0c0610;
+  --border: #5a3014; --border2: #7a4218;
+  --ctrl-bg-1: #1a0d20; --ctrl-bg-2: #0d0612;
+  --titlebar-bg-1: #1e0f26; --titlebar-bg-2: #120919;
+  --screen-glow: rgba(255,120,20,0.24);
+  --dim: #7a5230; --accent: #e8730f; --accent2: #b4540a;
+}
+body[data-scheme="light"][data-theme="halloween"] {
+  --chassis: #d0650f; --chassis2: #b0520a; --chassis3: #8c4008;
+  --chassis-grad-1: #e07018; --chassis-grad-2: #a84c08;
+  --border: #6a2aa0; --border2: #7c3cb8;
+  --ctrl-bg-1: #5a2290; --ctrl-bg-2: #431a70;
+  --titlebar-bg-1: #c25c0c; --titlebar-bg-2: #96460a;
+  --dim: #6a2aa0; --accent: #6a2aa0; --accent2: #521e80;
+}
+/* pumpkin glow on the device screen, whatever the colorway */
+body[data-season="halloween"] #dev-screen { box-shadow: inset 0 0 30px rgba(0,0,0,0.95), inset 0 0 70px rgba(255,110,10,0.16), 0 0 22px rgba(255,120,20,0.28), 0 0 0 2px rgba(0,0,0,0.8); }
+body[data-season="halloween"] #tip-beetle::after { content: '🎃'; font-size: 9px; margin-left: -6px; align-self: flex-end; }
+#bats { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; }

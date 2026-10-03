@@ -39,6 +39,8 @@ const THEMES = [
   { id: 'gold',   name: 'Gold',    c1: '#2c2406', c2: '#0c0a02', lc1: '#b08010', lc2: '#806008' },
   { id: 'teal',   name: 'Teal',    c1: '#0c242c', c2: '#030a0c', lc1: '#108080', lc2: '#0c6868' },
   { id: 'orange', name: 'Orange',  c1: '#2e1a04', c2: '#0c0802', lc1: '#b84818', lc2: '#883010' },
+  // only offered while it's Halloween (see js/season.js)
+  { id: 'halloween', name: 'Halloween', c1: '#26142f', c2: '#09050d', lc1: '#e06a10', lc2: '#6a2aa0', seasonal: 'halloween' },
 ];
 
 const TIPS = [
@@ -157,7 +159,7 @@ function buildThemePicker() {
   const picker = document.getElementById('theme-picker');
   const light = document.body.dataset.scheme === 'light';
   picker.innerHTML = `<div class="theme-picker-title">Colorway</div><div id="theme-grid">${
-    THEMES.map(t => {
+    THEMES.filter(t => !t.seasonal || t.seasonal === SEASON).map(t => {
       const g1 = light ? t.lc1 : t.c1, g2 = light ? t.lc2 : t.c2;
       return `<button class="theme-swatch${t.id === current ? ' active' : ''}" data-theme="${t.id}"
         style="background:linear-gradient(150deg,${g1},${g2})" title="${t.name}">
