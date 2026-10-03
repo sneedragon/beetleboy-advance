@@ -207,12 +207,14 @@ function arDisplay(r, inv) {
   };
 }
 
+const NARROW = matchMedia('(max-width: 520px)');
 function fmtMs(ms) {
   if (ms === null) return { text: '—', cls: '' };
   if (ms <= 0) return { text: 'Ready', cls: 'ready' };
   const s = Math.floor(ms / 1000);
   const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
-  if (h > 0) return { text: `${h}h ${String(m).padStart(2,'0')}m ${String(sec).padStart(2,'0')}s`, cls: 'waiting' };
+  // phones: drop the seconds once there are hours, or the timer won't fit the button
+  if (h > 0) return { text: NARROW.matches ? `${h}h ${String(m).padStart(2,'0')}m` : `${h}h ${String(m).padStart(2,'0')}m ${String(sec).padStart(2,'0')}s`, cls: 'waiting' };
   if (m > 0) return { text: `${m}m ${String(sec).padStart(2,'0')}s`, cls: 'waiting' };
   return { text: `${sec}s`, cls: 'waiting' };
 }

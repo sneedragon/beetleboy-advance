@@ -1461,3 +1461,12 @@ body[data-scheme="light"] .chat-user[data-chat-theme="orange"] { color: #883010;
 .chat-sug-user { color: hsl(var(--name-h), 70%, 62%); }
 body[data-scheme="light"] .chat-sug-user { color: hsl(var(--name-h), 70%, 38%); }
 .chat-sug-dn { opacity: .6; font-size: .9em; }
+
+/* phones: action buttons are narrow, so labels wrap and timers get smaller */
+@media (max-width: 520px) {
+  .act-btn { padding-inline: 2px; overflow: hidden; }
+  .act-name { white-space: normal; text-align: center; font-size: 9px; line-height: 1.25; letter-spacing: 0.05em; }
+  .btn-cd { font-size: 12px; }
+  .hunt-null-hint { font-size: 9px; }
+  #bell-btn { font-size: 12px; padding: 2px; }
+}
