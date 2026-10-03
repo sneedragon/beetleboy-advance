@@ -247,17 +247,8 @@ function setupChatListeners() {
     }
   });
   document.getElementById('reply-bar-cancel').addEventListener('click', () => setReplyTarget(null));
-  // big chat: the chat pane pops out over the device; Esc or the button brings it back
-  const bigBtn = document.getElementById('chat-big-btn');
-  const setBig = on => {
-    document.body.classList.toggle('chat-big', on);
-    bigBtn.setAttribute('aria-pressed', on); bigBtn.textContent = on ? '⤡' : '⤢';
-    const box = document.getElementById('chat-messages'); box.scrollTop = box.scrollHeight;
-  };
-  bigBtn.addEventListener('click', () => setBig(!document.body.classList.contains('chat-big')));
-  document.addEventListener('keydown', e => {
-    if (e.key === 'Escape' && document.body.classList.contains('chat-big') && !document.querySelector('#profile-modal.open')) setBig(false);
-  });
+  // big chat: the chat moves onto the device's main screen (Esc or ⤡ brings it back)
+  document.getElementById('chat-big-btn').addEventListener('click', () => setScreenMode(screenMode === SCREEN.CHAT ? SCREEN.LOG : SCREEN.CHAT));
   document.getElementById('recipe-search').addEventListener('input', e => renderRecipes(e.target.value));
 }
 

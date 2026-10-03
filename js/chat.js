@@ -433,6 +433,39 @@ function nameHue(name) {
   return Math.abs(h % 360);
 }
 
+// Big chat: the chat pane itself moves onto the device's main screen and back
+let chatHome = null;
+function placeChat(onScreen) {
+  const pane = document.getElementById('mode-chat');
+  const screen = document.getElementById('sp-chat');
+  const btn = document.getElementById('chat-big-btn');
+  if (!pane || !screen) return;
+  chatHome ||= { parent: pane.parentNode, next: pane.nextSibling };
+  let away = document.getElementById('chat-away');
+  if (!away) {
+    away = document.createElement('div');
+    away.id = 'chat-away'; away.className = 'mode-pane hidden';
+    away.innerHTML = '<p>Chat is on the big screen.</p><button type="button" class="tree-btn">Bring it back here</button>';
+    away.querySelector('button').addEventListener('click', () => setScreenMode(SCREEN.LOG));
+    chatHome.parent.insertBefore(away, chatHome.next);
+  }
+  if (onScreen && pane.parentNode !== screen) {
+    screen.appendChild(pane);
+    away.classList.toggle('hidden', document.querySelector('#mode-btns .mode-btn.active')?.dataset.mode !== 'chat');
+    pane.classList.remove('hidden');
+    startChatPoll();
+  } else if (!onScreen && pane.parentNode === screen) {
+    chatHome.parent.insertBefore(pane, away);
+    away.classList.add('hidden');
+    const panelOnChat = document.querySelector('#mode-btns .mode-btn.active')?.dataset.mode === 'chat';
+    pane.classList.toggle('hidden', !panelOnChat);
+    if (!panelOnChat) stopChatPoll();
+  } else return;
+  if (btn) { btn.textContent = onScreen ? '⤡' : '⤢'; btn.setAttribute('aria-pressed', onScreen); btn.title = onScreen ? 'Back to the side panel' : 'Chat on the big screen'; }
+  const box = document.getElementById('chat-messages');
+  if (box) box.scrollTop = box.scrollHeight;
+}
+
 function showInAppNotif(text) {
   const el = document.getElementById('chat-notif');
   if (!el) return;

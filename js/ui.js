@@ -59,9 +59,10 @@ function renderBeetledex() {
 
 // ── MODE SWITCHING ────────────────────────────────────────────────────────────
 function setMode(mode) {
-  document.querySelectorAll('.mode-pane').forEach(p => p.classList.add('hidden'));
+  document.querySelectorAll('.mode-pane').forEach(p => { if (!p.closest('#sp-chat')) p.classList.add('hidden'); });   // chat on the big screen stays
   document.querySelectorAll('.mode-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
-  const pane = document.getElementById(`mode-${mode}`);
+  const onScreen = mode === 'chat' && screenMode === SCREEN.CHAT;
+  const pane = document.getElementById(onScreen ? 'chat-away' : `mode-${mode}`);
   if (pane) pane.classList.remove('hidden');
   if (mode === 'recipes') renderRecipes(document.getElementById('recipe-search').value);
   if (mode === 'next') renderAdvisor();
@@ -75,7 +76,7 @@ function setMode(mode) {
     if (f.src === 'about:blank') f.src = 'https://beetle.wiki/';
   }
   if (mode === 'chat') startChatPoll();
-  else stopChatPoll();
+  else if (screenMode !== SCREEN.CHAT) stopChatPoll();
 }
 
 // ── PANELS ────────────────────────────────────────────────────────────────────

@@ -38,6 +38,8 @@ function setScreenMode(mode) {
   document.getElementById('sp-smash').classList.toggle('hidden',     mode !== SCREEN.SMASH);
   document.getElementById('sp-item').classList.toggle('hidden',      mode !== SCREEN.ITEM);
   document.getElementById('sp-tree').classList.toggle('hidden',      mode !== SCREEN.TREE);
+  document.getElementById('sp-chat').classList.toggle('hidden',      mode !== SCREEN.CHAT);
+  placeChat(mode === SCREEN.CHAT);
   document.getElementById('act-assemble').classList.toggle('active', mode === SCREEN.ASSEMBLE);
   document.getElementById('act-smash').classList.toggle('active',    mode === SCREEN.SMASH);
   document.getElementById('btn-esc').classList.toggle('esc-inactive', mode === SCREEN.LOG);

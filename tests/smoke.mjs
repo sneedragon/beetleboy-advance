@@ -90,6 +90,14 @@ async function check(label, viewport) {
     const n = { recipes: document.querySelectorAll('#tree-svg .tree-edges path').length, items: document.querySelectorAll('#tree-svg .tree-node').length, visible: !document.getElementById('sp-tree').classList.contains('hidden') };
     return n;
   });
+  const flower = await page.evaluate(() => {
+    openTree('gallic_rose');
+    const r = treeState.root;
+    return { made: r.kidsIn.length, uses: r.kidsOut.length, recipes: r.recipes.length };
+  });
+  if (!flower.made || !flower.uses) fail(`${label}: flower tree has no branches (${JSON.stringify(flower)})`);
+  await page.waitForTimeout(300);
+  await page.screenshot({ path: `${ROOT}tests/out/${label}-tree-flower.png` });
   if (!tree.visible || !tree.recipes || tree.items < 3) fail(`${label}: crafting tree looks empty (${JSON.stringify(tree)})`);
   await page.waitForTimeout(300);
   await page.screenshot({ path: `${ROOT}tests/out/${label}-tree.png` });
@@ -102,9 +110,14 @@ async function check(label, viewport) {
   await page.evaluate(() => closeProfile());
   await page.click('#chat-big-btn', { force: true }).catch(() => fail(`${label}: no big chat button`));
   await page.waitForTimeout(300);
-  if (!(await page.evaluate(() => document.body.classList.contains('chat-big')))) fail(`${label}: big chat did not open`);
+  if (!(await page.evaluate(() => screenMode === 'chat' && document.getElementById('sp-chat').contains(document.getElementById('chat-messages'))))) fail(`${label}: chat did not move to the main screen`);
   await page.screenshot({ path: `${ROOT}tests/out/${label}-bigchat.png` });
+  await page.click('[data-mode="next"]', { force: true });
+  await page.waitForTimeout(200);
+  if (await page.evaluate(() => document.getElementById('mode-chat').classList.contains('hidden') || !chatTimer)) fail(`${label}: switching the panel tab broke the big-screen chat`);
   await page.click('#chat-big-btn', { force: true });
+  await page.waitForTimeout(200);
+  if (await page.evaluate(() => document.getElementById('sp-chat').contains(document.getElementById('chat-messages')))) fail(`${label}: chat did not go back to the panel`);
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   if (overflow > 2) fail(`${label}: page scrolls sideways by ${overflow}px`);
   await page.screenshot({ path: `${ROOT}tests/out/${label}.png` });
