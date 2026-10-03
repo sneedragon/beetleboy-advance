@@ -1495,3 +1495,7 @@ body[data-scheme="light"][data-theme="halloween"] {
 body[data-season="halloween"] #dev-screen { box-shadow: inset 0 0 30px rgba(0,0,0,0.95), inset 0 0 70px rgba(255,110,10,0.16), 0 0 22px rgba(255,120,20,0.28), 0 0 0 2px rgba(0,0,0,0.8); }
 body[data-season="halloween"] #tip-beetle::after { content: '🎃'; font-size: 9px; margin-left: -6px; align-self: flex-end; }
 #bats { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; }
+/* dusk sky behind everything during Halloween */
+body[data-season="halloween"] #bg-shader { filter: sepia(0.45) saturate(1.4) hue-rotate(-28deg) brightness(0.55) contrast(1.1); }
+body[data-season="halloween"]::before { content: ''; position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background: radial-gradient(ellipse at 50% 120%, rgba(255,110,20,0.22), transparent 60%), radial-gradient(ellipse at 50% -20%, rgba(70,20,110,0.35), transparent 65%); }
