@@ -35,6 +35,9 @@ function rate_limit(string $ip, int $limit, int $window_sec): void {
 
 $ip    = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
 $input = json_decode(file_get_contents('php://input'), true);
+// Pages cached from before 2026-10-03 don't send a version: tell the browser
+// to drop its cached copy so the next load gets the current app.
+if (!isset($input['v'])) header('Clear-Site-Data: "cache"');
 
 // Rate-limit unauthenticated requests only; authenticated users are throttled by remilia.net itself
 $has_token = !empty($input['token'] ?? '');

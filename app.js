@@ -1,5 +1,6 @@
 // ── CONFIG ────────────────────────────────────────────────────────────────────
 const USE_PROXY  = true;
+const APP_VERSION = '20261003'; // sent to proxy.php; a request without it comes from a stale cached page
 const PROXY_PATH = 'proxy.php';
 const BASE_URL   = 'https://www.remilia.net';
 const OIDC_URL   = 'https://www.remilia.net/oidc/realms/remilia/protocol/openid-connect/token';
@@ -562,7 +563,7 @@ async function apiCall(method, path, body = null, _retry = true) {
       r = await fetch(PROXY_PATH, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ method, path, body, token: access }),
+        body: JSON.stringify({ method, path, body, token: access, v: APP_VERSION }),
       });
     } else {
       const opts = { method, headers: { 'Accept': 'application/json', 'Authorization': `Bearer ${access}` } };
