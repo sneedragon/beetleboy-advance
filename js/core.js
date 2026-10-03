@@ -3,7 +3,7 @@
 
 // ── CONFIG ────────────────────────────────────────────────────────────────────
 const USE_PROXY  = true;
-const APP_VERSION = '202610031202'; // sent to proxy.php; a request without it comes from a stale cached page
+const APP_VERSION = '202610031211'; // sent to proxy.php; a request without it comes from a stale cached page
 const PROXY_PATH = 'proxy.php';
 const BASE_URL   = 'https://www.remilia.net';
 const OIDC_URL   = 'https://www.remilia.net/oidc/realms/remilia/protocol/openid-connect/token';
