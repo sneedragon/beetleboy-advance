@@ -91,3 +91,7 @@ curl_close($ch);
 
 http_response_code($httpCode);
 echo $result;
+
+// Piggyback: send any due timer notifications after answering
+if (function_exists('fastcgi_finish_request')) fastcgi_finish_request();
+try { require_once __DIR__ . '/push.php'; push_tick(); } catch (Throwable $e) {}

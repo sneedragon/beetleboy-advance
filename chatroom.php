@@ -6,6 +6,7 @@
 // POST {token, action: "submit", text, replyTo?}
 // POST {token, action: "react" | "unreact", messageId, emoji}
 // POST {token, action: "ping"}  (connect + subscribe only, posts nothing)
+// POST multipart token, action=upload, file  -> {ok, mediaId, url} (RemiliaNET media upload)
 // Stores nothing.
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
@@ -94,6 +95,38 @@ function ws_json($sock, string $type, array $payload): void {
     ws_send($sock, json_encode(['type' => $type, 'payload' => $payload]));
 }
 
+// ── Image upload: RemiliaNET's own media store, so images show natively ──────
+
+function rn_http(string $method, string $path, string $token, $body, array $headers = []): array {
+    $ch = curl_init('https://' . RN_HOST . $path);
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true, CURLOPT_CUSTOMREQUEST => $method, CURLOPT_TIMEOUT => 30,
+        CURLOPT_HTTPHEADER => array_merge(['Cookie: authToken=' . $token, 'Accept: application/json', 'Origin: https://' . RN_HOST], $headers),
+        CURLOPT_POSTFIELDS => $body,
+    ]);
+    $res = curl_exec($ch);
+    $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+    return [$code, json_decode((string)$res, true)];
+}
+
+if (($_POST['action'] ?? '') === 'upload') {
+    $token = trim($_POST['token'] ?? '');
+    if (!$token || preg_match('/[\r\n;\s]/', $token)) fail(400, 'missing token');
+    $f = $_FILES['file'] ?? null;
+    if (!$f || $f['error'] !== UPLOAD_ERR_OK) fail(400, 'no file');
+    if ($f['size'] > 10 * 1024 * 1024) fail(413, 'image too large (max 10 MB)');
+    $mime = mime_content_type($f['tmp_name']);
+    if (!in_array($mime, ['image/jpeg', 'image/png', 'image/gif', 'image/webp'], true)) fail(415, 'only images (jpg, png, gif, webp)');
+    [$code, $up] = rn_http('POST', '/media/upload/', $token, ['file' => new CURLFile($f['tmp_name'], $mime, 'image')]);
+    if ($code !== 200 || empty($up['token'])) fail(502, 'RemiliaNET upload failed (' . $code . ')');
+    [$code, $conf] = rn_http('POST', '/media/upload/confirm', $token, json_encode(['tokens' => [$up['token']]]), ['Content-Type: application/json']);
+    $m = $conf['media'][0] ?? null;
+    if ($code !== 200 || !$m) fail(502, 'RemiliaNET upload could not be confirmed');
+    echo json_encode(['ok' => true, 'mediaId' => (int)$m['media_id'], 'url' => 'https://' . RN_HOST . $m['url']]);
+    exit;
+}
+
 // ── Request ───────────────────────────────────────────────────────────────────
 
 $in     = json_decode(file_get_contents('php://input'), true) ?? [];
@@ -103,9 +136,10 @@ if (!$token || preg_match('/[\r\n;\s]/', $token)) fail(400, 'missing token');
 
 if ($action === 'submit') {
     $text = trim((string)($in['text'] ?? ''));
-    if ($text === '') fail(400, 'empty message');
+    $media = array_values(array_filter(array_map('intval', array_slice((array)($in['mediaIds'] ?? []), 0, 4))));
+    if ($text === '' && !$media) fail(400, 'empty message');
     if (strlen($text) > 8000) fail(413, 'message too long');
-    $payload = ['chat_id' => CHAT_ID, 'text' => $text, 'media_ids' => []];
+    $payload = ['chat_id' => CHAT_ID, 'text' => $text, 'media_ids' => $media];
     if (!empty($in['replyTo'])) $payload['in_reply_to_id'] = (int)$in['replyTo'];
 } elseif ($action === 'react' || $action === 'unreact') {
     $msgId = (int)($in['messageId'] ?? 0);

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>BeetleBoy SP</title>
-  <link rel="stylesheet" href="style.css?v=20261003f">
+  <link rel="stylesheet" href="style.css?v=20261003h">
   <link rel="icon" href="icons/beetles/green.png" type="image/png">
 </head>
 <body>
@@ -55,6 +55,7 @@
       <div id="dev-top">
         <button id="btn-esc" class="shoulder-btn">ESC</button>
         <div id="speaker-grille"></div>
+        <button id="bell-btn" type="button" title="Notify me when timers are ready, even when BeetleBoy is closed" aria-pressed="false">🔔</button>
         <div id="dev-brand">BeetleBoy Advance<span class="sp-tag" id="sp-clickable"> SP </span>
           <div id="theme-picker" class="hidden"></div>
         </div>
@@ -119,7 +120,6 @@
           <div class="hammer-quick" id="hammer-quick"></div>
           <div class="sp-option-row">
             <label><input type="checkbox" id="chk-auto-hammer"> Craft new Hammer on break</label>
-            <label><input type="checkbox" id="chk-announce"> Post rare finds &amp; trophies to global chat</label>
           </div>
           <div class="sp-row">
             <button class="sp-action-btn sp-smash-btn" id="do-smash">⚡ SMASH</button>
@@ -215,9 +215,10 @@
             <div id="chat-suggest"></div>
             <input id="chat-file-input" type="file" accept="image/*" style="display:none">
             <button id="chat-attach" type="button" title="Attach image">📎</button>
-            <input id="chat-input" type="text" placeholder="Say something… (drag items or type [name])" maxlength="500" autocomplete="off">
+            <input id="chat-input" type="text" placeholder="Say something… (drag items or type [name])" maxlength="2000" autocomplete="off">
             <button id="chat-send" type="button">▶</button>
           </div>
+          <label class="chat-option"><input type="checkbox" id="chk-announce"> Post my rare finds &amp; trophies here</label>
         </div>
       </div>
       </div>
@@ -225,9 +226,9 @@
 
   </div>
 
-  <script src="assets.js?v=20261003f"></script>
-  <script src="data.js?v=20261003f"></script>
-  <script src="sfx.js?v=20261003f"></script>
-  <script src="app.js?v=20261003f"></script>
+  <script src="assets.js?v=20261003h"></script>
+  <script src="data.js?v=20261003h"></script>
+  <script src="sfx.js?v=20261003h"></script>
+  <script src="app.js?v=20261003h"></script>
 </body>
 </html>

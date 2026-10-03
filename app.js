@@ -1,6 +1,6 @@
 // ── CONFIG ────────────────────────────────────────────────────────────────────
 const USE_PROXY  = true;
-const APP_VERSION = '20261003f'; // sent to proxy.php; a request without it comes from a stale cached page
+const APP_VERSION = '20261003h'; // sent to proxy.php; a request without it comes from a stale cached page
 const PROXY_PATH = 'proxy.php';
 const BASE_URL   = 'https://www.remilia.net';
 const OIDC_URL   = 'https://www.remilia.net/oidc/realms/remilia/protocol/openid-connect/token';
@@ -674,6 +674,7 @@ async function loadState(silent = false) {
     if (w?.userHandle) state.me = { username: w.userHandle, displayname: w.displayName || w.userHandle, pfpUrl: rnUrl(w.pfpUrl || '') };
   }
   state.user    = { ...user, ...(state.me || {}) };
+  schedulePushSync();
   state.inv     = user.inventory || {};
   state.hammers = user.hammers   || [];
   // Preserve locally-tracked cooldowns when the API doesn't return them
@@ -752,8 +753,12 @@ function requestNotifPermission() {
   if ('Notification' in window && Notification.permission === 'default')
     Notification.requestPermission();
 }
-function notify(body) {
+function notify(body, tag) {
   sfx('ready');
+  if ('Notification' in window && Notification.permission === 'granted' && navigator.serviceWorker?.controller) {
+    navigator.serviceWorker.ready.then(r => r.showNotification('BeetleBoy SP', { body, tag: tag || body, icon: 'icons/beetles/green.png' }));
+    return;
+  }
   if (!('Notification' in window) || Notification.permission !== 'granted') return;
   new Notification('BeetleBoy SP', { body, icon: 'icons/beetles/green.png' });
 }
@@ -799,7 +804,7 @@ function tick() {
       }
       const ready = cooldown === 0 && cheese >= HUNT_COST;
       document.getElementById(btnId).classList.toggle('is-ready', ready);
-      if (prevCdStates[key] === false && ready) notify('Hunt Beetle is ready!');
+      if (prevCdStates[key] === false && ready) notify('Hunt Beetle is ready!', key);
       prevCdStates[key] = ready;
       continue;
     } else {
@@ -808,7 +813,7 @@ function tick() {
       cdEl.className = `btn-cd ${cls}`;
     }
     document.getElementById(btnId).classList.toggle('is-ready', cds[key] === 0);
-    if (prevCdStates[key] > 0 && cds[key] === 0) notify(`${label} is ready!`);
+    if (prevCdStates[key] > 0 && cds[key] === 0) notify(`${label} is ready!`, key);
     prevCdStates[key] = cds[key];
   }
 }
@@ -822,6 +827,74 @@ function renderHeader() {
   const lvlEl = document.getElementById('screen-level');
   if (lvlEl) lvlEl.textContent = u.level != null ? `LVL ${u.level}` : '';
 }
+
+// ── PUSH NOTIFICATIONS ────────────────────────────────────────────────────────
+// Opt-in: the server learns only when your timers end and pushes a
+// notification then, even when BeetleBoy is closed.
+const LS_PUSH = 'bb_push';
+let pushSub = null, lastPushSync = '', pushSyncTimer = null;
+
+const pushSupported = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+const b64ToBytes = b64 => {
+  const s = atob(b64.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - b64.length % 4) % 4));
+  return Uint8Array.from(s, c => c.charCodeAt(0));
+};
+
+async function enablePush() {
+  if (!pushSupported()) { log('This browser can\'t do background notifications.', 'warn'); return false; }
+  if (await Notification.requestPermission() !== 'granted') { log('Notifications are blocked for this site.', 'warn'); return false; }
+  const reg = await navigator.serviceWorker.register('sw.js');
+  await navigator.serviceWorker.ready;
+  const { publicKey } = await fetch('push.php?key').then(r => r.json());
+  pushSub = await reg.pushManager.getSubscription() || await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToBytes(publicKey) });
+  try { localStorage.setItem(LS_PUSH, '1'); } catch {}
+  lastPushSync = '';
+  await syncPushTimers();
+  log('🔔 You\'ll get a notification when a timer is ready, even with BeetleBoy closed.');
+  return true;
+}
+
+async function disablePush() {
+  try { localStorage.setItem(LS_PUSH, '0'); } catch {}
+  const reg = await navigator.serviceWorker?.getRegistration();
+  const sub = pushSub || await reg?.pushManager.getSubscription();
+  if (sub) {
+    fetch('push.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'unsubscribe', endpoint: sub.endpoint }) }).catch(() => {});
+    await sub.unsubscribe().catch(() => {});
+  }
+  pushSub = null;
+}
+
+// Restore an existing subscription on load
+async function initPush() {
+  let on = false;
+  try { on = localStorage.getItem(LS_PUSH) === '1'; } catch {}
+  if (!on || !pushSupported() || Notification.permission !== 'granted') return false;
+  const reg = await navigator.serviceWorker.register('sw.js');
+  pushSub = await reg.pushManager.getSubscription();
+  if (!pushSub) return false;
+  syncPushTimers();
+  return true;
+}
+
+// Tell the server when each running timer ends (only when that changed)
+async function syncPushTimers() {
+  if (!pushSub || !state.user) return;
+  const cds = currentCds(), now = Date.now();
+  const timers = [];
+  const add = (id, label, ms) => { if (ms > 0) timers.push({ id, label, at: Math.round((now + ms) / 15000) * 15000 }); };
+  add('catchBeetle', 'Claim Beetle', cds.catchBeetle);
+  add('claimUBC', 'Claim UBC', cds.claimUBC);
+  add('junkFaucet', 'Junk Faucet', cds.junkFaucet);
+  add('beetleHunt', 'Hunt Beetle', huntStatus().cooldown);
+  const key = JSON.stringify(timers);
+  if (key === lastPushSync) return;
+  lastPushSync = key;
+  try {
+    await fetch('push.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'sync', subscription: pushSub.toJSON(), timers }) });
+  } catch { lastPushSync = ''; }
+}
+const schedulePushSync = () => { clearTimeout(pushSyncTimer); pushSyncTimer = setTimeout(syncPushTimers, 1500); };
 
 // ── SCREEN PANE / SLOT SYSTEM ─────────────────────────────────────────────────
 let screenMode    = SCREEN.LOG;  // one of SCREEN.*
@@ -1721,7 +1794,8 @@ function renderChatBody(body) {
     return esc(p.v).replace(/\n/g, '<br>').replace(/\[\[([a-z0-9_]+)\]\]/g, (_, key) => {
       const col = LINK_COLORS[RARITY[key]] || '';
       return `<span class="chat-item-link" data-key="${key}"${col ? ` style="color:${col}"` : ''}>[${esc(iname(key))}]</span>`;
-    });
+    }).replace(/(^|\s)([~@])([\w.-]{2,32})/g, (m, pre, sign, h) =>
+      `${pre}<span class="chat-at${h.toLowerCase() === (state.user?.username || '').toLowerCase() ? ' me' : ''}">${sign}${h}</span>`);
   }).join('');
 }
 
@@ -1742,8 +1816,20 @@ function getChatLinkQuery(input) {
 }
 
 function updateChatSuggest(input) {
-  const query   = getChatLinkQuery(input);
   const suggest = document.getElementById('chat-suggest');
+  const at = /(^|\s)[~@]([\w.-]*)$/.exec(input.value.slice(0, input.selectionStart));
+  if (at) {
+    const q = at[2].toLowerCase();
+    const people = [...new Map([...chatUsers.values()].map(u => [u.handle, u])).values()]
+      .filter(u => u.handle && (u.handle.toLowerCase().startsWith(q) || (u.display_name || '').toLowerCase().startsWith(q)))
+      .slice(0, 8);
+    if (!people.length) { suggest.classList.remove('open'); return; }
+    suggest.innerHTML = people.map(u =>
+      `<div class="chat-sug-item chat-sug-user" data-handle="${esc(u.handle)}" style="--name-h:${nameHue(u.display_name || u.handle)}">~${esc(u.handle)}${u.display_name && u.display_name !== u.handle ? ` <span class="chat-sug-dn">${esc(u.display_name)}</span>` : ''}</div>`).join('');
+    suggest.classList.add('open');
+    return;
+  }
+  const query   = getChatLinkQuery(input);
   if (query === null) { suggest.classList.remove('open'); return; }
   const lower = query.toLowerCase();
   const inv   = state.inv || {};
@@ -1788,22 +1874,40 @@ let pendingAttachment = null; // { file }
 const renderedPostEls = new Map(); // msgId → DOM element
 const chatUsers       = new Map(); // user id → { handle, display_name, profile_pic_url }
 const chatMsgs        = new Map(); // msg id → raw message (for reply quotes)
+let chatOldestId      = null;      // for loading older messages on scroll-up
+let chatHasOlder      = true;
+let chatLoadingOlder  = false;
+
+// Is this message for me? RemiliaNET sends mention ids; @handle in text also counts
+function mentionsMe(m, body) {
+  const me = state.user;
+  if (!me) return false;
+  if ((m.mentions || []).includes(Number(me.id))) return true;
+  return !!me.username && new RegExp(`(^|\\s)[~@]${me.username.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').test(body || '');
+}
 
 const rnUrl = u => !u ? '' : (u.startsWith('/') ? BASE_URL + u : u);
 
+// Upload to RemiliaNET's media store (through chatroom.php) so the image
+// shows natively for everyone on remilia.net. Returns {mediaId, url} or null.
 async function uploadChatImage(file) {
-  const { access } = getTokens();
-  if (!access) return null;
-  const fd = new FormData();
-  fd.append('token', access);
-  fd.append('image', file);
+  const send = token => {
+    const fd = new FormData();
+    fd.append('action', 'upload');
+    fd.append('token', token);
+    fd.append('file', file);
+    return fetch(CHAT_URL, { method: 'POST', body: fd });
+  };
   try {
-    const r = await fetch('upload.php', { method: 'POST', body: fd });
-    const j = await r.json();
-    if (!r.ok || !j.url) return null;
-    const base = location.href.replace(/[^/]*$/, '');
-    return base + j.url;
-  } catch (e) { console.error('[upload] error', e); return null; }
+    let r = await send(getTokens().access);
+    if (r.status === 502) {
+      const t = await tryRefresh();
+      if (t) { saveTokens(t.access, t.refresh); r = await send(t.access); }
+    }
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok || !j.mediaId) { showInAppNotif(j.error || 'Image upload failed.'); return null; }
+    return j;
+  } catch (e) { showInAppNotif('Image upload failed.'); return null; }
 }
 
 function setPendingAttachment(file) {
@@ -1855,6 +1959,7 @@ function toPost(m) {
     body: m.is_deleted ? '(deleted)' : (m.body || ''),
     user: chatUser(m.author_id),
     reactions, replyTo, media,
+    mentionsMe: mentionsMe(m, m.body),
   };
 }
 
@@ -1870,8 +1975,25 @@ async function fetchChat() {
     const posts = ids.map(id => chatMsgs.get(id)).filter(Boolean).map(toPost);
     const isInit = !chatLoaded;
     chatLoaded = true;
+    // has_more_older is always false; oldest_reachable_id is the real limit
+    if (isInit) { chatOldestId = ids[0] ?? null; chatHasOlder = !!ids.length && ids[0] > (d.oldest_reachable_id || 0); }
     appendChatPosts(posts, isInit);
   } finally { chatBusy = false; }
+}
+
+async function loadOlderChat() {
+  if (chatLoadingOlder || !chatHasOlder || !chatOldestId) return;
+  chatLoadingOlder = true;
+  try {
+    const d = await apiGet(`/api/chats/${CHAT_ID}/messages?limit=50&before=${chatOldestId}`);
+    if (!d?.global) return;
+    for (const [id, u] of Object.entries(d.global.users || {})) chatUsers.set(Number(id), u);
+    for (const [id, m] of Object.entries(d.global.messages || {})) chatMsgs.set(Number(id), m);
+    const ids = (d.message_ids || []).slice().sort((a, b) => a - b);
+    chatHasOlder = ids.length > 0 && ids[0] > (d.oldest_reachable_id || 0);
+    if (ids.length) chatOldestId = ids[0];
+    appendChatPosts(ids.map(id => chatMsgs.get(id)).filter(Boolean).map(toPost), false, true);
+  } finally { chatLoadingOlder = false; }
 }
 
 async function chatAction(payload) {
@@ -1931,10 +2053,12 @@ function mediaHtml(media) {
     : `<img class="chat-img" src="${esc(m.url)}" alt="" loading="lazy" onerror="this.style.display='none'">`).join('');
 }
 
-function appendChatPosts(posts, isInit) {
+function appendChatPosts(posts, isInit, prepend = false) {
   const box = document.getElementById('chat-messages');
   if (!box) return;
   const atBottom = box.scrollHeight - box.scrollTop <= box.clientHeight + 60;
+  const older = prepend ? document.createDocumentFragment() : null;
+  const prevHeight = box.scrollHeight;
   if (isInit) { box.innerHTML = ''; renderedPostEls.clear(); }
   const myUser = state.user?.username || '';
   for (const p of posts) {
@@ -1950,7 +2074,7 @@ function appendChatPosts(posts, isInit) {
     }
 
     const el = document.createElement('div');
-    el.className = 'chat-msg';
+    el.className = 'chat-msg' + (p.mentionsMe ? ' chat-msg-mention' : '');
     const uname = p.user?.username || '';
     const name = esc(p.user?.displayname || uname || '?');
     const profileUrl = uname ? `${BASE_URL}/~${encodeURIComponent(uname)}` : '';
@@ -1985,13 +2109,23 @@ function appendChatPosts(posts, isInit) {
       actionsHtml;
     renderReactPills(el.querySelector('.chat-reacts'), p.reactions || {}, p.id);
 
-    if (!isInit && uname !== myUser) sfx(p.replyTo?.username === myUser ? 'mention' : 'message');
-    if (!isInit && myUser && p.replyTo?.username === myUser && uname !== myUser) {
+    const forMe = uname !== myUser && (p.replyTo?.username === myUser || p.mentionsMe);
+    if (!isInit && !prepend && uname !== myUser) sfx(forMe ? 'mention' : 'message');
+    if (!isInit && !prepend && p.mentionsMe && uname !== myUser && p.replyTo?.username !== myUser) {
+      if (document.hidden) notify(`${p.user?.displayname || uname} mentioned you`, 'mention');
+      else showInAppNotif(`${p.user?.displayname || uname} mentioned you!`);
+    }
+    if (!isInit && !prepend && myUser && p.replyTo?.username === myUser && uname !== myUser) {
       if (document.hidden) notify(`${p.user?.displayname || uname} replied to you`);
       else showInAppNotif(`${p.user?.displayname || uname} replied to you!`);
     }
     renderedPostEls.set(p.id, el);
-    box.appendChild(el);
+    if (older) older.appendChild(el); else box.appendChild(el);
+  }
+  if (older) {                                   // keep the view where it was
+    box.insertBefore(older, box.firstChild);
+    box.scrollTop += box.scrollHeight - prevHeight;
+    return;
   }
   // drop optimistic placeholders once the real messages have arrived
   if (posts.length) {
@@ -2046,8 +2180,8 @@ function stopChatPoll() {
 
 // Posts to global chat. Item links go out as plain "[Item Name]" so everyone
 // on RemiliaNET can read them; BeetleBoy turns them back into links.
-async function postToChat(text, replyTo = null) {
-  return chatAction({ action: 'submit', text: bodyToPlainText(text), ...(replyTo ? { replyTo } : {}) });
+async function postToChat(text, replyTo = null, mediaIds = []) {
+  return chatAction({ action: 'submit', text: bodyToPlainText(text), ...(replyTo ? { replyTo } : {}), ...(mediaIds.length ? { mediaIds } : {}) });
 }
 
 async function sendChatMsg() {
@@ -2062,16 +2196,11 @@ async function sendChatMsg() {
   input.value = '';
   input.disabled = true;
 
+  let media = null;
   if (attach) {
     clearPendingAttachment();
-    const imgUrl = await uploadChatImage(attach.file);
-    if (imgUrl) msg = msg ? msg + '\n' + imgUrl : imgUrl;
-    else if (!msg) {
-      input.disabled = false;
-      showInAppNotif('Image upload failed.');
-      input.focus();
-      return;
-    }
+    media = await uploadChatImage(attach.file);
+    if (!media && !msg) { input.disabled = false; input.focus(); return; }
   }
 
   // Optimistic: show it right away with a negative placeholder id
@@ -2080,10 +2209,11 @@ async function sendChatMsg() {
     id: optId, type: 'msg', time: Math.floor(Date.now() / 1000), body: msg,
     user: { username: state.user?.username || '', displayname: state.user?.displayname || '', pfpUrl: state.user?.pfpUrl || '' },
     reactions: {}, replyTo: rt || null,
+    media: media ? [{ kind: 'img', url: media.url }] : [],
   }], false);
 
   sfx('send');
-  const res = await postToChat(msg, rt?.id);
+  const res = await postToChat(msg, rt?.id, media ? [media.mediaId] : []);
   const optEl = renderedPostEls.get(optId);
   if (optEl) optEl.remove();
   renderedPostEls.delete(optId);
@@ -2404,6 +2534,18 @@ function setupActionButtons() {
   const autoHammerChk = document.getElementById('chk-auto-hammer');
   autoHammerChk.checked = localStorage.getItem(LS_AUTO_HAMMER) === '1';
   autoHammerChk.addEventListener('change', () => localStorage.setItem(LS_AUTO_HAMMER, autoHammerChk.checked ? '1' : '0'));
+  const bell = document.getElementById('bell-btn');
+  if (bell) {
+    const show = on => { bell.classList.toggle('on', on); bell.setAttribute('aria-pressed', on); bell.title = on ? 'Timer notifications are on (click to turn off)' : 'Notify me when timers are ready, even when BeetleBoy is closed'; };
+    if (!pushSupported()) bell.hidden = true;
+    initPush().then(show);
+    bell.addEventListener('click', async () => {
+      bell.disabled = true;
+      if (bell.classList.contains('on')) { await disablePush(); show(false); log('🔕 Timer notifications off.'); }
+      else show(await enablePush().catch(e => { log(`Couldn't turn on notifications: ${e.message}`, 'warn'); return false; }));
+      bell.disabled = false;
+    });
+  }
   const announceChk = document.getElementById('chk-announce');
   if (announceChk) {
     announceChk.checked = announceOn();
@@ -2557,8 +2699,20 @@ function setupChatListeners() {
   });
   suggest.addEventListener('click', e => {
     const item = e.target.closest('.chat-sug-item');
-    if (item) insertChatLink(item.dataset.key);
+    if (!item) return;
+    if (item.dataset.handle) {                       // mention: RemiliaNET writes them as ~handle
+      const pos = input.selectionStart, before = input.value.slice(0, pos);
+      const start = Math.max(before.lastIndexOf('@'), before.lastIndexOf('~'));
+      input.value = before.slice(0, start) + `~${item.dataset.handle} ` + input.value.slice(pos);
+      const np = start + item.dataset.handle.length + 2;
+      input.setSelectionRange(np, np);
+      suggest.classList.remove('open');
+      input.focus();
+    } else insertChatLink(item.dataset.key);
   });
+  document.getElementById('chat-messages').addEventListener('scroll', e => {
+    if (e.target.scrollTop < 60) loadOlderChat();
+  }, { passive: true });
   document.getElementById('chat-messages').addEventListener('click', e => {
     const link = e.target.closest('.chat-item-link');
     if (link) { openCard(link.dataset.key); return; }
