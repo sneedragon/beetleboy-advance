@@ -1,6 +1,6 @@
 // ── CONFIG ────────────────────────────────────────────────────────────────────
 const USE_PROXY  = true;
-const APP_VERSION = '20261003b'; // sent to proxy.php; a request without it comes from a stale cached page
+const APP_VERSION = '20261003c'; // sent to proxy.php; a request without it comes from a stale cached page
 const PROXY_PATH = 'proxy.php';
 const BASE_URL   = 'https://www.remilia.net';
 const OIDC_URL   = 'https://www.remilia.net/oidc/realms/remilia/protocol/openid-connect/token';
@@ -78,8 +78,68 @@ const TIPS = [
   'yayo.supply/sneed',
   'WAAAGH!',
   '$CULT',
-  'Smoking weed makes you gay and retarded.'
+  'Smoking weed makes you gay and retarded.',
+  'Have you tried clicking the cheese man? Like, a lot?',
+  'UBC means Universal Basic Cheese. Fully automated luxury cheese communism.',
+  'Pinned specimens are not junk. I checked. Twice.',
+  'Hammers break. So do I, emotionally.',
+  'Three hunts, then a 90 minute break. Union rules.',
+  'The 🔥 react is free. Use it.',
+  'Say gm in global chat. It costs nothing.',
+  'Post your rare drops in chat. Or don\'t. I\'m not your mom.',
+  'Every Junk Tesseract was once two hundred cigarette butts. Think about that.',
+  'I was a Green Beetle once. Then I got pinned.',
+  'Sacrifice a Purple. You know you want to.',
+  'Specimen Pin gambling is a valid lifestyle.',
+  'The beetle wiki knows things. Dark things.',
+  'Level 100 players know the lighter recipe. They will never tell you.',
+  'One more smash. Just one more.',
+  'Diamond pollen is a myth told to scare tincels.',
+  'You could be outside right now.',
+  'I have seen things in the junk pile you would not believe.',
+  'Beetles are just bugs that went to college.',
+  'gm',
+  'gn',
+  'wagmi (we are all gonna mutate into beetles)',
+  'Have you thanked your hammer today?',
+  'Every cheese you don\'t spend makes a mouse sad.',
+  'BEETLEBOY ADVANCE SP: now with 100% more beetle.',
+  "I'm not a bug, I'm a feature.",
+  'Ctrl+F "lighter" on the wiki. I dare you.',
+  'Stag beetles fight with their faces. Respect.',
+  'The cheese man sees all.',
+  'Remilia Corporation is not responsible for lost beetles.',
 ];
+
+// Lines that depend on your game right now (all optional; empty if not true)
+function beetleContextLines() {
+  const u = state.user, inv = state.inv || {};
+  if (!u) return [];
+  const out = [];
+  const cds = currentCds();
+  const cheese = inv.cheese || 0;
+  const hunt = huntStatus();
+  if (cds.catchBeetle === 0) out.push('Your beetle claim is ready. Go get it, I\'m not doing it for you.');
+  if (cds.claimUBC === 0) out.push('Free cheese is ready. Universal Basic Cheese, baby.');
+  if (cds.junkFaucet === 0) out.push('The cheese man has junk for you today. Click him until he cracks.');
+  if (hunt.cooldown > 0) out.push(`Hunting break: ${fmtMs(hunt.cooldown).text} left. Touch grass meanwhile.`);
+  else if (cheese >= HUNT_COST) out.push(`You have ${cheese} cheese. That's ${Math.floor(cheese / HUNT_COST)} hunts. Just saying.`);
+  else out.push(`${cheese} cheese? A hunt costs ${HUNT_COST}. Brokie.`);
+  const junk = junkPool(inv).length;
+  if (junk >= 50) out.push(`You're sitting on ${junk} pieces of junk. CRUNCH IT.`);
+  if (!HAMMERS.some(h => (inv[h] || 0) > 0)) out.push("You don't even own a hammer. How do you live like this?");
+  if ((inv.green || 0) >= 1000) out.push(`${(inv.green).toLocaleString()} Green Beetles. Hoarder.`);
+  if (u.level != null) out.push(u.level >= 100 ? 'Level 100. Welcome to beetol wurl. Now tell me the lighter recipe.' : `Level ${u.level}. ${100 - u.level} more and they might tell you the lighter recipe.`);
+  const pins = Object.keys(inv).filter(k => (inv[k] || 0) > 0 && pinnedBeetle(k)).length;
+  if (pins) out.push(`You pinned ${pins} of my friends. I'm keeping a list.`);
+  const h = new Date().getHours();
+  if (h >= 1 && h < 5) out.push(`It's ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}. Go to sleep. The beetles will still be here.`);
+  if (h >= 5 && h < 9) out.push('Morning. Did you claim your cheese yet?');
+  return out;
+}
+
+const BEETLE_ANNOYED = ['Stop poking me.', 'I said STOP.', 'Do you poke everyone like this?', 'I bite, you know.', "I'm telling Sneed."];
+const BEETLE_MILESTONES = { 100: "That's 100 pokes. We're basically married now.", 500: '500 pokes. Do you need to talk to someone?', 1000: '1000 pokes. Seek help. I mean it. 🪲' };
 
 function applyTheme(id) {
   if (id === 'indigo') delete document.body.dataset.theme;
@@ -2326,18 +2386,42 @@ function setupActionButtons() {
     if (e.key === 'Escape' && !e.target.matches('input, textarea')) setScreenMode(SCREEN.LOG);
   });
 
-  let tipTimeout = null;
+  let tipTimeout = null, recent = [], bag = [], fled = false;
   const tipBeetle = document.getElementById('tip-beetle');
   const tipBubble = document.getElementById('tip-bubble');
+  const say = (text, ms) => {
+    tipBubble.textContent = text;
+    tipBubble.classList.add('visible');
+    clearTimeout(tipTimeout);
+    tipTimeout = setTimeout(() => tipBubble.classList.remove('visible'), ms || Math.min(9000, 2500 + text.length * 45));
+  };
+  // every line once before any repeats
+  const nextRandom = () => {
+    if (!bag.length) bag = TIPS.map((_, i) => i).sort(() => Math.random() - 0.5);
+    return TIPS[bag.pop()];
+  };
   tipBeetle.addEventListener('click', () => {
+    if (fled) return;
     tipBeetle.classList.remove('shaking');
     void tipBeetle.offsetWidth;
     tipBeetle.classList.add('shaking');
-    const tip = TIPS[Math.floor(Math.random() * TIPS.length)];
-    tipBubble.textContent = tip;
-    tipBubble.classList.add('visible');
-    clearTimeout(tipTimeout);
-    tipTimeout = setTimeout(() => tipBubble.classList.remove('visible'), 4000);
+
+    let pokes = 0;
+    try { pokes = Number(localStorage.getItem('bb_pokes') || 0) + 1; localStorage.setItem('bb_pokes', pokes); } catch {}
+    const now = Date.now();
+    recent = recent.filter(t => now - t < 8000).concat(now);
+
+    if (BEETLE_MILESTONES[pokes]) return say(BEETLE_MILESTONES[pokes], 6000);
+    if (recent.length >= 12) {               // had enough: runs away for a bit
+      fled = true; recent = [];
+      say('That\'s it. I\'m leaving. 💨', 3000);
+      tipBeetle.classList.add('fled');
+      setTimeout(() => { fled = false; tipBeetle.classList.remove('fled'); say('...fine, I\'m back. Be nice.'); }, 30000);
+      return;
+    }
+    if (recent.length >= 6) return say(BEETLE_ANNOYED[Math.min(BEETLE_ANNOYED.length - 1, recent.length - 6)]);
+    const ctx = beetleContextLines();
+    say(ctx.length && Math.random() < 0.4 ? ctx[Math.floor(Math.random() * ctx.length)] : nextRandom());
   });
 }
 
