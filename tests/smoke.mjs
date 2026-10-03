@@ -108,7 +108,7 @@ async function check(label, viewport) {
   if (!(await page.$('#profile-modal.open .pf-act'))) fail(`${label}: mini profile did not open`);
   await page.screenshot({ path: `${ROOT}tests/out/${label}-profile.png` });
   await page.evaluate(() => closeProfile());
-  await page.click('#chat-big-btn', { force: true }).catch(() => fail(`${label}: no big chat button`));
+  await page.click('#log-chat-btn').catch(() => fail(`${label}: no chat button on the main screen`));
   await page.waitForTimeout(300);
   if (!(await page.evaluate(() => screenMode === 'chat' && document.getElementById('sp-chat').contains(document.getElementById('chat-messages'))))) fail(`${label}: chat did not move to the main screen`);
   if (!(await page.evaluate(() => { const o = document.querySelector('#chat-input-row .chat-option'); if (!o) return false; const c = document.getElementById('chk-announce').checked; o.click(); const ok = document.getElementById('chk-announce').checked !== c; o.click(); return ok; }))) fail(`${label}: announce toggle missing or dead on the big screen`);

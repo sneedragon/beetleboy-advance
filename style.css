@@ -452,6 +452,13 @@ body::after {
   padding: 0 2px; line-height: 1; flex-shrink: 0; user-select: none;
   display: flex; align-items: center;
 }
+/* 💬 sits exactly where the big-screen chat's toggle sits, so it works as one toggle */
+#log-chat-btn { position: absolute; right: 8px; bottom: 8px; width: 24px; height: 31px; z-index: 6; padding: 0; font-size: 13px; line-height: 1;
+  display: flex; align-items: center; justify-content: center; border: 1px solid var(--border2); border-radius: 4px;
+  background: rgba(4,6,14,0.55); color: var(--dim); cursor: pointer; }
+#log-chat-btn:hover, #sp-chat #chat-big-btn:hover { filter: drop-shadow(0 0 4px rgba(120,160,255,0.6)); }
+#sp-log .log-search-wrap { padding-right: 32px; }
+#sp-chat #chat-big-btn { width: 24px; padding: 0; font-size: 13px; background: rgba(120,160,255,0.22); border-color: rgba(150,180,255,0.7); }
 #tip-beetle:hover { filter: brightness(1.4) drop-shadow(0 0 4px rgba(100,220,100,0.5)); }
 @keyframes tip-shake {
   0%,100% { transform: rotate(0); }

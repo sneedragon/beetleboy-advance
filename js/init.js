@@ -247,8 +247,9 @@ function setupChatListeners() {
     }
   });
   document.getElementById('reply-bar-cancel').addEventListener('click', () => setReplyTarget(null));
-  // big chat: the chat moves onto the device's main screen (Esc or ⤡ brings it back)
+  // big chat: the chat moves onto the device's main screen (Esc or the 💬 toggle brings it back)
   document.getElementById('chat-big-btn').addEventListener('click', () => setScreenMode(screenMode === SCREEN.CHAT ? SCREEN.LOG : SCREEN.CHAT));
+  document.getElementById('log-chat-btn').addEventListener('click', () => setScreenMode(SCREEN.CHAT));
   document.getElementById('recipe-search').addEventListener('input', e => renderRecipes(e.target.value));
 }
 
