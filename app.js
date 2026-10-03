@@ -4,6 +4,13 @@ const PROXY_PATH = 'proxy.php';
 const BASE_URL   = 'https://www.remilia.net';
 const OIDC_URL   = 'https://www.remilia.net/oidc/realms/remilia/protocol/openid-connect/token';
 const LS_ACCESS  = 'bb_access';
+const LS_MODE    = 'bb_mode';     // 'official' (Sign in with RemiliaNET) | 'legacy' (password)
+// Official RemiliaNET login client (developer portal app "BeetleboySP")
+const CLIENT_ID    = 'tpa-beetleboysp';
+const AUTH_URL     = 'https://www.remilia.net/oidc/realms/remilia/protocol/openid-connect/auth';
+const REDIRECT_URI = 'https://beetle.sevensevenseven.net/callback';
+const V1           = 'https://www.remilia.net/api/v1';
+const OFFICIAL_NO_ACTIONS = "RemiliaNET's public API can't claim, hunt or craft yet. Do that on remilia.net; BeetleBoy keeps your timers, inventory and chat.";
 const LS_REFRESH = 'bb_refresh';
 const REFRESH_INTERVAL   = 60_000;
 const TICK_INTERVAL      = 1_000;
@@ -530,7 +537,45 @@ function updatePreviews() {
 // ── AUTH ──────────────────────────────────────────────────────────────────────
 const getTokens  = ()         => ({ access: localStorage.getItem(LS_ACCESS), refresh: localStorage.getItem(LS_REFRESH) });
 const saveTokens = (a, r)     => { if (a) localStorage.setItem(LS_ACCESS, a); if (r) localStorage.setItem(LS_REFRESH, r); };
-const clearAuth  = ()         => { localStorage.removeItem(LS_ACCESS); localStorage.removeItem(LS_REFRESH); };
+const clearAuth  = ()         => { localStorage.removeItem(LS_ACCESS); localStorage.removeItem(LS_REFRESH); localStorage.removeItem(LS_MODE); };
+const isOfficial = ()         => localStorage.getItem(LS_MODE) === 'official';
+
+// ── Sign in with RemiliaNET (Authorization Code + PKCE) ──
+const b64url = bytes => btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+
+async function startOfficialLogin() {
+  const state    = b64url(crypto.getRandomValues(new Uint8Array(16)));
+  const verifier = b64url(crypto.getRandomValues(new Uint8Array(32)));
+  const challenge = b64url(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier))));
+  sessionStorage.setItem('bb_oauth_state', state);
+  sessionStorage.setItem('bb_pkce_verifier', verifier);
+  location.assign(AUTH_URL + '?' + new URLSearchParams({
+    client_id: CLIENT_ID, response_type: 'code', redirect_uri: REDIRECT_URI, scope: 'openid',
+    state, code_challenge: challenge, code_challenge_method: 'S256',
+  }));
+}
+
+// Back from RemiliaNET on /callback: check state, trade the code for tokens
+async function handleLoginCallback() {
+  const url = new URL(location.href);
+  if (!url.pathname.endsWith('/callback')) return false;
+  history.replaceState({}, '', url.pathname.replace(/callback$/, ''));
+  const err = url.searchParams.get('error');
+  const fail = msg => { document.getElementById('login-err').textContent = msg; return false; };
+  if (err) return fail(err === 'access_denied' ? 'Sign-in cancelled.' : `Sign-in failed: ${err}`);
+  const code = url.searchParams.get('code');
+  if (!code || url.searchParams.get('state') !== sessionStorage.getItem('bb_oauth_state')) return fail('Sign-in failed (state mismatch). Try again.');
+  const t = await oidc({
+    grant_type: 'authorization_code', client_id: CLIENT_ID, code,
+    redirect_uri: REDIRECT_URI, code_verifier: sessionStorage.getItem('bb_pkce_verifier'),
+  });
+  sessionStorage.removeItem('bb_oauth_state');
+  sessionStorage.removeItem('bb_pkce_verifier');
+  if (!t?.access) return fail('Sign-in failed. Try again.');
+  saveTokens(t.access, t.refresh);
+  localStorage.setItem(LS_MODE, 'official');
+  return true;
+}
 
 async function oidc(params) {
   try {
@@ -548,14 +593,44 @@ async function oidc(params) {
 async function tryRefresh() {
   const { refresh } = getTokens();
   if (!refresh) return null;
-  const r = await oidc({ grant_type: 'refresh_token', refresh_token: refresh });
+  const r = await oidc({ grant_type: 'refresh_token', refresh_token: refresh, client_id: isOfficial() ? CLIENT_ID : 'profile' });
   return r?.access ? r : null;
 }
 
 // ── API ───────────────────────────────────────────────────────────────────────
+// Official sign-in: the public API covers state, profile and cards
+async function officialCall(path, _retry = true) {
+  const map = { '/api/beetle/user': '/me/beetle', '/api/beetle/cards': '/me/beetle/cards', '/api/profile/whoami': '/me' };
+  const v1 = map[path.split('?')[0]];
+  if (!v1) return { success: false, message: OFFICIAL_NO_ACTIONS };
+  let r;
+  try { r = await fetch(V1 + v1, { headers: { Authorization: `Bearer ${getTokens().access}` } }); }
+  catch (e) { log(`Network error: ${e.message}`, 'err'); return null; }
+  if (r.status === 401 && _retry) {
+    const t = await tryRefresh();
+    if (t) { saveTokens(t.access, t.refresh); return officialCall(path, false); }
+    showLogin(); return null;
+  }
+  if (r.status === 429) { log('RemiliaNET says slow down. 🪲💨', 'warn'); return null; }
+  const j = await r.json().catch(() => null);
+  if (!r.ok || !j) return { success: false, message: j?.error?.message || `HTTP ${r.status}` };
+  if (v1 === '/me') return { userHandle: j.user?.username, displayName: j.user?.displayName, pfpUrl: j.user?.pfpUrl };
+  return j.data ?? j;
+}
+
+async function v1Fetch(path, opts = {}, _retry = true) {
+  const r = await fetch(V1 + path, { ...opts, headers: { ...(opts.headers || {}), Authorization: `Bearer ${getTokens().access}` } });
+  if (r.status === 401 && _retry) {
+    const t = await tryRefresh();
+    if (t) { saveTokens(t.access, t.refresh); return v1Fetch(path, opts, false); }
+  }
+  return r;
+}
+
 async function apiCall(method, path, body = null, _retry = true) {
   const { access } = getTokens();
   if (!access) { showLogin(); return null; }
+  if (isOfficial()) return method === 'GET' ? officialCall(path) : { success: false, message: OFFICIAL_NO_ACTIONS };
   let r;
   try {
     if (USE_PROXY) {
@@ -1521,6 +1596,7 @@ function renderRecipes(filter = '') {
 const ACTION_CD_KEY = { catchBeetle:'catchBeetle', beetleHunt:'beetleHunt', claimUBC:'claimUBC', junkFaucet:'junkFaucet' };
 
 async function doAction(actionName, label) {
+  if (isOfficial()) { log(OFFICIAL_NO_ACTIONS, 'warn'); return; }
   if (screenMode === SCREEN.ASSEMBLE || screenMode === SCREEN.SMASH) setScreenMode(SCREEN.LOG);
   if (actionName === 'catchBeetle' || actionName === 'beetleHunt') lastActionCtx = 'beetle';
   else if (actionName === 'claimUBC' || actionName === 'junkFaucet') lastActionCtx = 'cheese';
@@ -1576,6 +1652,7 @@ async function announceRareDrops(actionLabel, gainedKeys) {
 }
 
 async function doJunkCrunch() {
+  if (isOfficial()) { log(OFFICIAL_NO_ACTIONS, 'warn'); return; }
   const pool = junkPool(state.inv);
   if (pool.length < 2) { log('Not enough loose junk.', 'warn'); return; }
   const pairs = Math.floor(pool.length / 2);
@@ -1678,7 +1755,8 @@ function insertChatLink(key) {
 // sent/reacted through chatroom.php, which talks to RemiliaNET's chat websocket.
 const CHAT_ID         = 1;
 const CHAT_POLL_MS    = 4000;
-const CHAT_REACTS     = ['😹', '🤍', '👍', '🪲'];
+// the only reactions RemiliaNET chat accepts
+const CHAT_REACTS     = ['😹', '🤍', '😮', '🔥', '👍'];
 let chatTimer         = null;
 let chatLoaded        = false;
 let chatBusy          = false;
@@ -1757,9 +1835,36 @@ function toPost(m) {
   };
 }
 
+// /api/v1 global chat message → post shape (reactions only come as counts)
+function v1ToPost(m, byId) {
+  const reactions = {};
+  for (const r of m.reactions || []) reactions[r.emoji] = Array(r.count).fill('');
+  const q = m.reply_to_id ? byId.get(String(m.reply_to_id)) : null;
+  return {
+    id: Number(m.id), type: 'msg', time: m.created_at,
+    body: m.text || '',
+    user: { username: m.author?.handle || '', displayname: m.author?.display_name || m.author?.handle || '', pfpUrl: m.author?.avatar_url || '' },
+    reactions,
+    replyTo: m.reply_to_id ? { id: Number(m.reply_to_id), username: q?.author?.handle || '', displayname: q?.author?.display_name || '', body: q?.text || '…' } : null,
+    media: m.media ? [m.media.kind === 'video' ? { kind: 'video', url: m.media.url, thumb: m.media.thumbnail_url } : { kind: 'img', url: m.media.url }] : [],
+  };
+}
+
 async function fetchChat() {
   if (chatBusy) return;
   chatBusy = true;
+  if (isOfficial()) {
+    try {
+      const r = await v1Fetch('/global-chat/messages?limit=50');
+      const j = await r.json().catch(() => null);
+      const msgs = j?.data?.messages || [];
+      const byId = new Map(msgs.map(m => [String(m.id), m]));
+      const isInit = !chatLoaded;
+      chatLoaded = true;
+      appendChatPosts(msgs.map(m => v1ToPost(m, byId)).sort((a, b) => a.id - b.id), isInit);
+    } finally { chatBusy = false; }
+    return;
+  }
   try {
     const d = await apiGet(`/api/chats/${CHAT_ID}/messages?limit=50`);
     if (!d?.global) return;
@@ -1776,6 +1881,17 @@ async function fetchChat() {
 async function chatAction(payload) {
   const { access } = getTokens();
   if (!access) return { ok: false, error: 'not logged in' };
+  if (isOfficial()) {
+    if (payload.action !== 'submit') return { ok: false, error: "RemiliaNET's public API doesn't support reactions yet." };
+    try {
+      const r = await v1Fetch('/global-chat/messages', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: payload.text, ...(payload.replyTo ? { reply_to_id: String(payload.replyTo) } : {}) }),
+      });
+      const j = await r.json().catch(() => ({}));
+      return r.ok ? { ok: true, message: j.data } : { ok: false, error: j.error?.message || `HTTP ${r.status}` };
+    } catch (e) { return { ok: false, error: e.message }; }
+  }
   try {
     let r = await fetch(CHAT_URL, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -1816,7 +1932,7 @@ function renderReactPills(container, reactions, msgId) {
     const pill = document.createElement('button');
     pill.className = `react-pill${mine ? ' mine' : ''}`;
     pill.dataset.emoji = emoji;
-    pill.title = users.join(', ');
+    pill.title = users.filter(Boolean).join(', ') || (isOfficial() ? 'Reactions can only be added on remilia.net' : '');
     pill.textContent = `${emoji} ${users.length}`;
     pill.addEventListener('click', () => sendReact(msgId, emoji));
     container.appendChild(pill);
@@ -1868,7 +1984,7 @@ function appendChatPosts(posts, isInit) {
       quoteHtml = `<div class="chat-reply-quote" data-reply-id="${p.replyTo.id}">↩ ${qname}: ${qbody}</div>`;
     }
     const actionsHtml = p.id > 0 ? `<div class="chat-actions">${
-      CHAT_REACTS.map(e => `<button class="chat-action-btn react-trigger" data-emoji="${e}" data-msgid="${p.id}">${e}</button>`).join('')
+      (isOfficial() ? [] : CHAT_REACTS).map(e => `<button class="chat-action-btn react-trigger" data-emoji="${e}" data-msgid="${p.id}">${e}</button>`).join('')
     }<button class="chat-action-btn reply-trigger" data-msgid="${p.id}" data-uname="${esc(uname)}" data-dname="${name}" data-body="${esc(bodyToPlainText(p.body || '').slice(0, 100))}">↩</button></div>` : '';
 
     el.innerHTML =
@@ -1994,6 +2110,7 @@ function showLogin() {
 function showApp() {
   document.getElementById('login-screen').classList.add('hidden');
   document.getElementById('app-screen').classList.remove('hidden');
+  document.getElementById('app-screen').classList.toggle('official-mode', isOfficial());
   requestNotifPermission();
 }
 
@@ -2275,6 +2392,7 @@ async function doSmash() {
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
 function setupAuthListeners() {
+  document.getElementById('official-login-btn').addEventListener('click', startOfficialLogin);
   document.getElementById('login-form').addEventListener('submit', async e => {
     e.preventDefault();
     const btn = document.getElementById('login-btn');
@@ -2295,6 +2413,7 @@ function setupAuthListeners() {
       btn.disabled = false; btn.textContent = 'LOG IN'; return;
     }
     saveTokens(tokens.access, tokens.refresh);
+    localStorage.setItem(LS_MODE, 'legacy');
     showApp();
     await loadState();
     startTimers();
@@ -2513,7 +2632,7 @@ document.addEventListener('DOMContentLoaded', () => {
   applyTheme(localStorage.getItem(LS_THEME) || THEMES[Math.floor(Math.random() * THEMES.length)].id);
   updateScreenBg(SCREEN.LOG);
 
-  if (getTokens().access) { showApp(); loadState().then(startTimers); }
+  handleLoginCallback().then(() => { if (getTokens().access) { showApp(); loadState().then(startTimers); } });
 
   const loadBgImage = initBgShader();
   if (loadBgImage) {

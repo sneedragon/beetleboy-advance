@@ -1,6 +1,12 @@
 # Always revalidate the page itself so new app.js/data.js versions load right away
 <IfModule mod_headers.c>
-  <FilesMatch "^(index\.html)?$">
+  <FilesMatch "^(index\.html|callback)?$">
     Header set Cache-Control "no-cache"
   </FilesMatch>
+</IfModule>
+
+# Sign in with RemiliaNET returns to /callback; the app itself handles it
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteRule ^callback$ index.html [L]
 </IfModule>

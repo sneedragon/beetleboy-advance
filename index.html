@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>BeetleBoy SP</title>
-  <link rel="stylesheet" href="style.css?v=20261002">
+  <link rel="stylesheet" href="style.css?v=20261003">
   <link rel="icon" href="icons/beetles/green.png" type="image/png">
 </head>
 <body>
@@ -17,13 +17,18 @@
       <div class="login-logo">🪲</div>
       <h1>BeetleBoy <span class="sp-tag">SP</span></h1>
       <p class="login-sub">Sign in with your remilia.net account</p>
-      <form id="login-form">
-        <input id="lf-user" type="text" placeholder="Username" autocomplete="username" required>
-        <input id="lf-pass" type="password" placeholder="Password" autocomplete="current-password" required>
-        <button type="submit" id="login-btn">LOG IN</button>
-        <div id="login-err"></div>
-      </form>
-      <p class="login-disclaimer">Your credentials connect directly to remilia.net and are never sent to or stored on any third-party server. Only a session token is kept locally in your browser.</p>
+      <button type="button" id="official-login-btn">SIGN IN WITH REMILIANET</button>
+      <p class="login-disclaimer">You sign in on remilia.net itself. BeetleBoy never sees your password; it only gets a revocable token for your beetle progress and global chat.</p>
+      <details class="login-legacy">
+        <summary>Password login (needed for claiming &amp; crafting)</summary>
+        <p class="login-disclaimer">RemiliaNET's official API can't claim, hunt or craft yet. This older login can, but you type your remilia.net password here; it goes straight to remilia.net and is never stored, but you have to trust this page.</p>
+        <form id="login-form">
+          <input id="lf-user" type="text" placeholder="Username" autocomplete="username" required>
+          <input id="lf-pass" type="password" placeholder="Password" autocomplete="current-password" required>
+          <button type="submit" id="login-btn">LOG IN</button>
+        </form>
+      </details>
+      <div id="login-err"></div>
       <p class="login-signup">No account? <a href="https://www.remilia.net" target="_blank">Sign up at remilia.net</a></p>
     </div>
   </div>
@@ -225,8 +230,8 @@
 
   </div>
 
-  <script src="assets.js?v=20261002"></script>
-  <script src="data.js?v=20261002"></script>
-  <script src="app.js?v=20261002"></script>
+  <script src="assets.js?v=20261003"></script>
+  <script src="data.js?v=20261003"></script>
+  <script src="app.js?v=20261003"></script>
 </body>
 </html>

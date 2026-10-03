@@ -97,6 +97,21 @@ body::after {
   letter-spacing: 0.1em; border-radius: 3px; box-shadow: 0 3px 8px rgba(0,0,0,0.4);
 }
 #login-form button:hover { filter: brightness(1.1); }
+#official-login-btn {
+  width: 100%; margin-top: 0.5rem;
+  background: linear-gradient(180deg, var(--accent) 0%, var(--accent2) 100%);
+  border: none; color: #fff; padding: 0.75rem 0.6rem;
+  cursor: pointer; font-family: inherit; font-size: 14px;
+  letter-spacing: 0.1em; border-radius: 3px; box-shadow: 0 3px 8px rgba(0,0,0,0.4);
+}
+#official-login-btn:hover { filter: brightness(1.1); }
+.login-legacy { width: 100%; margin-top: 4px; }
+.login-legacy summary { font-size: 11px; color: var(--dim); cursor: pointer; text-align: center; list-style: none; }
+.login-legacy summary::-webkit-details-marker { display: none; }
+.login-legacy[open] summary { margin-bottom: 4px; }
+.login-legacy #login-form button { background: var(--chassis3); border: 1px solid var(--border2); box-shadow: none; }
+/* Signed in with RemiliaNET: game actions aren't available through the public API */
+.official-mode [id^="act-"]:not(#act-refresh) { opacity: 0.45; filter: grayscale(0.6); }
 #login-err { color: #e05050; font-size: 12px; min-height: 1.2em; text-align: center; }
 .login-disclaimer {
   font-size: 10px; color: rgba(100,130,175,0.65); text-align: center;
