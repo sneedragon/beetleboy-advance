@@ -137,6 +137,15 @@
             <div class="sp-result" id="smash-result2"></div>
           </div>
         </div>
+        <div class="sp hidden" id="sp-tree">
+          <div class="tree-top"><span id="tree-title"></span>
+            <button type="button" class="tree-btn" id="tree-zoom-out" aria-label="Zoom out">−</button>
+            <button type="button" class="tree-btn" id="tree-zoom-in" aria-label="Zoom in">+</button>
+            <button type="button" class="tree-btn" id="tree-fit">fit</button>
+            <button type="button" class="tree-btn" id="tree-close" aria-label="Close">✕</button></div>
+          <svg id="tree-svg" xmlns="http://www.w3.org/2000/svg"><defs id="tree-defs"></defs><g id="tree-world"></g></svg>
+          <div class="tree-foot"><span id="tree-legend"></span><span class="tree-hint">drag · scroll/pinch to zoom · click to fold · double-click for the card</span></div>
+        </div>
         <div class="sp hidden" id="sp-item">
           <div id="spi-img"></div>
           <div id="spi-info">
@@ -229,6 +238,7 @@
             <button id="chat-attach" type="button" title="Attach image">📎</button>
             <input id="chat-input" type="text" placeholder="Say something… (drag items or type [name])" maxlength="2000" autocomplete="off">
             <button id="chat-send" type="button">▶</button>
+            <button type="button" id="chat-big-btn" title="Big chat (Esc to go back)" aria-pressed="false">⤢</button>
           </div>
           <label class="chat-option"><input type="checkbox" id="chk-announce"> Post my rare finds &amp; trophies here</label>
         </div>
@@ -249,6 +259,7 @@
   <script src="js/advisor.js?v=202610031242"></script>
   <script src="js/stats.js?v=202610031242"></script>
   <script src="js/tree.js?v=202610031242"></script>
+  <script src="js/profile.js?v=0"></script>
   <script src="js/ui.js?v=202610031242"></script>
   <script src="js/season.js?v=202610031242"></script>
   <script src="js/shader.js?v=202610031242"></script>

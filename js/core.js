@@ -18,7 +18,7 @@ const ASM_SLOTS   = ['asm0','asm1','asm2','asm3'];
 const SMASH_SLOTS = ['sm0','sm1'];
 const ALL_SLOTS   = [...ASM_SLOTS, 'sm0','sm1','smsac','smhammer','smhammer_bk'];
 
-const SCREEN = { LOG:'log', ASSEMBLE:'assemble', SMASH:'smash', ITEM:'item' };
+const SCREEN = { LOG:'log', ASSEMBLE:'assemble', SMASH:'smash', ITEM:'item', TREE:'tree' };
 
 const RARITY_NAMES = {
   tin:'Tin', brz:'Bronze', mth:'Mithril', adm:'Adamantine',

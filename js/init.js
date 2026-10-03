@@ -230,6 +230,8 @@ function setupChatListeners() {
     if (e.target.scrollTop < 60) loadOlderChat();
   }, { passive: true });
   document.getElementById('chat-messages').addEventListener('click', e => {
+    const prof = e.target.closest('[data-profile]');
+    if (prof && !e.ctrlKey && !e.metaKey && !e.shiftKey && e.button === 0) { e.preventDefault(); openProfile(prof.dataset.profile); return; }
     const link = e.target.closest('.chat-item-link');
     if (link) { openCard(link.dataset.key); return; }
     const reactBtn = e.target.closest('.react-trigger');
@@ -245,6 +247,17 @@ function setupChatListeners() {
     }
   });
   document.getElementById('reply-bar-cancel').addEventListener('click', () => setReplyTarget(null));
+  // big chat: the chat pane pops out over the device; Esc or the button brings it back
+  const bigBtn = document.getElementById('chat-big-btn');
+  const setBig = on => {
+    document.body.classList.toggle('chat-big', on);
+    bigBtn.setAttribute('aria-pressed', on); bigBtn.textContent = on ? '⤡' : '⤢';
+    const box = document.getElementById('chat-messages'); box.scrollTop = box.scrollHeight;
+  };
+  bigBtn.addEventListener('click', () => setBig(!document.body.classList.contains('chat-big')));
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && document.body.classList.contains('chat-big') && !document.querySelector('#profile-modal.open')) setBig(false);
+  });
   document.getElementById('recipe-search').addEventListener('input', e => renderRecipes(e.target.value));
 }
 

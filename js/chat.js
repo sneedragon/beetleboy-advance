@@ -367,7 +367,7 @@ function appendChatPosts(posts, isInit, prepend = false) {
     const name = esc(p.user?.displayname || uname || '?');
     const profileUrl = uname ? `${BASE_URL}/~${encodeURIComponent(uname)}` : '';
     const profileLink = inner => profileUrl
-      ? `<a class="chat-profile-link" href="${profileUrl}" target="_blank" rel="noopener">${inner}</a>`
+      ? `<a class="chat-profile-link" href="${profileUrl}" data-profile="${esc(uname)}" target="_blank" rel="noopener">${inner}</a>`
       : inner;
     const nameSpan = `<span class="chat-user" style="--name-h:${nameHue(p.user?.displayname || uname)}">${name}</span>`;
     const time = p.time > 0 ? new Date(p.time * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';

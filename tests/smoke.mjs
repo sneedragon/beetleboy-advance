@@ -49,6 +49,8 @@ function apiAnswer(path) {
   if (path.startsWith('/api/profile/whoami')) return { userHandle: 'tester', displayName: 'Tester', pfpUrl: '' };
   if (path.startsWith('/api/chats/')) return chat;
   if (path.startsWith('/api/link_preview')) return { url: '', title: '' };
+  if (path.startsWith('/api/profile/~')) return { user: { username: 'beetlefan', displayName: 'Beetle Fan', pfpUrl: '', bio: 'I like beetles', location: 'the junk pile', color: 120,
+    friendCount: 12, pokes: 34, beetles: 567, achievementsCount: 8 }, viewerContext: { areFriends: false, pendingRequestFrom: false, pendingRequestTo: false, canPoke: true, pokeCooldownSeconds: 0, mutualCount: 2 }, isOwnProfile: false };
   return { success: false, message: 'not faked in smoke test' };
 }
 
@@ -85,13 +87,24 @@ async function check(label, viewport) {
   // crafting tree: a deep trophy, every branch open
   const tree = await page.evaluate(() => {
     openTree('trophy_remilianet_id');
-    document.getElementById('tree-expand').click();
-    const n = { recipes: document.querySelectorAll('#tree-modal .tree-recipe').length, items: document.querySelectorAll('#tree-modal .tree-item').length };
+    const n = { recipes: document.querySelectorAll('#tree-svg .tree-edges path').length, items: document.querySelectorAll('#tree-svg .tree-node').length, visible: !document.getElementById('sp-tree').classList.contains('hidden') };
     return n;
   });
-  if (!tree.recipes || tree.items < 3) fail(`${label}: crafting tree looks empty (${JSON.stringify(tree)})`);
+  if (!tree.visible || !tree.recipes || tree.items < 3) fail(`${label}: crafting tree looks empty (${JSON.stringify(tree)})`);
+  await page.waitForTimeout(300);
   await page.screenshot({ path: `${ROOT}tests/out/${label}-tree.png` });
   await page.evaluate(() => closeTree());
+  // mini profile from a chat name, then big chat on/off
+  await page.click('.chat-msg [data-profile="beetlefan"]', { force: true }).catch(() => fail(`${label}: no clickable chat name`));
+  await page.waitForTimeout(400);
+  if (!(await page.$('#profile-modal.open .pf-act'))) fail(`${label}: mini profile did not open`);
+  await page.screenshot({ path: `${ROOT}tests/out/${label}-profile.png` });
+  await page.evaluate(() => closeProfile());
+  await page.click('#chat-big-btn', { force: true }).catch(() => fail(`${label}: no big chat button`));
+  await page.waitForTimeout(300);
+  if (!(await page.evaluate(() => document.body.classList.contains('chat-big')))) fail(`${label}: big chat did not open`);
+  await page.screenshot({ path: `${ROOT}tests/out/${label}-bigchat.png` });
+  await page.click('#chat-big-btn', { force: true });
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   if (overflow > 2) fail(`${label}: page scrolls sideways by ${overflow}px`);
   await page.screenshot({ path: `${ROOT}tests/out/${label}.png` });
