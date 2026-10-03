@@ -1678,7 +1678,8 @@ function insertChatLink(key) {
 // sent/reacted through chatroom.php, which talks to RemiliaNET's chat websocket.
 const CHAT_ID         = 1;
 const CHAT_POLL_MS    = 4000;
-const CHAT_REACTS     = ['😹', '🤍', '👍', '🪲'];
+// the only reactions RemiliaNET chat accepts
+const CHAT_REACTS     = ['😹', '🤍', '😮', '🔥', '👍'];
 let chatTimer         = null;
 let chatLoaded        = false;
 let chatBusy          = false;
