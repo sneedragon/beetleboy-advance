@@ -1,6 +1,6 @@
 // ── CONFIG ────────────────────────────────────────────────────────────────────
 const USE_PROXY  = true;
-const APP_VERSION = '20261003'; // sent to proxy.php; a request without it comes from a stale cached page
+const APP_VERSION = '20261003b'; // sent to proxy.php; a request without it comes from a stale cached page
 const PROXY_PATH = 'proxy.php';
 const BASE_URL   = 'https://www.remilia.net';
 const OIDC_URL   = 'https://www.remilia.net/oidc/realms/remilia/protocol/openid-connect/token';
@@ -509,11 +509,13 @@ function updatePreviews() {
     const hammer = slotState['smhammer'];
     const hs = hammer && HAMMER_STATS[hammer];
     if (hs) {
+      // the game reports break_rate 0 until a hammer has worn; the base chance applies then
       const liveData = (state.hammers || []).find(h => h.hammer === hammer);
-      const breakRate = liveData ? liveData.break_rate : hs.breakPer;
+      const breakRate = liveData ? Math.max(liveData.break_rate || 0, liveData.base_break_rate || 0) : hs.breakPer;
+      const bonus = liveData?.craft_bonus ?? hs.bonus;
       const line2 = document.createElement('div');
       line2.className = 'smash-hstat';
-      line2.textContent = `+${hs.bonus}% craft bonus`;
+      line2.textContent = `+${bonus}% craft bonus`;
       smEl.appendChild(line2);
       const line3 = document.createElement('div');
       line3.className = `smash-hstat smash-break${breakRate >= 50 ? ' smash-break-danger' : breakRate >= 20 ? ' smash-break-warn' : ''}`;
@@ -695,6 +697,19 @@ function notify(body) {
   new Notification('BeetleBoy SP', { body, icon: 'icons/beetles/green.png' });
 }
 
+const HUNT_COST = 20, HUNTS_PER_WINDOW = 3, HUNT_BREAK_MS = 90 * 60 * 1000;
+
+function huntStatus() {
+  const u = state.user || {};
+  const used = u.beetleHuntsUsed || 0;
+  if (used >= HUNTS_PER_WINDOW && u.lastBeetleHuntDate) {
+    const cooldown = u.lastBeetleHuntDate + HUNT_BREAK_MS - Date.now();
+    if (cooldown > 0) return { left: 0, cooldown };
+    return { left: HUNTS_PER_WINDOW, cooldown: 0 };   // break is over, counter resets
+  }
+  return { left: HUNTS_PER_WINDOW - used, cooldown: 0 };
+}
+
 function tick() {
   const cds = currentCds();
   const map = [
@@ -705,13 +720,26 @@ function tick() {
   ];
   for (const [cdId, btnId, key, label] of map) {
     const cdEl = document.getElementById(cdId);
-    if (key === 'beetleHunt' && !cds[key]) {
-      // Hunting costs one cheese; there's no timer unless the game sends one
+    if (key === 'beetleHunt') {
+      // Same rules as remilia.net: 3 hunts, then a 90 min break after the
+      // last one; every hunt costs 20 cheese.
+      const { left, cooldown } = huntStatus();
       const cheese = state.inv.cheese || 0;
-      cdEl.innerHTML = cheese ? `🧀 ×${cheese.toLocaleString()}` : '<span class="hunt-null-hint">Needs cheese</span>';
-      cdEl.className = `btn-cd ${cheese ? 'ready' : ''}`;
-      document.getElementById(btnId).classList.toggle('is-ready', cheese > 0);
-      prevCdStates[key] = cds[key];
+      if (cooldown > 0) {
+        const { text, cls } = fmtMs(cooldown);
+        cdEl.textContent = text;
+        cdEl.className = `btn-cd ${cls}`;
+      } else if (cheese < HUNT_COST) {
+        cdEl.innerHTML = `<span class="hunt-null-hint">Need ${HUNT_COST} 🧀</span>`;
+        cdEl.className = 'btn-cd';
+      } else {
+        cdEl.textContent = `${left}/${HUNTS_PER_WINDOW} · ${HUNT_COST} 🧀`;
+        cdEl.className = 'btn-cd ready';
+      }
+      const ready = cooldown === 0 && cheese >= HUNT_COST;
+      document.getElementById(btnId).classList.toggle('is-ready', ready);
+      if (prevCdStates[key] === false && ready) notify('Hunt Beetle is ready!');
+      prevCdStates[key] = ready;
       continue;
     } else {
       const { text, cls } = fmtMs(cds[key]);
@@ -2125,93 +2153,74 @@ async function doAssemble() {
   btn.disabled = false;
 }
 
+// Rebuild a broken hammer of the same tier. Each hammer recipe consumes the
+// tier below, so this starts from the best lower hammer you still own (or a
+// fresh Tin Hammer from junk cubes) and upgrades step by step. The whole path
+// is checked against a copy of the inventory first, so nothing is crafted
+// unless the broken tier can actually be reached.
+function planHammerRebuild(brokenIdx, inv) {
+  let from = -1;
+  for (let i = brokenIdx - 1; i >= 0; i--) if ((inv[HAMMERS[i]] || 0) > 0) { from = i; break; }
+  const sim = { ...inv };
+  const steps = [];
+  for (let t = from + 1; t <= brokenIdx; t++) {
+    const key = HAMMERS[t];
+    const slots = pickSlots(AR_BY_OUT[key], sim);
+    if (!slots) return { ok: false, missing: key, steps };
+    for (const k of slots) sim[k] = (sim[k] || 0) - 1;
+    sim[key] = (sim[key] || 0) + 1;
+    steps.push({ key, slots });
+  }
+  return { ok: true, from, steps };
+}
+
 async function autoRepairHammer(brokenKey) {
   const brokenIdx = HAMMERS.indexOf(brokenKey);
   if (brokenIdx < 0) return false;
-
-  log(`⚒ ${iname(brokenKey)} broke — attempting auto-repair…`, 'warn');
-
-  // Find the highest hammer we still own below the broken tier
-  let highestIdx = -1;
-  for (let i = brokenIdx - 1; i >= 0; i--) {
-    if ((state.inv[HAMMERS[i]] || 0) > 0) { highestIdx = i; break; }
+  await loadState(true);
+  const plan = planHammerRebuild(brokenIdx, state.inv);
+  if (!plan.ok) {
+    log(`⚒ Can't replace ${iname(brokenKey)}: not enough materials for ${iname(plan.missing)}.`, 'warn');
+    return false;
   }
-
-  // No hammer at all — try to craft T1 from scratch
-  if (highestIdx === -1) {
-    const t1r = AR_BY_OUT['hammer_t1'];
-    if (craftCount(t1r, state.inv) <= 0) {
-      log('⚒ No hammers and not enough materials to craft one.', 'warn');
-      return false;
-    }
-    log(`⚒ Crafting ${iname('hammer_t1')}…`);
-    const [s1, s2] = pickSlots(t1r, state.inv);
-    const r = await apiPost('/api/beetle/action/craft', { type:1, slot1:s1, ...(s2?{slot2:s2}:{}) });
-    if (!r || r.success === false) return false;
+  const uses = plan.from >= 0 ? `your ${iname(HAMMERS[plan.from])}` : 'junk cubes';
+  log(`⚒ Rebuilding ${iname(brokenKey)} from ${uses} (${plan.steps.length} craft${plan.steps.length > 1 ? 's' : ''})…`);
+  for (const step of plan.steps) {
+    const [s1, s2, s3] = pickSlots(AR_BY_OUT[step.key], state.inv) || [];
+    if (!s1) { log(`⚒ Materials changed — stopped before ${iname(step.key)}.`, 'warn'); return false; }
+    const r = await apiPost('/api/beetle/action/craft', { type: 1, slot1: s1, ...(s2 ? { slot2: s2 } : {}), ...(s3 ? { slot3: s3 } : {}) });
+    if (!r || r.success === false) { log(`⚒ Crafting ${iname(step.key)} failed${r?.message ? ': ' + r.message : ''}.`, 'warn'); return false; }
     await loadState(true);
-    if ((state.inv['hammer_t1'] || 0) <= 0) return false;
-    highestIdx = 0;
+    log(`⚒ ✓ ${iname(step.key)}`);
   }
-
-  // Simulate the full upgrade path to brokenIdx to verify it's affordable
-  const upSim = { ...state.inv };
-  for (let t = highestIdx + 1; t <= brokenIdx; t++) {
-    const r = AR_BY_OUT[HAMMERS[t]];
-    if (craftCount(r, upSim) <= 0) {
-      log(`⚒ Not enough materials to upgrade to ${iname(HAMMERS[t])}.`, 'warn');
-      return false;
-    }
-    for (const ing of r.ing) if ('key' in ing) upSim[ing.key] = (upSim[ing.key] || 0) - ing.qty;
-    upSim[HAMMERS[t]] = 1;
-  }
-
-  // Perform the upgrades
-  for (let t = highestIdx + 1; t <= brokenIdx; t++) {
-    const key = HAMMERS[t];
-    log(`⚒ Crafting ${iname(key)}…`);
-    const slots = pickSlots(AR_BY_OUT[key], state.inv);
-    if (!slots) return false;
-    const [s1, s2, s3] = slots;
-    const r = await apiPost('/api/beetle/action/craft', { type:1, slot1:s1, ...(s2?{slot2:s2}:{}), ...(s3?{slot3:s3}:{}) });
-    if (!r || r.success === false) { log(`⚒ Failed to craft ${iname(key)}.`, 'warn'); return false; }
-    await loadState(true);
-    log(`⚒ ✓ ${iname(key)} crafted.`);
-  }
-
-  // Put the repaired hammer back in the smash slot
+  if ((state.inv[brokenKey] || 0) < 1) return false;
   slotState['smhammer'] = brokenKey;
-  log(`⚒ ${iname(brokenKey)} restored — resuming batch.`);
-
-  // Attempt full restoration of lower-tier hammers, but only if ALL can be restored
-  const restoreSim = { ...state.inv };
-  let canRestore = true;
-  for (let t = brokenIdx - 1; t >= 0; t--) {
-    if ((restoreSim[HAMMERS[t]] || 0) > 0) continue;
-    const r = AR_BY_OUT[HAMMERS[t]];
-    if (craftCount(r, restoreSim) <= 0) { canRestore = false; break; }
-    for (const ing of r.ing) if ('key' in ing) restoreSim[ing.key] = (restoreSim[ing.key] || 0) - ing.qty;
-    restoreSim[HAMMERS[t]] = 1;
-  }
-
-  if (canRestore) {
-    for (let t = brokenIdx - 1; t >= 0; t--) {
-      if ((state.inv[HAMMERS[t]] || 0) > 0) continue;
-      const key = HAMMERS[t];
-      log(`⚒ Restoring ${iname(key)}…`);
-      const slots = pickSlots(AR_BY_OUT[key], state.inv);
-      if (!slots) break;
-      const [s1, s2, s3] = slots;
-      await apiPost('/api/beetle/action/craft', { type:1, slot1:s1, ...(s2?{slot2:s2}:{}), ...(s3?{slot3:s3}:{}) });
-      await loadState(true);
-      log(`⚒ ✓ ${iname(key)} restored.`);
-    }
-  } else {
-    log('⚒ Not enough materials to restore lower hammers — skipping.');
-  }
-
   renderSlot('smhammer');
   renderHammerQuick();
+  log(`⚒ ${iname(brokenKey)} replaced — resuming.`);
   return true;
+}
+
+// After a smash: if the hammer broke, switch to the backup or rebuild it.
+// Returns false when the batch has to stop.
+async function handleHammerBreak() {
+  const hammer = slotState['smhammer'];
+  if (!hammer || (state.inv[hammer] || 0) > 0) return true;
+  slotState['smhammer'] = null;
+  renderSlot('smhammer');
+  const bk = slotState['smhammer_bk'];
+  if (bk && (state.inv[bk] || 0) > 0) {
+    slotState['smhammer'] = bk;
+    slotState['smhammer_bk'] = null;
+    renderSlot('smhammer'); renderSlot('smhammer_bk');
+    renderHammerQuick(); updateAutoHammerCheckbox();
+    log(`⚒ ${iname(hammer)} broke — switched to backup ${iname(bk)}.`, 'warn');
+    return true;
+  }
+  log(`⚒ ${iname(hammer)} broke.`, 'warn');
+  if (document.getElementById('chk-auto-hammer')?.checked) return autoRepairHammer(hammer);
+  renderHammerQuick();
+  return false;
 }
 
 async function doSmash() {
@@ -2228,36 +2237,20 @@ async function doSmash() {
     const body = { type: 2, slot1: s1, sacrifice: slotState['smsac'] || '', hammer: slotState['smhammer'] || '', ...(s2 ? { slot2: s2 } : {}) };
     const result = await apiPost('/api/beetle/action/craft', body);
     if (!result) break;
-    if (result.success === false) {
-      if (result.message === 'UNLUCKY_ROLL') { log('✗ Unlucky roll.', 'warn'); continue; }
+    if (result.success === false && result.message !== 'UNLUCKY_ROLL') {
       lastError = result.message || 'Failed.'; setResult('smash-result2', lastError); break;
     }
-    lastLabel = resultLabel(result) || 'done';
-    lastKey   = resultKey(result);
-    successCount++;
-    log(`✓ Got: ${lastLabel}`);
+    if (result.success === false) log('✗ Unlucky roll.', 'warn');
+    else {
+      lastLabel = resultLabel(result) || 'done';
+      lastKey   = resultKey(result);
+      successCount++;
+      log(`✓ Got: ${lastLabel}`);
+    }
+    // the hammer can break on any attempt, lucky or not
     if (i < repeatCount - 1) {
       await loadState(true);
-      if (slotState['smhammer'] && (state.inv[slotState['smhammer']] || 0) < 1) {
-        const brokenKey = slotState['smhammer'];
-        slotState['smhammer'] = null;
-        // Backup hammer takes over
-        if (slotState['smhammer_bk'] && (state.inv[slotState['smhammer_bk']] || 0) > 0) {
-          slotState['smhammer'] = slotState['smhammer_bk'];
-          slotState['smhammer_bk'] = null;
-          renderSlot('smhammer'); renderSlot('smhammer_bk');
-          renderHammerQuick(); updateAutoHammerCheckbox();
-          log(`⚒ ${iname(brokenKey)} broke — switched to backup ${iname(slotState['smhammer'])}.`, 'warn');
-          continue;
-        }
-        // No backup — try auto-repair
-        if (document.getElementById('chk-auto-hammer')?.checked) {
-          const repaired = await autoRepairHammer(brokenKey);
-          if (repaired) continue;
-        }
-        lastError = 'Hammer broke.';
-        break;
-      }
+      if (!(await handleHammerBreak())) { lastError = 'Hammer broke.'; break; }
     }
   }
   await loadState();
