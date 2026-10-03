@@ -1522,3 +1522,8 @@ body[data-scheme="light"] .chat-card { background: rgba(255,255,255,0.5); }
 .ubc-streak.at-risk { color: #ff6a50; font-weight: bold; animation: streak-pulse 1.6s ease-in-out infinite; }
 @keyframes streak-pulse { 50% { opacity: .55; } }
 @media (prefers-reduced-motion: reduce) { .ubc-streak.at-risk { animation: none; } }
+
+/* level line: XP gained today and (once known) progress to the next level */
+.lvl-xp { opacity: .7; font-size: .9em; margin-left: 4px; }
+.lvl-bar { display: inline-block; width: 46px; height: 4px; margin-left: 6px; vertical-align: middle; background: rgba(255,255,255,.12); border-radius: 2px; overflow: hidden; }
+.lvl-bar i { display: block; height: 100%; background: var(--ready); }

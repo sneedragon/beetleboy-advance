@@ -35,8 +35,8 @@ function renderBeetledex() {
     for (const k of beetles) {
       const have   = (inv[k] || 0) > 0;
       const qty    = inv[k] || 0;
-      const scene  = getScene(k);
-      const icon   = IMAGES[`_card_${k}`] || IMAGES[k];
+      const scene  = getSceneSmall(k);
+      const icon   = smallImg(IMAGES[`_card_${k}`]) || IMAGES[k];
       const bgStyle = scene ? `background-image:url('${scene}');background-size:cover;background-position:center` : '';
       html += `<div class="dex-card ${have ? 'dex-have' : 'dex-missing'}" style="--rarity-col:${tier.color}" title="${esc(iname(k))}"${have ? ` data-key="${esc(k)}"` : ''}>
         <div class="dex-card-art" style="${bgStyle}">

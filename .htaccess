@@ -5,3 +5,5 @@
   </FilesMatch>
 </IfModule>
 
+
+AddType application/manifest+json .webmanifest

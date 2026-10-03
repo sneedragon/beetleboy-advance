@@ -270,6 +270,10 @@ const _BEETLE_SCENES = BEETLES.map(_sceneOf).filter(Boolean);
 function _hashPick(arr, key) { return arr[key.split('').reduce((s,c) => s + c.charCodeAt(0), 0) % arr.length]; }
 const _CAT_BG = { Trinkets: 'trinkets', Artifacts: 'artifacts', Special: 'unique' };
 
+// Small versions for grids and slots (made by gen_assets.py); full size for the card view
+const smallImg = url => (url && /^icons\/(_bg|_card)\/[^/]+\.webp$/.test(url)) ? url.replace(/\/([^/]+)$/, '/sm/$1') : url;
+const getSceneSmall = key => smallImg(getScene(key));
+
 function getScene(key) {
   const own = _sceneOf(key);
   if (own) return own;

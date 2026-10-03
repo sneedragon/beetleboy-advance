@@ -261,7 +261,39 @@ function renderHeader() {
   const cheese = state.inv.cheese || 0;
   document.getElementById('screen-cheese').textContent = cheese ? `🧀 ${cheese.toLocaleString()}` : '';
   const lvlEl = document.getElementById('screen-level');
-  if (lvlEl) lvlEl.textContent = u.level != null ? `LVL ${u.level}` : '';
+  if (lvlEl && u.level != null) {
+    const p = trackXp(u);
+    const bar = p.progress != null ? `<span class="lvl-bar" title="${Math.round(p.progress * 100)}% to level ${u.level + 1}"><i style="width:${(p.progress * 100).toFixed(1)}%"></i></span>` : '';
+    lvlEl.innerHTML = `LVL ${u.level}${bar}<span class="lvl-xp">${p.text}</span>`;
+    lvlEl.title = `${(u.xp || 0).toLocaleString()} XP` + (p.perDay ? ` · about ${Math.round(p.perDay).toLocaleString()} XP per day this week` : '');
+  }
+}
+
+// XP pace and level progress, learned from what this browser has seen
+// (RemiliaNET doesn't publish the XP curve). A level's start is known once
+// we see the level change; the bar shows when both ends are known.
+const LS_XP_LOG = 'bb_xp_log', LS_LVL_XP = 'bb_lvl_xp';
+function trackXp(u) {
+  const now = Date.now(), xp = u.xp || 0, lvl = u.level;
+  let log = [], marks = {};
+  try { log = JSON.parse(localStorage.getItem(LS_XP_LOG) || '[]'); marks = JSON.parse(localStorage.getItem(LS_LVL_XP) || '{}'); } catch {}
+  const last = log[log.length - 1];
+  if (last && lvl > last[2] && !marks[lvl]) marks[lvl] = xp;            // just levelled up: this is (about) where it starts
+  if (!last || now - last[0] > 10 * 60 * 1000 || xp !== last[1]) {
+    log.push([now, xp, lvl]);
+    log = log.filter(e => now - e[0] < 30 * 86400000).slice(-3000);
+  }
+  try { localStorage.setItem(LS_XP_LOG, JSON.stringify(log)); localStorage.setItem(LS_LVL_XP, JSON.stringify(marks)); } catch {}
+  const midnight = new Date(); midnight.setHours(0, 0, 0, 0);
+  const firstToday = log.find(e => e[0] >= midnight.getTime());
+  const today = firstToday ? xp - firstToday[1] : 0;
+  const weekAgo = log.find(e => now - e[0] < 7 * 86400000);
+  const days = weekAgo ? (now - weekAgo[0]) / 86400000 : 0;
+  const perDay = days >= 1 ? (xp - weekAgo[1]) / days : null;
+  const lo = marks[lvl], hi = marks[lvl + 1];
+  const progress = lo != null && hi != null && hi > lo ? Math.min(1, Math.max(0, (xp - lo) / (hi - lo))) : null;
+  const k = n => n >= 10000 ? `${(n / 1000).toFixed(n >= 100000 ? 0 : 1)}k` : n.toLocaleString();
+  return { progress, perDay, text: today > 0 ? ` +${k(today)} XP today` : '' };
 }
 
 // ── PUSH NOTIFICATIONS ────────────────────────────────────────────────────────

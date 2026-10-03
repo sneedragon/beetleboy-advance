@@ -53,7 +53,7 @@ function slotHtml(slotId, key) {
     const pool = junkPool(state.inv);
     if (pool.length) img = IMAGES[pool[Math.floor(Math.random() * pool.length)]] || img;
   }
-  const scene = getScene(key);
+  const scene = getSceneSmall(key);
   const name  = iname(key);
   const bgStyle = scene ? `style="background-image:url('${scene}');background-size:cover;background-position:center"` : '';
   return `${scene ? `<div class="sm-slot-scene" ${bgStyle}></div><div class="sm-slot-overlay"></div>` : ''}
@@ -346,7 +346,7 @@ function iccHtml(k, qty) {
     const pool = junkPool(state.inv);
     if (pool.length) img = IMAGES[pool[Math.floor(Math.random() * pool.length)]] || img;
   }
-  const scene = getScene(k);
+  const scene = getSceneSmall(k);
   const rc    = rcls(k);
   const name  = iname(k);
   const bgStyle = scene ? `background-image:url('${scene}');background-size:cover;background-position:center` : '';
