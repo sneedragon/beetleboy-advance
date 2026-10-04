@@ -1596,7 +1596,10 @@ body[data-scheme="light"] .chat-card { background: rgba(255,255,255,0.5); }
 .tree-groupbox { fill: rgba(255,255,255,.05); stroke: rgba(255,255,255,.35); stroke-dasharray: 4 3; }
 .tree-grouptext { fill: rgba(255,255,255,.6); font: bold 10px ui-monospace, monospace; text-anchor: middle; letter-spacing: .1em; }
 .tree-fold { fill: rgba(255,255,255,.7); font: bold 14px ui-monospace, monospace; text-anchor: middle; }
-.tree-switch, .tree-ready { cursor: pointer; }
+.tree-switch, .tree-ready, .tree-focus { cursor: pointer; }
+.tree-focus circle { fill: #2a2f4a; stroke: rgba(255,255,255,.55); }
+.tree-focus text { fill: #fff; font: bold 11px ui-monospace, monospace; text-anchor: middle; pointer-events: none; }
+.tree-with { fill: rgba(255,255,255,.75); font: 9px ui-monospace, monospace; pointer-events: none; }
 .tree-switch rect { fill: #2a2f4a; stroke: rgba(255,255,255,.4); }
 .tree-switch text { fill: #fff; font: bold 9px ui-monospace, monospace; text-anchor: middle; }
 .tree-ready rect { fill: #1d5a2c; stroke: #5ee07a; }

@@ -101,7 +101,43 @@ async function check(label, viewport) {
   if (!tree.visible || !tree.recipes || tree.items < 3) fail(`${label}: crafting tree looks empty (${JSON.stringify(tree)})`);
   await page.waitForTimeout(300);
   await page.screenshot({ path: `${ROOT}tests/out/${label}-tree.png` });
-  await page.evaluate(() => closeTree());
+  // real mouse clicks on the tree: a + handle must unfold, "Set up" must fill the slots
+  const clicks = await (async () => {
+    await page.evaluate(() => { openTree('trophy_remilianet_id'); });
+    await page.waitForTimeout(300);
+    const before = await page.$$eval('#tree-svg .tree-node', n => n.length);
+    // a folded branch: its handle shows "+"
+    const plus = await page.evaluateHandle(() => {
+      const top = document.querySelector('.tree-top').getBoundingClientRect().bottom + 4;
+      return [...document.querySelectorAll('#tree-svg .tree-fold')].find(g => g.textContent.trim() === '+' && g.getBoundingClientRect().top > top) || null;
+    });
+    const hasPlus = await plus.evaluate(p => !!p);
+    if (hasPlus) { await plus.asElement().click(); await page.waitForTimeout(300); }
+    const after = await page.$$eval('#tree-svg .tree-node', n => n.length);
+    const ready = await page.$('#tree-svg .tree-ready');
+    let setUp = null;
+    if (ready) { await ready.click(); await page.waitForTimeout(300); setUp = await page.evaluate(() => screenMode); }
+    return { before, after, hadPlus: hasPlus, hadReady: !!ready, setUp };
+  })();
+  // ◎ re-centres on another item, ◀ comes back
+  const focus = await (async () => {
+    await page.evaluate(() => openTree('gunpowder'));
+    await page.waitForTimeout(400);
+    await page.screenshot({ path: `${ROOT}tests/out/${label}-tree-gunpowder.png` });
+    const top = await page.evaluate(() => document.querySelector('.tree-top').getBoundingClientRect().bottom + 4);
+    const f = await page.evaluateHandle(t => [...document.querySelectorAll('#tree-svg .tree-focus')].find(g => g.getBoundingClientRect().top > t) || null, top);
+    if (!(await f.evaluate(x => !!x))) return { ok: false, why: 'no visible focus button' };
+    const target = await f.evaluate(x => x.dataset.key);
+    await f.asElement().click(); await page.waitForTimeout(300);
+    const now = await page.evaluate(() => treeState.key);
+    await page.click('#tree-back'); await page.waitForTimeout(300);
+    const back = await page.evaluate(() => treeState.key);
+    return { ok: now === target && back === 'gunpowder', target, now, back };
+  })();
+  if (!focus.ok) fail(`${label}: tree focus/back broken (${JSON.stringify(focus)})`);
+  if (!clicks.hadPlus || clicks.after <= clicks.before) fail(`${label}: tree + handle did nothing (${JSON.stringify(clicks)})`);
+  if (clicks.hadReady && clicks.setUp === 'tree') fail(`${label}: tree "Set up" did nothing (${JSON.stringify(clicks)})`);
+  await page.evaluate(() => { if (screenMode === 'tree') closeTree(); else setScreenMode(SCREEN.LOG); });
   // mini profile from a chat name, then big chat on/off
   await page.click('.chat-msg [data-profile="beetlefan"]', { force: true }).catch(() => fail(`${label}: no clickable chat name`));
   await page.waitForTimeout(400);

@@ -77,7 +77,9 @@ function treeUses(key) {
     if (r.unique && inv[r.out] > 0 && TROPHY_REPEAT[r.out]) continue;        // trophy owned: its repeat recipe covers it
     if (r.reqTrophy && !(inv[r.reqTrophy] > 0)) continue;                     // repeat recipe not unlocked yet
     if (!r.ing.some(ing => ing.key === key || (Array.isArray(ing.group) && ing.group.includes(key)) || (ing.group === 'junk' && isJunk(key)))) continue;
-    uses.push({ kind: 'assemble', outs: [{ key: r.out }], ready: craftCount(r, inv) > 0, setup: { recipe: r } });
+    const others = r.ing.filter(ing => !(ing.key === key || (Array.isArray(ing.group) && ing.group.includes(key)) || (ing.group === 'junk' && isJunk(key))))
+      .map(ing => 'group' in ing ? `${ingGroupLabel(ing.group)}${ing.qty > 1 ? ' ×' + ing.qty : ''}` : `${iname(ing.key)}${ing.qty > 1 ? ' ×' + ing.qty : ''}`);
+    uses.push({ kind: 'assemble', outs: [{ key: r.out }], ready: craftCount(r, inv) > 0, setup: { recipe: r }, with: others });
   }
   let sacCount = 0;
   for (const [ing, text, type] of RECIPES) {
@@ -88,7 +90,9 @@ function treeUses(key) {
       let outs = parseOutputs(text);
       if (/that beetle's trophy/i.test(text)) outs = BEETLES.includes(key) ? [{ key: `trophy_${key}` }] : [{ group: true, label: 'a pinned specimen' }];
       const random = outs.length > 1 || outs.some(o => o.random || !o.key);
-      uses.push({ kind: random ? 'random' : 'smash', outs, ready: smashCraftable(spec), setup: { spec } });
+      const mine = specAccepts(spec.sm0, key) ? 'sm0' : 'sm1';
+      const others = ['sm0', 'sm1', 'sac'].filter(s => s !== mine && spec[s]).map(s => specLabel(spec[s]) + (s === 'sac' ? ' (sac)' : ''));
+      uses.push({ kind: random ? 'random' : 'smash', outs, ready: smashCraftable(spec), setup: { spec }, with: others });
     } else if (specAccepts(spec.sac, key)) sacCount++;
   }
   if (sacCount) uses.push({ kind: 'sac', outs: [{ group: true, label: `sacrifice in ${sacCount} smash recipes` }], ready: false });
@@ -97,7 +101,8 @@ function treeUses(key) {
 
 // ── model ──
 const treeState = { key: null, root: null, choice: {}, collapsed: {}, view: { x: 0, y: 0, k: 1 }, size: { width: 1, height: 1 } };
-const isFolded = (id, depth) => treeState.collapsed[id] ?? depth >= 2;
+// open by default: four steps of how it's made, two of what it makes
+const isFolded = (id, depth) => treeState.collapsed[id] ?? (id.startsWith('o') ? depth >= 2 : depth >= 4);
 
 function buildIn(item, path, depth, id, kind) {
   const node = { id, dir: 'in', kind, ...item, kids: [], recipes: [], ri: 0 };
@@ -190,7 +195,12 @@ function renderTreeChart() {
     if (outKids.length) {
       const busX = n.x + TREE_COL / 2 - 10;
       edges += line(`M${n.x + 40},${n.y} H${busX}`, outKids[0].kind);
-      for (const k of outKids) edges += arrow(`M${busX},${n.y} V${k.y} H${k.x - 48}`, k.kind);
+      for (const k of outKids) {
+        edges += arrow(`M${busX},${n.y} V${k.y} H${k.x - 48}`, k.kind);
+        // what else goes in: "+ Red Flower ×2"
+        const w = k.use?.with || [];
+        if (w.length) edges += `<text class="tree-with" x="${busX + 6}" y="${k.y - 6}">+ ${esc(short(w.join(', ')).replace(/…$/, '') + (w.join(', ').length > 18 ? '…' : ''))}</text>`;
+      }
     }
     const enough = n.need ? n.have >= n.need : n.have > 0;
     const img = n.key && IMAGES[n.key];
@@ -208,15 +218,19 @@ function renderTreeChart() {
       if (root.canFoldIn) handles += handle(-1, root.foldedIn, 'in');
       if (root.canFoldOut) handles += handle(1, root.foldedOut, 'out');
     } else if (n.canFold) handles += handle(n.dir === 'in' ? -1 : 1, n.folded, n.dir);
+    // ◎ puts this item in the middle (its own recipes and uses)
+    const focus = n !== root && n.key ? `<g class="tree-focus" data-key="${esc(n.key)}"><circle cx="${n.x + 30}" cy="${n.y - 34}" r="9"/><text x="${n.x + 30}" y="${n.y - 30}">◎</text></g>` : '';
     nodes += `<g class="tree-node ${n === root ? 'root' : ''} ${n.group ? 'group' : ''}" data-id="${n.id}"${n.key ? ` data-key="${esc(n.key)}"` : ''}>
       <circle cx="${n.x}" cy="${n.y}" r="${n === root ? 44 : 38}" class="tree-halo ${n === root ? 'root' : (n.dir === 'out' ? 'use' : (enough ? 'ok' : 'need'))}"/>
       ${img ? `<image href="${esc(img)}" x="${n.x - 32}" y="${n.y - 32}" width="64" height="64" filter="url(#tree-glow)"/>` : `<rect x="${n.x - 24}" y="${n.y - 24}" width="48" height="48" rx="8" class="tree-groupbox"/><text class="tree-grouptext" x="${n.x}" y="${n.y + 5}">${n.kind === 'sac' ? 'SAC' : 'ANY'}</text>`}
       <text class="tree-label" x="${n.x}" y="${n.y + 50}">${esc(short(name))}${n.sacrifice ? ' (sac)' : ''}</text>
       ${count ? `<text class="tree-count ${n.dir === 'out' ? 'use' : (enough ? 'ok' : 'need')}" x="${n.x}" y="${n.y + 62 + (ready ? 30 : 0)}">${count}${n.loop ? ' · loops back' : ''}</text>` : ''}
-      ${handles}${multi}${ready}</g>`;
+      ${handles}${multi}${ready}${focus}</g>`;
   }
   document.getElementById('tree-world').innerHTML = `<g class="tree-edges">${edges}</g>${nodes}`;
-  document.getElementById('tree-legend').innerHTML =
+ const r0 = treeState.root;
+  const empty = [r0.canFoldIn ? '' : 'nothing makes it (drops only)', r0.canFoldOut ? '' : 'not used in any recipe'].filter(Boolean).join(' · ');
+  document.getElementById('tree-legend').innerHTML = (empty ? `<b>${empty}</b> · ` : '') +
     `◀ how it's made · what it makes ▶ · <span style="color:${TREE_COLORS.assemble}">━ assemble</span> <span style="color:${TREE_COLORS.smash}">━ smash</span> <span style="color:${TREE_COLORS.random}">━ random result</span>`;
   applyTreeView();
 }
@@ -283,6 +297,7 @@ function wireTree() {
     Object.entries(TREE_COLORS).map(([k, c]) => `<marker id="tree-arrow-${k}" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="${c}"/></marker>`).join('');
   const svg = m.querySelector('#tree-svg');
   m.querySelector('#tree-close').addEventListener('click', closeTree);
+  m.querySelector('#tree-back').addEventListener('click', () => { if (treeHistory.length) openTree(treeHistory.pop(), true); });
   m.querySelector('#tree-fit').addEventListener('click', fitTree);
   m.querySelector('#tree-zoom-in').addEventListener('click', () => zoomTree(1.25));
   m.querySelector('#tree-zoom-out').addEventListener('click', () => zoomTree(0.8));
@@ -293,11 +308,14 @@ function wireTree() {
   }, { passive: false });
   // drag to pan, two fingers to pinch
   const pts = new Map();
-  let moved = 0, pinch = null;
-  svg.addEventListener('pointerdown', e => { svg.setPointerCapture(e.pointerId); pts.set(e.pointerId, { x: e.clientX, y: e.clientY }); moved = 0; });
+  let moved = 0, pinch = null, downTarget = null;
+  // capture the pointer only once it really drags: capturing right away makes
+  // the browser report the click on the svg itself, so buttons never fire
+  svg.addEventListener('pointerdown', e => { pts.set(e.pointerId, { x: e.clientX, y: e.clientY }); moved = 0; downTarget = e.target; });
   svg.addEventListener('pointermove', e => {
     const p = pts.get(e.pointerId);
     if (!p) return;
+    if (moved > 6 && !svg.hasPointerCapture(e.pointerId)) svg.setPointerCapture(e.pointerId);
     if (pts.size === 2) {
       const [a, b] = [...pts.values()];
       const d = Math.hypot(a.x - b.x, a.y - b.y);
@@ -318,7 +336,11 @@ function wireTree() {
   svg.addEventListener('pointercancel', up);
   svg.addEventListener('click', e => {
     if (moved > 6) return;                     // that was a drag
-    const sw = e.target.closest('.tree-switch'), rd = e.target.closest('.tree-ready'), fd = e.target.closest('.tree-fold'), nd = e.target.closest('.tree-node');
+    const t = (downTarget && svg.contains(downTarget) ? downTarget : e.target);
+    const el = t.closest ? t : t.parentElement;
+    const sw = el.closest('.tree-switch'), rd = el.closest('.tree-ready'), fd = el.closest('.tree-fold'), nd = el.closest('.tree-node');
+    const fc = el.closest('.tree-focus');
+    if (fc) { treeHistory.push(treeState.key); openTree(fc.dataset.key, true); return; }
     if (sw) { const n = treeNodeById(sw.dataset.id); keepInPlace(n.id, () => { treeState.choice[n.id] = (n.ri + 1) % n.recipes.length; }); return; }
     if (rd) { setupTreeRecipe(treeNodeById(rd.dataset.id)); return; }
     const toggle = (id, which) => {
@@ -333,8 +355,12 @@ function wireTree() {
   svg.addEventListener('dblclick', e => { const n = e.target.closest('.tree-node[data-key]'); if (n) openCard(n.dataset.key); });
 }
 
-function openTree(key) {
+const treeHistory = [];  // items the tree was centred on before (◀ goes back)
+
+function openTree(key, keepHistory = false) {
   wireTree();
+  if (!keepHistory) treeHistory.length = 0;
+  document.getElementById('tree-back').classList.toggle('hidden', treeHistory.length === 0);
   Object.assign(treeState, { key, choice: {}, collapsed: {} });
   document.getElementById('tree-title').textContent = `🌳 ${iname(key)}`;
   if (screenMode !== SCREEN.TREE) setScreenMode(SCREEN.TREE);
