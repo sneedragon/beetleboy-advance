@@ -1562,9 +1562,9 @@ body[data-scheme="light"] .chat-card { background: rgba(255,255,255,0.5); }
 .st-range button { font: inherit; font-size: 10px; padding: 2px 7px; border-radius: 3px; border: 1px solid var(--border); background: transparent; color: var(--dim); cursor: pointer; }
 .st-range button.active { border-color: var(--accent); color: var(--text); }
 .st-block { border: 1px solid var(--border); border-radius: 5px; padding: 6px 7px; display: flex; flex-direction: column; gap: 3px; background: rgba(0,0,0,0.15); }
-.st-title { font-weight: bold; display: flex; justify-content: space-between; }
+.st-title { font-weight: bold; display: flex; justify-content: space-between; color: var(--text); }
 .st-title span { color: var(--dim); font-weight: normal; font-variant-numeric: tabular-nums; }
-.st-line { display: flex; flex-wrap: wrap; gap: 3px 6px; font-variant-numeric: tabular-nums; }
+.st-line { display: flex; flex-wrap: wrap; gap: 3px 6px; font-variant-numeric: tabular-nums; color: var(--text); }
 .st-chip { font-size: 10px; padding: 0 5px; border-radius: 3px; background: rgba(255,255,255,.06); }
 .st-chip.r-tin { color: var(--tin); } .st-chip.r-brz { color: var(--brz); } .st-chip.r-mth { color: var(--mth); }
 .st-chip.r-adm { color: var(--adm); } .st-chip.r-dia { color: var(--dia); } .st-chip.r-pnk { color: var(--pnk); }
