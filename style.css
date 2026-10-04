@@ -1425,9 +1425,11 @@ body[data-scheme="light"] .chat-user[data-chat-theme="orange"] { color: #883010;
   #speaker-grille::before { letter-spacing: 1px; }
   #screen-label { margin-bottom: 4px; }
 
-  /* Screen: give controls enough room */
-  #dev-screen { height: 40%; }
-  .ctrl-row { min-height: 48px; }
+  /* Screen takes the room; the buttons only what they need (two compact rows)
+     instead of stretching to fill the height */
+  #dev-screen { height: auto; flex: 1 1 auto; min-height: 28%; }
+  #dev-controls { flex: 0 0 auto; padding: 8px; }
+  .ctrl-row { flex: 0 0 auto; height: clamp(42px, 7.5vh, 68px); min-height: 0; }
 
   /* ── Panels: static in-flow, slide in by HEIGHT below the device ──
      Width is always 100% (not animated). Only height animates.
