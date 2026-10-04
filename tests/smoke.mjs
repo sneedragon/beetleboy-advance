@@ -41,7 +41,8 @@ const chat = { global: {
   messages: {
     10: { id: 10, chat_id: 1, author_id: 2, body: 'gm ~tester, look at my [Sunset Moth]', reply_to_message_id: 0, created_at: now - 60000, reactions: [{ user_id: 1, emoji: '🔥' }], images: null, video: null, mentions: [1] },
     11: { id: 11, chat_id: 1, author_id: 1, body: 'nice https://www.youtube.com/watch?v=dQw4w9WgXcQ', reply_to_message_id: 10, created_at: now - 30000, reactions: [], images: null, video: null, mentions: null },
-  } }, message_ids: [10, 11], oldest_reachable_id: 10 };
+    12: { id: 12, chat_id: 1, author_id: 2, body: 'guide (see www.example.com/guide) and https://beetle.wiki/Beetles. pic: https://example.com/pic.png', reply_to_message_id: 0, created_at: now - 20000, reactions: [], images: null, video: null, mentions: null },
+  } }, message_ids: [10, 11, 12], oldest_reachable_id: 10 };
 const fakeJwt = 'x.' + Buffer.from(JSON.stringify({ exp: Math.floor(now / 1000) + 3600 })).toString('base64url') + '.y';
 
 function apiAnswer(path) {
@@ -138,6 +139,24 @@ async function check(label, viewport) {
   if (!clicks.hadPlus || clicks.after <= clicks.before) fail(`${label}: tree + handle did nothing (${JSON.stringify(clicks)})`);
   if (clicks.hadReady && clicks.setUp === 'tree') fail(`${label}: tree "Set up" did nothing (${JSON.stringify(clicks)})`);
   await page.evaluate(() => { if (screenMode === 'tree') closeTree(); else setScreenMode(SCREEN.LOG); });
+  // chat: links come out right and open, images open large, text can be selected
+  const links = await page.$$eval('#chat-messages .chat-link', as => as.map(a => a.getAttribute('href')));
+  for (const want of ['https://www.example.com/guide', 'https://beetle.wiki/Beetles']) {
+    if (!links.includes(want)) fail(`${label}: chat link wrong (${JSON.stringify(links)})`);
+  }
+  const linkEl = await page.$('#chat-messages .chat-link[href="https://beetle.wiki/Beetles"]');
+  if (linkEl) {
+    const popup = page.waitForEvent('popup', { timeout: 3000 }).catch(() => null);
+    await linkEl.click({ force: true });
+    const pg = await popup;
+    if (!pg) fail(`${label}: clicking a chat link opened nothing`); else await pg.close();
+  }
+  const userSelect = await page.$eval('#chat-messages .chat-text', el => getComputedStyle(el).userSelect);
+  if (userSelect !== 'text' && userSelect !== 'auto') fail(`${label}: chat text not selectable (${userSelect})`);
+  await page.evaluate(() => { const i = document.querySelector('#chat-messages img.chat-img'); i && i.dispatchEvent(new MouseEvent('click', { bubbles: true })); });
+  await page.waitForTimeout(200);
+  if (!(await page.$('#lightbox.open'))) fail(`${label}: chat image did not open large`);
+  await page.evaluate(() => document.getElementById('lightbox')?.classList.remove('open'));
   // mini profile from a chat name, then big chat on/off
   await page.click('.chat-msg [data-profile="beetlefan"]', { force: true }).catch(() => fail(`${label}: no clickable chat name`));
   await page.waitForTimeout(400);
@@ -149,6 +168,15 @@ async function check(label, viewport) {
   if (!(await page.evaluate(() => screenMode === 'chat' && document.getElementById('sp-chat').contains(document.getElementById('chat-messages'))))) fail(`${label}: chat did not move to the main screen`);
   if (!(await page.evaluate(() => { const o = document.querySelector('#chat-input-row .chat-option'); if (!o) return false; const c = document.getElementById('chk-announce').checked; o.click(); const ok = document.getElementById('chk-announce').checked !== c; o.click(); return ok; }))) fail(`${label}: announce toggle missing or dead on the big screen`);
   await page.screenshot({ path: `${ROOT}tests/out/${label}-bigchat.png` });
+  // a link in the big-screen chat must take a normal click (nothing on top of it)
+  const bigLink = await page.$('#sp-chat .chat-link[href="https://beetle.wiki/Beetles"]');
+  if (bigLink) {
+    await bigLink.scrollIntoViewIfNeeded();
+    const popup2 = page.waitForEvent('popup', { timeout: 3000 }).catch(() => null);
+    await bigLink.click({ timeout: 3000 }).catch(e => fail(`${label}: big-screen chat link covered (${String(e).split('\n')[0]})`));
+    const pg2 = await popup2;
+    if (pg2) await pg2.close();
+  }
   await page.click('[data-mode="next"]', { force: true });
   await page.waitForTimeout(200);
   if (await page.evaluate(() => document.getElementById('mode-chat').classList.contains('hidden') || !chatTimer)) fail(`${label}: switching the panel tab broke the big-screen chat`);

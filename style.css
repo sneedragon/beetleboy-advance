@@ -1651,3 +1651,13 @@ body[data-scheme="light"] .pf-dn { color: hsl(var(--pf-h), 70%, 38%); }
 .pf-link { font-size: 11px; color: var(--accent); text-decoration: none; }
 .pf-link:hover { text-decoration: underline; }
 #chat-away { padding: 20px 12px; display: flex; flex-direction: column; gap: 10px; align-items: flex-start; color: var(--dim); font-size: 12px; }
+
+/* chat text can be selected and copied (the device frame itself is not selectable) */
+#chat-messages, #chat-messages .chat-text, #chat-messages .chat-reply-quote { user-select: text; -webkit-user-select: text; }
+/* chat images large */
+#lightbox { position: fixed; inset: 0; z-index: 80; display: none; align-items: center; justify-content: center; flex-direction: column; gap: 10px;
+  background: rgba(0,0,0,.85); padding: 16px; cursor: zoom-out; }
+#lightbox.open { display: flex; }
+#lightbox img { max-width: 100%; max-height: calc(100% - 40px); object-fit: contain; border-radius: 6px; image-rendering: auto; }
+#lightbox .lightbox-open { color: #fff; font-size: 12px; opacity: .8; }
+.chat-img { cursor: zoom-in; }

@@ -9,19 +9,23 @@ function bodyToPlainText(body) {
 }
 
 function renderChatBody(body) {
-  const URL_RE   = /\bhttps?:\/\/\S+/g;
+  // http(s) links and bare "www." ones; trailing punctuation and a closing
+  // bracket (as in "(https://…)") are not part of the link
+  const URL_RE   = /\b(?:https?:\/\/|www\.)[^\s<>"]+/g;
   const IMG_EXT  = /\.(?:jpe?g|png|gif|webp)(?:[?#]\S*)?$/i;
   const parts = [];
   let last = 0;
   for (const m of body.matchAll(URL_RE)) {
+    let url = m[0].replace(/[.,!?;:'")\]]+$/, '');
+    if (m[0].endsWith(')') && url.includes('(')) url += ')';  // wikipedia-style (…) links keep theirs
     if (m.index > last) parts.push({ t: 'text', v: body.slice(last, m.index) });
-    parts.push({ t: IMG_EXT.test(m[0]) ? 'img' : 'url', v: m[0] });
-    last = m.index + m[0].length;
+    parts.push({ t: IMG_EXT.test(url) ? 'img' : 'url', v: url });
+    last = m.index + url.length;
   }
   if (last < body.length) parts.push({ t: 'text', v: body.slice(last) });
   return parts.map(p => {
     if (p.t === 'img') return `<img class="chat-img" src="${esc(p.v)}" alt="" loading="lazy" onerror="this.style.display='none'">`;
-    if (p.t === 'url') return `<a class="chat-link" href="${esc(p.v)}" target="_blank" rel="noopener noreferrer">${esc(p.v)}</a>`;
+    if (p.t === 'url') return `<a class="chat-link" href="${esc(/^www\./i.test(p.v) ? 'https://' + p.v : p.v)}" target="_blank" rel="noopener noreferrer">${esc(p.v)}</a>`;
     return esc(p.v).replace(/\n/g, '<br>').replace(/\[\[([a-z0-9_]+)\]\]/g, (_, key) => {
       const col = LINK_COLORS[RARITY[key]] || '';
       return `<span class="chat-item-link" data-key="${key}"${col ? ` style="color:${col}"` : ''}>[${esc(iname(key))}]</span>`;
@@ -552,4 +556,23 @@ async function sendChatMsg() {
   }
   input.disabled = false;
   input.focus();
+}
+
+
+// ── IMAGES LARGE ──────────────────────────────────────────────────────────────
+// Tap a chat image to see it big; tap again (or Esc) to close.
+function openLightbox(src) {
+  let lb = document.getElementById('lightbox');
+  if (!lb) {
+    lb = document.createElement('div');
+    lb.id = 'lightbox';
+    lb.innerHTML = '<img alt=""><a class="lightbox-open" target="_blank" rel="noopener noreferrer">open original ↗</a>';
+    lb.addEventListener('click', e => { if (!e.target.closest('.lightbox-open')) lb.classList.remove('open'); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') lb.classList.remove('open'); });
+    document.body.appendChild(lb);
+  }
+  lb.querySelector('img').src = src;
+  lb.querySelector('.lightbox-open').href = src;
+  lb.classList.add('open');
+  sfx('panel');
 }

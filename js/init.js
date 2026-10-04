@@ -234,6 +234,8 @@ function setupChatListeners() {
     if (prof && !e.ctrlKey && !e.metaKey && !e.shiftKey && e.button === 0) { e.preventDefault(); openProfile(prof.dataset.profile); return; }
     const link = e.target.closest('.chat-item-link');
     if (link) { openCard(link.dataset.key); return; }
+    const pic = e.target.closest('img.chat-img');
+    if (pic) { openLightbox(pic.src); return; }
     const reactBtn = e.target.closest('.react-trigger');
     if (reactBtn) { sendReact(Number(reactBtn.dataset.msgid), reactBtn.dataset.emoji); return; }
     const replyBtn = e.target.closest('.reply-trigger');
