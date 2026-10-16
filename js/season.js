@@ -2,7 +2,7 @@
 // Classic script sharing globals with the others; load order is set in index.html.
 
 // ── SEASONS ───────────────────────────────────────────────────────────────────
-// Halloween runs from Oct 24 until the morning of Nov 1 (local time).
+// Halloween runs from Oct 16 (2026: switched on early) until the morning of Nov 1 (local time).
 // Preview with ?halloween in the address (only while it's there).
 const LS_SEASON_PREV = 'bb_theme_before_season';   // colorway to go back to afterwards
 const LS_SEASON_SEEN = 'bb_season_seen';           // season we already auto-switched for
@@ -13,7 +13,7 @@ function currentSeason() {
   if (q.has('halloween')) return 'halloween';
   if (q.has('nohalloween')) return null;
   const d = new Date(), m = d.getMonth(), day = d.getDate();
-  if ((m === 9 && day >= 24) || (m === 10 && day === 1 && d.getHours() < 6)) return 'halloween';
+  if ((m === 9 && day >= 16) || (m === 10 && day === 1 && d.getHours() < 6)) return 'halloween';
   return null;
 }
 
