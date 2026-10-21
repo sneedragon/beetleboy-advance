@@ -122,7 +122,7 @@ async function doAssemble() {
   const btn = document.getElementById('do-assemble');
   btn.disabled = true;
   const repeatCount = Math.max(1, Math.min(99, parseInt(document.getElementById('asm-repeat').value) || 1));
-  let successCount = 0, lastLabel = '', lastKey = null, lastError = '', trophyCrafted = null;
+  let successCount = 0, unluckyCount = 0, lastLabel = '', lastKey = null, lastError = '', trophyCrafted = null;
   for (let i = 0; i < repeatCount; i++) {
     setResult('asm-result', repeatCount > 1 ? `${i+1}/${repeatCount}…` : 'Assembling…', lastKey);
     const [s1, s2, s3, s4] = resolveSlotKeys(ASM_SLOTS);
@@ -130,7 +130,12 @@ async function doAssemble() {
     const body = { type: 1, slot1: s1, slot2: s2 || undefined, ...(s3 ? { slot3: s3 } : {}), ...(s4 ? { slot4: s4 } : {}) };
     const result = await apiPost('/api/beetle/action/craft', body);
     if (!result) break;
-    if (result.success === false) { sfx('fail'); lastError = result.message || 'Failed.'; setResult('asm-result', lastError); break; }
+    if (result.success === false && result.message === 'UNLUCKY_ROLL') {
+      unluckyCount++; sfx('unlucky'); log('✗ Unlucky roll — nothing made.', 'warn'); resultFx('asm-result', 'bad');
+      if (i < repeatCount - 1) await loadState(true);
+      continue;
+    }
+    if (result.success === false) { sfx('fail'); lastError = result.message || 'Failed.'; setResult('asm-result', lastError); resultFx('asm-result', 'bad'); break; }
     lastLabel = resultLabel(result) || 'done';
     lastKey   = resultKey(result);
     craftSound(lastKey);
@@ -142,10 +147,13 @@ async function doAssemble() {
   await loadState();
   updatePreviews();
   if (successCount > 0) {
-    const txt = repeatCount > 1 ? `✓ ×${successCount}: ${lastLabel}` : `✓ Got: ${lastLabel}`;
-    setResult('asm-result', txt, lastKey);
+    let txt = repeatCount > 1 ? `✓ ×${successCount}: ${lastLabel}` : `✓ Got: ${lastLabel}`;
+    if (unluckyCount) txt += ` · ✗ ${unluckyCount} unlucky`;
+    setResult('asm-result', txt, lastKey); resultFx('asm-result', 'ok');
     log(txt);
     if (trophyCrafted) announceTrophy(trophyCrafted);
+  } else if (unluckyCount) {
+    setResult('asm-result', `✗ Unlucky roll${unluckyCount > 1 ? ' ×' + unluckyCount : ''} — nothing made`); resultFx('asm-result', 'bad');
   } else if (lastError) {
     log(lastError, 'warn');
   }
@@ -227,12 +235,23 @@ async function handleHammerBreak() {
 }
 
 async function doSmash() {
-  if (!slotState['sm0'] || !slotState['smsac'] || !slotState['smhammer'])
-    { setResult('smash-result2', 'Need Slot 1, Sacrifice and Hammer.'); return; }
+  // no main hammer? use the backup, or the best one owned
+  if (!slotState['smhammer']) {
+    const bk = slotState['smhammer_bk'];
+    if (bk && (state.inv[bk] || 0) > 0) {
+      slotState['smhammer'] = bk; slotState['smhammer_bk'] = null;
+      renderSlot('smhammer'); renderSlot('smhammer_bk'); renderHammerQuick();
+      log(`⚒ No hammer in the main slot — using backup ${iname(bk)}.`);
+    } else autofillSmashHammer();
+  }
+  if (!slotState['sm0'] || !slotState['smsac'] || !slotState['smhammer']) {
+    const need = !slotState['smhammer'] && !HAMMERS.some(h => (state.inv[h] || 0) > 0) ? 'You have no hammer.' : 'Need Slot 1, Sacrifice and Hammer.';
+    setResult('smash-result2', need); resultFx('smash-result2', 'bad'); log(need, 'warn'); return;
+  }
   const btn = document.getElementById('do-smash');
   btn.disabled = true;
   const repeatCount = Math.max(1, Math.min(99, parseInt(document.getElementById('smash-repeat').value) || 1));
-  let successCount = 0, lastLabel = '', lastKey = null, lastError = '';
+  let successCount = 0, unluckyCount = 0, lastLabel = '', lastKey = null, lastError = '';
   for (let i = 0; i < repeatCount; i++) {
     setResult('smash-result2', repeatCount > 1 ? `${i+1}/${repeatCount}…` : 'Smashing…', lastKey);
     const [s1, s2] = resolveSlotKeys(SMASH_SLOTS);
@@ -245,7 +264,7 @@ async function doSmash() {
     if (result.success === false && result.message !== 'UNLUCKY_ROLL') {
       sfx('fail'); lastError = result.message || 'Failed.'; setResult('smash-result2', lastError); break;
     }
-    if (result.success === false) { sfx('unlucky'); log('✗ Unlucky roll.', 'warn'); }
+    if (result.success === false) { unluckyCount++; sfx('unlucky'); log('✗ Unlucky roll — nothing made.', 'warn'); resultFx('smash-result2', 'bad'); }
     else {
       lastLabel = resultLabel(result) || 'done';
       lastKey   = resultKey(result);
@@ -266,10 +285,13 @@ async function doSmash() {
   }
   updatePreviews();
   if (successCount > 0) {
-    const txt = repeatCount > 1 ? `✓ ×${successCount}: ${lastLabel}` : `✓ Got: ${lastLabel}`;
-    setResult('smash-result2', txt, lastKey);
+    let txt = repeatCount > 1 ? `✓ ×${successCount}: ${lastLabel}` : `✓ Got: ${lastLabel}`;
+    if (unluckyCount) txt += ` · ✗ ${unluckyCount} unlucky`;
+    setResult('smash-result2', txt, lastKey); resultFx('smash-result2', 'ok');
+  } else if (unluckyCount) {
+    setResult('smash-result2', `✗ Unlucky roll${unluckyCount > 1 ? ' ×' + unluckyCount : ''} — nothing made`); resultFx('smash-result2', 'bad');
   } else if (lastError) {
-    log(lastError, 'warn');
+    resultFx('smash-result2', 'bad'); log(lastError, 'warn');
   }
   btn.disabled = false;
 }

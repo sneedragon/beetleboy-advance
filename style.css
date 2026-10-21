@@ -1663,3 +1663,21 @@ body[data-scheme="light"] .pf-dn { color: hsl(var(--pf-h), 70%, 38%); }
 #lightbox img { max-width: 100%; max-height: calc(100% - 40px); object-fit: contain; border-radius: 6px; image-rendering: auto; }
 #lightbox .lightbox-open { color: #fff; font-size: 12px; opacity: .8; }
 .chat-img { cursor: zoom-in; }
+
+/* ── Light animations ─────────────────────────────────────────────────────── */
+@keyframes fx-pop   { 0% { transform: scale(.85); opacity: .3; } 55% { transform: scale(1.08); } 100% { transform: scale(1); opacity: 1; } }
+@keyframes fx-shake { 0%,100% { transform: translateX(0); } 20% { transform: translateX(-4px); } 40% { transform: translateX(4px); } 60% { transform: translateX(-3px); } 80% { transform: translateX(2px); } }
+@keyframes fx-flash-bad { 0% { box-shadow: inset 0 0 0 1px rgba(230,70,70,.9), 0 0 10px rgba(230,70,70,.5); } 100% { box-shadow: none; } }
+@keyframes fx-flash-ok  { 0% { box-shadow: inset 0 0 0 1px rgba(110,220,130,.9), 0 0 10px rgba(110,220,130,.45); } 100% { box-shadow: none; } }
+.sp-result.fx-ok  { animation: fx-pop .4s ease-out, fx-flash-ok 1s ease-out; }
+.sp-result.fx-bad { animation: fx-shake .4s ease-out, fx-flash-bad 1s ease-out; color: #f0a0a0; }
+.sm-slot.filled > img, .sm-slot.filled .sm-slot-img { animation: fx-pop .25s ease-out; }
+#screen-result-icon.visible img { animation: fx-pop .35s ease-out; }
+.hq-btn { transition: background .1s, box-shadow .1s, transform .12s; }
+.hq-btn:hover { transform: translateY(-2px); }
+.hq-btn:active { transform: scale(.92); }
+button:not(:disabled):active { transform: scale(.97); }
+@media (prefers-reduced-motion: reduce) {
+  .sp-result.fx-ok, .sp-result.fx-bad, .sm-slot.filled > img, .sm-slot.filled .sm-slot-img, #screen-result-icon.visible img { animation: none; }
+  .hq-btn:hover, .hq-btn:active, button:not(:disabled):active { transform: none; }
+}

@@ -423,6 +423,15 @@ function setResult(elId, text, key = null) {
   el.appendChild(s);
 }
 
+// short feedback animation on a result line (ok = pop, bad = shake)
+function resultFx(elId, kind) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  el.classList.remove('fx-ok', 'fx-bad');
+  void el.offsetWidth;
+  el.classList.add(kind === 'ok' ? 'fx-ok' : 'fx-bad');
+}
+
 function autofillSmashHammer() {
   if (slotState['smhammer']) return;
   const best = [...HAMMERS].reverse().find(h => (state.inv[h] || 0) > 0);
