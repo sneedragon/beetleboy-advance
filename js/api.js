@@ -125,7 +125,39 @@ async function loadState(silent = false) {
     claimUBC:    user.cooldowns?.claimUBC    ?? keep('claimUBC'),
     junkFaucet:  user.cooldowns?.junkFaucet  ?? keep('junkFaucet'),
   };
+  const sm2 = document.querySelector('.sm-slot[data-slot="sm2"]');
+  if (sm2) sm2.classList.toggle('hidden', user.crafting_slot3_unlocked === false);
   if (!silent) renderAll();
+  if (!silent) collectNewItems();
+}
+
+// ── NEW ITEM COLLECTOR ────────────────────────────────────────────────────────
+// Things this site doesn't know yet (new game content) are visible to the player
+// who owns them. Now and then, send their card data to our server so the images
+// can be added here. No token or name goes along. Failures are silent.
+let collectBusy = false;
+async function collectNewItems() {
+  if (collectBusy) return;
+  const ls = (k, v) => { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch {} return null; };
+  const unknownOwned = Object.keys(state.inv || {}).some(k => !IMAGES[k] && !NAMES[k]);
+  const last = +ls('bb_collect_at') || 0;
+  if (!unknownOwned && Date.now() - last < 12 * 3600e3) return;
+  if (unknownOwned && Date.now() - last < 30 * 60e3) return;
+  collectBusy = true;
+  try {
+    ls('bb_collect_at', String(Date.now()));
+    const cards = await apiGet('/api/beetle/cards');
+    if (!cards || cards.success === false || typeof cards !== 'object') return;
+    let sent = []; try { sent = JSON.parse(ls('bb_collected') || '[]'); } catch {}
+    const fresh = Object.entries(cards)
+      .filter(([k, c]) => c && typeof c === 'object' && !IMAGES[k] && !NAMES[k] && !sent.includes(k))
+      .slice(0, 10)
+      .map(([key, c]) => ({ key, meta: Object.fromEntries(Object.entries(c).filter(([, v]) => ['string', 'number', 'boolean'].includes(typeof v))) }));
+    if (!fresh.length) return;
+    const r = await fetch('collect.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ items: fresh }) });
+    if (!r.ok) return;
+    ls('bb_collected', JSON.stringify([...sent, ...fresh.map(f => f.key)].slice(-300)));
+  } catch {} finally { collectBusy = false; }
 }
 
 function currentCds() {

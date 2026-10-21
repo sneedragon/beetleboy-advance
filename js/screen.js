@@ -77,7 +77,7 @@ function renderSlot(slotId) {
     });
   } else {
     const lbls = { asm0:'Slot 1', asm1:'Slot 2', asm2:'Slot 3', asm3:'Slot 4',
-                   sm0:'Slot 1', sm1:'Slot 2 (opt)', smsac:'Sacrifice', smhammer:'Hammer', smhammer_bk:'Backup' };
+                   sm0:'Slot 1', sm1:'Slot 2 (opt)', sm2:'Slot 3 (opt)', smsac:'Sacrifice', smhammer:'Hammer', smhammer_bk:'Backup' };
     el.innerHTML = `<span class="sm-slot-lbl">${lbls[slotId] || slotId}</span>`;
   }
   updatePreviews();
@@ -406,9 +406,9 @@ function renderInventory() {
           }
           renderHammerQuick(); return;
         }
-        const slots = BEETLES.includes(k) ? ['smsac','sm0','sm1']
-                    : k === '_junk_'       ? ['sm0','sm1']
-                    : ['sm0','sm1','smsac'];
+        const slots = BEETLES.includes(k) ? ['smsac','sm0','sm1','sm2']
+                    : k === '_junk_'       ? ['sm0','sm1','sm2']
+                    : ['sm0','sm1','sm2','smsac'];
         const empty = slots.find(s => !slotState[s]);
         if (empty) { slotState[empty] = k; renderSlot(empty); return; }
       }

@@ -235,17 +235,17 @@ async function handleHammerBreak() {
 }
 
 async function doSmash() {
-  // no main hammer? use the backup, or the best one owned
+  // no main hammer? use the backup (never silently take a saved-up hammer from the inventory)
   if (!slotState['smhammer']) {
     const bk = slotState['smhammer_bk'];
     if (bk && (state.inv[bk] || 0) > 0) {
       slotState['smhammer'] = bk; slotState['smhammer_bk'] = null;
       renderSlot('smhammer'); renderSlot('smhammer_bk'); renderHammerQuick();
       log(`⚒ No hammer in the main slot — using backup ${iname(bk)}.`);
-    } else autofillSmashHammer();
+    }
   }
   if (!slotState['sm0'] || !slotState['smsac'] || !slotState['smhammer']) {
-    const need = !slotState['smhammer'] && !HAMMERS.some(h => (state.inv[h] || 0) > 0) ? 'You have no hammer.' : 'Need Slot 1, Sacrifice and Hammer.';
+    const need = !slotState['smhammer'] ? 'Pick a hammer first (or set a backup).' : 'Need Slot 1, Sacrifice and Hammer.';
     setResult('smash-result2', need); resultFx('smash-result2', 'bad'); log(need, 'warn'); return;
   }
   const btn = document.getElementById('do-smash');
@@ -254,11 +254,12 @@ async function doSmash() {
   let successCount = 0, unluckyCount = 0, lastLabel = '', lastKey = null, lastError = '';
   for (let i = 0; i < repeatCount; i++) {
     setResult('smash-result2', repeatCount > 1 ? `${i+1}/${repeatCount}…` : 'Smashing…', lastKey);
-    const [s1, s2] = resolveSlotKeys(SMASH_SLOTS);
+    const [s1, s2, s3] = resolveSlotKeys(SMASH_SLOTS);
     if (!s1) { lastError = 'Out of materials.'; setResult('smash-result2', lastError); break; }
-    const body = { type: 2, slot1: s1, sacrifice: slotState['smsac'] || '', hammer: slotState['smhammer'] || '', ...(s2 ? { slot2: s2 } : {}) };
+    const body = { type: 2, slot1: s1, sacrifice: slotState['smsac'] || '', hammer: slotState['smhammer'] || '', ...(s2 ? { slot2: s2 } : {}), ...(s3 ? { slot3: s3 } : {}) };
     const result = await apiPost('/api/beetle/action/craft', body);
     if (!result) break;
+    try { localStorage.setItem('bb_last_hammer', body.hammer); } catch {}
     sfx('smash');
     if (result.success !== false || result.message === 'UNLUCKY_ROLL') recordEvent('smash', { h: body.hammer, ok: result.success !== false, out: resultKey(result) });
     if (result.success === false && result.message !== 'UNLUCKY_ROLL') {

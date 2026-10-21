@@ -15,8 +15,8 @@ const CHAT_URL           = 'chatroom.php';
 
 // ── UI CONSTANTS ─────────────────────────────────────────────────────────────
 const ASM_SLOTS   = ['asm0','asm1','asm2','asm3'];
-const SMASH_SLOTS = ['sm0','sm1'];
-const ALL_SLOTS   = [...ASM_SLOTS, 'sm0','sm1','smsac','smhammer','smhammer_bk'];
+const SMASH_SLOTS = ['sm0','sm1','sm2'];
+const ALL_SLOTS   = [...ASM_SLOTS, 'sm0','sm1','sm2','smsac','smhammer','smhammer_bk'];
 
 const SCREEN = { LOG:'log', ASSEMBLE:'assemble', SMASH:'smash', ITEM:'item', TREE:'tree', CHAT:'chat' };
 
@@ -434,8 +434,10 @@ function resultFx(elId, kind) {
 
 function autofillSmashHammer() {
   if (slotState['smhammer']) return;
-  const best = [...HAMMERS].reverse().find(h => (state.inv[h] || 0) > 0);
-  if (best) { slotState['smhammer'] = best; renderSlot('smhammer'); }
+  // never grab a saved-up top hammer: take the last one used, else the weakest one owned
+  let last = null; try { last = localStorage.getItem('bb_last_hammer'); } catch {}
+  const pick = (last && (state.inv[last] || 0) > 0) ? last : HAMMERS.find(h => (state.inv[h] || 0) > 0);
+  if (pick) { slotState['smhammer'] = pick; renderSlot('smhammer'); }
 }
 
 function renderHammerQuick() {
@@ -481,6 +483,7 @@ function previewSmash() {
   const s2 = slotState['sm1'] || null;
   const sac = slotState['smsac'] || null;
   if (!s1) return null;
+  if (slotState['sm2']) return { out: '?', note: '3 inputs — the game decides' };
 
   const isBeetle = k => k && BEETLES.includes(k);
   const isFlower = k => k && ALL_FLOWERS.includes(k);

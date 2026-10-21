@@ -183,6 +183,9 @@ async function check(label, viewport) {
   await page.click('#chat-big-btn', { force: true });
   await page.waitForTimeout(200);
   if (await page.evaluate(() => document.getElementById('sp-chat').contains(document.getElementById('chat-messages')))) fail(`${label}: chat did not go back to the panel`);
+  await page.evaluate(() => setScreenMode(SCREEN.SMASH));
+  await page.waitForTimeout(300);
+  await page.screenshot({ path: `${ROOT}tests/out/${label}-smash.png` });
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   if (overflow > 2) fail(`${label}: page scrolls sideways by ${overflow}px`);
   await page.screenshot({ path: `${ROOT}tests/out/${label}.png` });
