@@ -112,6 +112,8 @@ async function doJunkCrunch() {
 }
 
 
+const niceError = m => ({ INVALID_RECIPE: 'No recipe for these items.' }[m] || m || 'Failed.');
+
 // sound for a crafted result: rare things sparkle
 const isRareKey = k => !!k && (k.startsWith('trophy_') || RARITY[k] === 'adm' || RARITY[k] === 'dia');
 const craftSound = k => sfx(isRareKey(k) ? 'rare' : 'craft');
@@ -135,7 +137,7 @@ async function doAssemble() {
       if (i < repeatCount - 1) await loadState(true);
       continue;
     }
-    if (result.success === false) { sfx('fail'); lastError = result.message || 'Failed.'; setResult('asm-result', lastError); resultFx('asm-result', 'bad'); break; }
+    if (result.success === false) { sfx('fail'); lastError = niceError(result.message); setResult('asm-result', lastError); resultFx('asm-result', 'bad'); break; }
     lastLabel = resultLabel(result) || 'done';
     lastKey   = resultKey(result);
     craftSound(lastKey);
@@ -263,7 +265,7 @@ async function doSmash() {
     sfx('smash');
     if (result.success !== false || result.message === 'UNLUCKY_ROLL') recordEvent('smash', { h: body.hammer, ok: result.success !== false, out: resultKey(result) });
     if (result.success === false && result.message !== 'UNLUCKY_ROLL') {
-      sfx('fail'); lastError = result.message || 'Failed.'; setResult('smash-result2', lastError); break;
+      sfx('fail'); lastError = niceError(result.message); setResult('smash-result2', lastError); break;
     }
     if (result.success === false) { unluckyCount++; sfx('unlucky'); log('✗ Unlucky roll — nothing made.', 'warn'); resultFx('smash-result2', 'bad'); }
     else {
