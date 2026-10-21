@@ -1419,7 +1419,14 @@ body[data-scheme="light"] .chat-user[data-chat-theme="orange"] { color: #883010;
   }
 
   /* Compact top bar */
-  #dev-top { gap: 6px; padding: 0 4px; margin-bottom: 6px; }
+  #dev-top { gap: 6px; padding: 0 4px; margin-bottom: 4px; min-height: 0; line-height: 1; }
+  #dev-top .shoulder-btn { padding-block: 5px; }
+  #device { padding-top: max(4px, env(safe-area-inset-top)); }
+  /* decorative lines only cost height on a phone */
+  #screen-label, #device-credit { display: none; }
+  #dev-top { flex-wrap: nowrap; min-width: 0; }
+  #dev-brand { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  #user-info { gap: 6px; flex-shrink: 0; }
   #dev-brand { font-size: 10px; letter-spacing: 0.12em; }
   #speaker-grille { padding: 2px 4px; }
   #speaker-grille::before { letter-spacing: 1px; }
@@ -1429,7 +1436,7 @@ body[data-scheme="light"] .chat-user[data-chat-theme="orange"] { color: #883010;
      instead of stretching to fill the height */
   #dev-screen { height: auto; flex: 1 1 auto; min-height: 28%; }
   #dev-controls { flex: 0 0 auto; padding: 8px; }
-  .ctrl-row { flex: 0 0 auto; height: clamp(42px, 7.5vh, 68px); min-height: 0; }
+  .ctrl-row { flex: 0 0 auto; height: clamp(42px, 7.5vh, 68px); height: clamp(42px, 7.5dvh, 68px); min-height: 0; }
 
   /* ── Panels: static in-flow, slide in by HEIGHT below the device ──
      Width is always 100% (not animated). Only height animates.
