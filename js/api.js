@@ -77,7 +77,7 @@ async function apiCall(method, path, body = null, _retry = true) {
   if (r.status === 429) {
     if (Date.now() - lastRateLimitLog > 5000) {
       lastRateLimitLog = Date.now();
-      log('You are beetle-gaming too hard. Slow down! 🪲💨', 'warn');
+      log('You are beetle-gaming too hard. Slow down and wait about 2 minutes! 🪲💨', 'warn');
     }
     return null;
   }
