@@ -155,7 +155,7 @@ async function doAssemble() {
     log(txt);
     if (trophyCrafted) announceTrophy(trophyCrafted);
   } else if (unluckyCount) {
-    setResult('asm-result', `✗ Unlucky roll${unluckyCount > 1 ? ' ×' + unluckyCount : ''} — nothing made`); resultFx('asm-result', 'bad');
+    setResult('asm-result', `✗ Unlucky${unluckyCount > 1 ? ' ×' + unluckyCount : ' roll'}`); resultFx('asm-result', 'bad');
   } else if (lastError) {
     log(lastError, 'warn');
   }
@@ -292,7 +292,7 @@ async function doSmash() {
     if (unluckyCount) txt += ` · ✗ ${unluckyCount} unlucky`;
     setResult('smash-result2', txt, lastKey); resultFx('smash-result2', 'ok');
   } else if (unluckyCount) {
-    setResult('smash-result2', `✗ Unlucky roll${unluckyCount > 1 ? ' ×' + unluckyCount : ''} — nothing made`); resultFx('smash-result2', 'bad');
+    setResult('smash-result2', `✗ Unlucky${unluckyCount > 1 ? ' ×' + unluckyCount : ' roll'}`); resultFx('smash-result2', 'bad');
   } else if (lastError) {
     resultFx('smash-result2', 'bad'); log(lastError, 'warn');
   }
