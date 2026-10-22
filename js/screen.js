@@ -409,6 +409,11 @@ function renderInventory() {
         const slots = BEETLES.includes(k) ? ['smsac','sm0','sm1','sm2']
                     : k === '_junk_'       ? ['sm0','sm1','sm2']
                     : ['sm0','sm1','sm2','smsac'];
+        // sm0+sm1 filled and slot 3 available: the user is building a 3-input smash
+        const sm2el = document.querySelector('.sm-slot[data-slot="sm2"]');
+        if (slotState['sm0'] && slotState['sm1'] && !slotState['sm2'] && sm2el && !sm2el.classList.contains('hidden')) {
+          slots.sort((a, b) => (a === 'sm2' ? -1 : 0) - (b === 'sm2' ? -1 : 0));
+        }
         const empty = slots.find(s => !slotState[s]);
         if (empty) { slotState[empty] = k; renderSlot(empty); return; }
       }
