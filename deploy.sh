@@ -13,6 +13,6 @@ sed -i -E "s/const APP_VERSION = '[^']*'/const APP_VERSION = '$V'/" js/core.js
 git commit -qam "Deploy $V"
 rsync -az --delete --omit-dir-times \
   --exclude=.git --exclude=.gitignore --exclude=tool.py --exclude=deploy.sh --exclude=pull_incoming.sh --exclude=gen_assets.py \
-  --exclude='*.bak' --exclude=__pycache__/ --exclude=data/ --exclude=uploads/ --exclude=devlogin.html --exclude=tests/ --exclude=node_modules/ --exclude=package.json --exclude=package-lock.json \
+  --exclude='*.bak' --exclude=__pycache__/ --exclude=data/ --exclude=uploads/ --exclude=devlogin.html --exclude=tests/ --exclude=/test/ --exclude=node_modules/ --exclude=package.json --exclude=package-lock.json \
   ./ "$REMOTE" 2>&1 | grep -v 'failed to set permissions\|code 23' || true
 echo "Deployed $V"
