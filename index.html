@@ -27,6 +27,7 @@
       <form id="login-form">
         <input id="lf-user" type="text" placeholder="Username" autocomplete="username" required>
         <input id="lf-pass" type="password" placeholder="Password" autocomplete="current-password" required>
+        <input id="lf-otp" type="text" inputmode="numeric" placeholder="2FA code" autocomplete="one-time-code" maxlength="8" hidden>
         <button type="submit" id="login-btn">LOG IN</button>
         <div id="login-err"></div>
       </form>

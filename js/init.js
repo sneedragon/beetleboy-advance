@@ -8,18 +8,25 @@ function setupAuthListeners() {
     const btn = document.getElementById('login-btn');
     btn.disabled = true; btn.textContent = 'LOGGING IN…';
     document.getElementById('login-err').textContent = '';
+    const otp = document.getElementById('lf-otp');
     const tokens = await oidc({
       grant_type: 'password',
       username: document.getElementById('lf-user').value.trim(),
       password: document.getElementById('lf-pass').value,
       scope: 'openid profile email',
+      ...(otp.value.trim() ? { totp: otp.value.trim() } : {}),
     });
     if (!tokens || tokens.error) {
       const desc = tokens?.desc || '';
       const is2fa = /otp|mfa|two.factor|authenticat|not fully set up/i.test(desc);
-      document.getElementById('login-err').innerHTML = is2fa
-        ? '2FA is not supported.<br>Please disable it on your remilia.net account first.'
-        : 'Login failed — check your credentials.';
+      if (is2fa && otp.hidden) {
+        otp.hidden = false; otp.focus();
+        document.getElementById('login-err').textContent = 'Enter your 2FA code and log in again.';
+      } else {
+        document.getElementById('login-err').textContent = otp.hidden
+          ? 'Login failed — check your credentials.'
+          : 'Login failed — check your credentials and 2FA code.';
+      }
       btn.disabled = false; btn.textContent = 'LOG IN'; return;
     }
     saveTokens(tokens.access, tokens.refresh);
