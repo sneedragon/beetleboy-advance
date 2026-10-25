@@ -562,7 +562,80 @@ async function start() {
   setInterval(loadInv, 5 * 60_000);
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+// ── "Sign in with remilia.net" (their login page, Authorization Code + PKCE) ─
+// Needs the client id of our Login app from remilia.net's developer portal.
+const RN_CLIENT_ID = '';
+const RN_AUTH_URL  = 'https://www.remilia.net/oidc/realms/remilia/protocol/openid-connect/auth';
+const rnRedirect   = () => location.origin + location.pathname;
+const b64url = buf => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+
+async function rnLogin() {
+  const verifier = b64url(crypto.getRandomValues(new Uint8Array(32)));
+  const stateVal = b64url(crypto.getRandomValues(new Uint8Array(16)));
+  const challenge = b64url(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier)));
+  sessionStorage.setItem('bb_pkce', JSON.stringify({ verifier, state: stateVal, diag: location.search.includes('diag') }));
+  location.href = `${RN_AUTH_URL}?${new URLSearchParams({
+    client_id: RN_CLIENT_ID, response_type: 'code', redirect_uri: rnRedirect(), scope: 'openid',
+    state: stateVal, code_challenge: challenge, code_challenge_method: 'S256',
+  })}`;
+}
+
+// back from remilia.net: swap the code for tokens. Returns true when logged in.
+async function rnFinish() {
+  const q = new URLSearchParams(location.search);
+  if (!q.has('code') && !q.has('error')) return false;
+  let saved = {};
+  try { saved = JSON.parse(sessionStorage.getItem('bb_pkce') || '{}'); } catch {}
+  sessionStorage.removeItem('bb_pkce');
+  history.replaceState(null, '', rnRedirect() + (saved.diag ? '?diag' : ''));
+  const err = document.getElementById('login-err');
+  if (!q.has('code') || q.get('state') !== saved.state || !saved.verifier) {
+    err.textContent = q.get('error_description') || 'Sign-in was cancelled.';
+    return false;
+  }
+  localStorage.setItem(LS_CLIENT, RN_CLIENT_ID);
+  const t = await oidc({ grant_type: 'authorization_code', code: q.get('code'), redirect_uri: rnRedirect(), code_verifier: saved.verifier });
+  if (!t?.access) { localStorage.removeItem(LS_CLIENT); err.textContent = 'Sign-in failed, please try again.'; return false; }
+  saveTokens(t.access, t.refresh);
+  return true;
+}
+
+// ?diag: which of remilia's endpoints take the current token (nothing gets posted)
+async function runDiag() {
+  const { access } = getTokens();
+  const row = (name, ok, note = '') => `<tr><td>${ok ? '✅' : '❌'}</td><td>${esc(name)}</td><td>${esc(note)}</td></tr>`;
+  const proxied = async path => {
+    try {
+      const r = await fetch(PROXY_PATH, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path, token: access, method: 'GET', v: APP_VERSION }) });
+      return [r.ok, `${r.status} ${(await r.text()).slice(0, 80)}`];
+    } catch (e) { return [false, String(e)]; }
+  };
+  const v1 = async path => {
+    try { const r = await fetch(`${BASE_URL}/api/v1${path}`, { headers: { Authorization: `Bearer ${access}` } }); return [r.ok, `${r.status} ${(await r.text()).slice(0, 80)}`]; }
+    catch (e) { return [false, `${e} (CORS?)`]; }
+  };
+  const ws = async () => {
+    try { const r = await fetch(CHAT_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: access, action: 'ping' }) }); return [r.ok, `${r.status} ${(await r.text()).slice(0, 80)}`]; }
+    catch (e) { return [false, String(e)]; }
+  };
+  const checks = [
+    ['client', [true, localStorage.getItem(LS_CLIENT) || 'profile (password login)']],
+    ['internal whoami', await proxied('/api/profile/whoami')],
+    ['internal beetle/user', await proxied('/api/beetle/user')],
+    ['internal chat read', await proxied('/api/chats/1/messages?limit=1')],
+    ['chat websocket (send, react)', await ws()],
+    ['API v1 /me', await v1('/me')],
+    ['API v1 chat read', await v1('/global-chat/messages?limit=1')],
+  ];
+  document.body.innerHTML = `<div style="padding:16px;font:14px monospace;color:#fff;background:#222;min-height:100vh"><h1 style="font-size:18px">Token check</h1>
+    <table>${checks.map(([n, [ok, note]]) => row(n, ok, note)).join('')}</table></div>`;
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
   setupPage();
-  if (getTokens().access) start(); else showLogin();
+  const rnBtn = document.getElementById('login-rn');
+  if (RN_CLIENT_ID) { rnBtn.hidden = false; rnBtn.addEventListener('click', rnLogin); }
+  const fresh = await rnFinish();
+  if (location.search.includes('diag') && getTokens().access) return runDiag();
+  if (fresh || getTokens().access) start(); else showLogin();
 });

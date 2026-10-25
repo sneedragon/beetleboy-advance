@@ -6,12 +6,16 @@ const getTokens  = ()         => ({ access: localStorage.getItem(LS_ACCESS), ref
 const saveTokens = (a, r)     => { if (a) localStorage.setItem(LS_ACCESS, a); if (r) localStorage.setItem(LS_REFRESH, r); };
 const clearAuth  = ()         => { localStorage.removeItem(LS_ACCESS); localStorage.removeItem(LS_REFRESH); };
 
+// Tokens from "Sign in with remilia.net" (chat page) belong to our own login
+// app and must be refreshed with its client id; a password login uses remilia's.
+const LS_CLIENT = 'bb_client';
 async function oidc(params) {
+  if (params.grant_type === 'password') localStorage.removeItem(LS_CLIENT);
   try {
     const r = await fetch(OIDC_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({ client_id: 'profile', ...params }),
+      body: new URLSearchParams({ client_id: localStorage.getItem(LS_CLIENT) || 'profile', ...params }),
     });
     const d = await r.json();
     if (!r.ok) return { error: d.error, desc: d.error_description || '' };

@@ -138,6 +138,11 @@ body.cp-compact .chat-card, body.cp-compact .chat-yt { display: none; }
 }
 .cp-brag-acts .cp-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
 
+#login-rn {
+  margin-top: 10px; width: 100%; padding: 10px; border-radius: 6px; cursor: pointer; font: inherit;
+  background: none; color: var(--text); border: 1px solid var(--border2);
+}
+
 /* the room */
 #cp-head button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
 #cp-room-count:empty { display: none; }
