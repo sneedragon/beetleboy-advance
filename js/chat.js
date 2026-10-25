@@ -123,6 +123,62 @@ function mentionsMe(m, body) {
 
 const rnUrl = u => !u ? '' : (u.startsWith('/') ? BASE_URL + u : u);
 
+// "Sign in with remilia.net" tokens only work on the official API (/api/v1):
+// it can read and write the chat, but has no image upload and no reactions.
+const chatV1 = () => !!localStorage.getItem(LS_CLIENT);
+async function v1Call(method, path, body = null, _retry = true) {
+  const { access } = getTokens();
+  if (!access) return { ok: false, status: 0 };
+  let r;
+  try {
+    r = await fetch(`${BASE_URL}/api/v1${path}`, {
+      method,
+      headers: { Accept: 'application/json', Authorization: `Bearer ${access}`, ...(body ? { 'Content-Type': 'application/json' } : {}) },
+      ...(body ? { body: JSON.stringify(body) } : {}),
+    });
+  } catch { return { ok: false, status: 0 }; }
+  if (r.status === 401 && _retry) {
+    const t = await tryRefresh(access);
+    if (t?.access) return v1Call(method, path, body, false);
+    if (t?.expired) showLogin();
+  }
+  const d = await r.json().catch(() => null);
+  return { ok: r.ok, status: r.status, data: d?.data ?? d, error: d?.error?.message || d?.error_description || (typeof d?.error === 'string' ? d.error : '') };
+}
+
+// official API message → the post shape the renderer uses
+function toPostV1(m) {
+  const id = Number(m.id);
+  const reactions = {};
+  for (const r of m.reactions || []) reactions[r.emoji] = Array(Math.max(0, r.count | 0)).fill('');
+  const handle = m.author?.handle || '';
+  const user = { username: handle, displayname: m.author?.display_name || handle, pfpUrl: rnUrl(m.author?.avatar_url || '') };
+  let replyTo = null;
+  if (m.reply_to_id) {
+    const q = chatMsgs.get(Number(m.reply_to_id));
+    replyTo = { id: Number(m.reply_to_id), username: q?.author?.handle || '', displayname: q?.author?.display_name || q?.author?.handle || '', body: q?.text || '…' };
+  }
+  const media = [];
+  for (const md of [].concat(m.media || [])) {
+    if (md.kind === 'video') media.push({ kind: 'video', url: rnUrl(md.url), thumb: rnUrl(md.thumbnail_url) });
+    else if (md.url) media.push({ kind: 'img', url: rnUrl(md.url) });
+  }
+  const t = Number(m.created_at) || 0;
+  return {
+    id, type: 'msg',
+    time: t > 1e12 ? Math.floor(t / 1000) : t,
+    body: m.text || '', user, reactions, replyTo, media,
+    mentionsMe: mentionsMe(m, m.text),
+  };
+}
+
+async function fetchChatV1(before = null) {
+  const r = await v1Call('GET', `/global-chat/messages?limit=50${before ? '&before=' + encodeURIComponent(before) : ''}`);
+  if (!r.ok || !Array.isArray(r.data?.messages)) return null;
+  for (const m of r.data.messages) chatMsgs.set(Number(m.id), m);
+  return { posts: r.data.messages.map(toPostV1).sort((a, b) => a.id - b.id), more: !!r.data.has_more, cursor: r.data.next_cursor || null };
+}
+
 // Upload to RemiliaNET's media store (through chatroom.php) so the image
 // shows natively for everyone on remilia.net. Returns {mediaId, url} or null.
 async function uploadChatImage(file) {
@@ -203,6 +259,15 @@ async function fetchChat() {
   if (chatBusy) return;
   chatBusy = true;
   try {
+    if (chatV1()) {
+      const v = await fetchChatV1();
+      if (!v) return;
+      const isInit = !chatLoaded;
+      chatLoaded = true;
+      if (isInit) { chatOldestId = v.cursor; chatHasOlder = v.more && !!v.cursor; }
+      appendChatPosts(v.posts, isInit);
+      return;
+    }
     const d = await apiGet(`/api/chats/${CHAT_ID}/messages?limit=50`);
     if (!d?.global) return;
     for (const [id, u] of Object.entries(d.global.users || {})) chatUsers.set(Number(id), u);
@@ -221,6 +286,14 @@ async function loadOlderChat() {
   if (chatLoadingOlder || !chatHasOlder || !chatOldestId) return;
   chatLoadingOlder = true;
   try {
+    if (chatV1()) {
+      const v = await fetchChatV1(chatOldestId);
+      if (!v) return;
+      chatHasOlder = v.more && !!v.cursor;
+      chatOldestId = v.cursor;
+      appendChatPosts(v.posts, false, true);
+      return;
+    }
     const d = await apiGet(`/api/chats/${CHAT_ID}/messages?limit=50&before=${chatOldestId}`);
     if (!d?.global) return;
     for (const [id, u] of Object.entries(d.global.users || {})) chatUsers.set(Number(id), u);
@@ -265,6 +338,7 @@ async function chatAction(payload) {
 
 async function sendReact(msgId, emoji) {
   if (!msgId || msgId < 0) return;
+  if (chatV1()) { showInAppNotif('Reactions need the password login.'); return; }
   const me = state.user?.username;
   const el = renderedPostEls.get(msgId);
   const mine = el?.querySelector(`.react-pill.mine[data-emoji="${emoji}"]`);
@@ -285,7 +359,7 @@ function renderReactPills(container, reactions, msgId) {
     const pill = document.createElement('button');
     pill.className = `react-pill${mine ? ' mine' : ''}`;
     pill.dataset.emoji = emoji;
-    pill.title = users.join(', ');
+    pill.title = users.filter(Boolean).join(', ');
     pill.textContent = `${emoji} ${users.length}`;
     pill.addEventListener('click', () => sendReact(msgId, emoji));
     container.appendChild(pill);
@@ -312,7 +386,7 @@ function youtubeId(url) {
 
 function linkPreview(url) {
   if (!previewCache.has(url)) {
-    previewCache.set(url, apiGet('/api/link_preview?url=' + encodeURIComponent(url))
+    previewCache.set(url, chatV1() ? Promise.resolve(null) : apiGet('/api/link_preview?url=' + encodeURIComponent(url))
       .then(p => (p && p.title && p.success !== false) ? p : null).catch(() => null));
   }
   return previewCache.get(url);
@@ -522,6 +596,10 @@ function stopChatPoll() {
 // Posts to global chat. Item links go out as plain "[Item Name]" so everyone
 // on RemiliaNET can read them; BeetleBoy turns them back into links.
 async function postToChat(text, replyTo = null, mediaIds = []) {
+  if (chatV1()) {
+    const r = await v1Call('POST', '/global-chat/messages', { text: bodyToPlainText(text), ...(replyTo ? { reply_to_id: String(replyTo) } : {}) });
+    return { ok: r.ok, error: r.status === 429 ? 'Slow down: one message every 2 seconds.' : r.error };
+  }
   return chatAction({ action: 'submit', text: bodyToPlainText(text), ...(replyTo ? { replyTo } : {}), ...(mediaIds.length ? { mediaIds } : {}) });
 }
 

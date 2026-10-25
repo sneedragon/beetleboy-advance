@@ -218,7 +218,11 @@ async function openBrag() {
 // Your beetle inventory, so item cards and the brag card know what you own
 let invLoaded = false;
 async function loadInv() {
-  const u = await apiGet('/api/beetle/user');
+  let u;
+  if (chatV1()) {
+    const r = await v1Call('GET', '/me/beetle');
+    u = r.ok ? r.data : null;
+  } else u = await apiGet('/api/beetle/user');
   if (!u || u.success === false) return;
   state.inv = u.inventory || {};
   state.user = { ...u, ...state.user };
@@ -553,7 +557,13 @@ function setupPage() {
 async function start() {
   document.getElementById('login-screen').classList.add('hidden');
   document.getElementById('cp').classList.remove('hidden');
-  const w = await apiGet('/api/profile/whoami');
+  document.body.classList.toggle('v1chat', chatV1());
+  let w;
+  if (chatV1()) {
+    const r = await v1Call('GET', '/me');
+    const u = r.data?.user || r.data || {};
+    w = { userHandle: u.username || u.handle, displayName: u.displayName || u.display_name, pfpUrl: u.pfpUrl || u.avatarUrl || u.avatar_url };
+  } else w = await apiGet('/api/profile/whoami');
   if (!w?.userHandle) return;
   state.user = { username: w.userHandle, displayname: w.displayName || w.userHandle, pfpUrl: rnUrl(w.pfpUrl || '') };
   startChatPoll();

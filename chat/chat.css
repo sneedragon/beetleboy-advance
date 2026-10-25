@@ -166,3 +166,6 @@ body.cp-compact .chat-card, body.cp-compact .chat-yt { display: none; }
   #cp-main #mode-chat { font-size: 17px; }
   #cp-main #chat-messages { padding: 8px 10px; }
 }
+
+/* signed in with remilia.net: the official API has no uploads and no reactions */
+body.v1chat #chat-attach, body.v1chat #cp-brag-btn, body.v1chat .react-trigger { display: none; }

@@ -193,6 +193,44 @@ async function check(label, viewport) {
 }
 
 // chat-only page: starts, tags messages, filters, search, side panel, /commands
+// "Sign in with remilia.net": chat goes through the official /api/v1
+async function checkChatPageV1(label, viewport) {
+  const page = await browser.newPage({ viewport });
+  page.on('pageerror', e => fail(`${label} v1: page error: ${e.message}`));
+  await page.addInitScript(t => { localStorage.setItem('bb_access', t); localStorage.setItem('bb_refresh', 'r'); localStorage.setItem('bb_mute', '1'); localStorage.setItem('bb_client', 'tpa-beetleboysp'); }, fakeJwt);
+  let posted = null, internal = 0;
+  await page.route(/(proxy|chatroom|room)\.php/, route => { internal++; route.fulfill({ status: 401, contentType: 'application/json', body: '{}' }); });
+  await page.route('**/api/v1/**', route => {
+    const u = route.request().url();
+    if (u.includes('/global-chat/messages') && route.request().method() === 'POST') {
+      posted = JSON.parse(route.request().postData() || '{}');
+      return route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify({ data: { id: '12', text: posted.text, created_at: 1754870500, author: { handle: 'tester', display_name: 'Tester' } } }) });
+    }
+    if (u.includes('/global-chat/messages')) return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ data: { has_more: false, next_cursor: null, messages: [
+      { id: '10', text: 'hello from v1', created_at: 1754870400, author: { handle: 'beetlefan', display_name: 'Beetle Fan', avatar_url: null }, reactions: [{ emoji: '🔥', count: 2 }] },
+      { id: '11', text: 'pic', created_at: 1754870450, reply_to_id: '10', author: { handle: 'guest', display_name: 'Guest' }, media: { kind: 'image', url: 'https://example.invalid/a.png' } }] } }) });
+    if (u.includes('/me/beetle')) return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ data: { level: 3, inventory: {} } }) });
+    if (u.endsWith('/me')) return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ user: { username: 'tester', displayName: 'Tester' } }) });
+    route.fulfill({ status: 404, body: '{}' });
+  });
+  await page.route(/^https?:\/\/(?!127\.0\.0\.1)(?!www\.remilia\.net\/api\/v1)/, route => route.abort());
+  await page.goto(BASE + '/chat/');
+  await page.waitForTimeout(1200);
+  if (await page.isVisible('#login-screen')) fail(`${label} v1: chat page did not start`);
+  const n = await page.$$eval('#chat-messages .chat-msg', els => els.length);
+  if (n !== 2) fail(`${label} v1: shows ${n} messages, expected 2`);
+  if (!(await page.textContent('#chat-messages')).includes('🔥 2')) fail(`${label} v1: reaction counts missing`);
+  if (!await page.$('#chat-messages .chat-msg img[src*="a.png"]')) fail(`${label} v1: picture missing`);
+  if (await page.isVisible('#chat-attach')) fail(`${label} v1: attach button shows although uploads are not possible`);
+  await page.fill('#chat-input', 'hi v1');
+  await page.press('#chat-input', 'Enter');
+  await page.waitForTimeout(500);
+  if (posted?.text !== 'hi v1') fail(`${label} v1: message not posted to /api/v1 (${JSON.stringify(posted)})`);
+  if (internal) fail(`${label} v1: ${internal} calls went to the internal API`);
+  await page.screenshot({ path: `${ROOT}tests/out/${label}-chatpage-v1.png` });
+  await page.close();
+}
+
 async function checkChatPage(label, viewport) {
   const page = await browser.newPage({ viewport });
   page.on('pageerror', e => fail(`${label}: page error: ${e.message}`));
@@ -291,6 +329,7 @@ try {
   await check('phone', { width: 400, height: 860 });
   await checkChatPage('desktop', { width: 1400, height: 860 });
   await checkChatPage('phone', { width: 400, height: 860 });
+  await checkChatPageV1('phone', { width: 400, height: 860 });
 } finally {
   await browser.close();
   server.kill();

@@ -34,14 +34,25 @@ function whoami(string $token): ?array {
         $c = json_decode((string)@file_get_contents($ck), true);
         if (is_array($c)) return $c;
     }
-    $ch = curl_init('https://' . RN_HOST . '/api/profile/whoami');
-    curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 8, CURLOPT_FOLLOWLOCATION => false,
-        CURLOPT_HTTPHEADER => ['Cookie: authToken=' . $token, 'Accept: application/json']]);
-    $r = curl_exec($ch); $code = curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch);
-    $w = $code === 200 ? json_decode((string)$r, true) : null;
+    $get = function (string $path, string $auth) {
+        $ch = curl_init('https://' . RN_HOST . $path);
+        curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 8, CURLOPT_FOLLOWLOCATION => false,
+            CURLOPT_HTTPHEADER => [$auth, 'Accept: application/json']]);
+        $r = curl_exec($ch); $code = curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch);
+        return $code === 200 ? json_decode((string)$r, true) : null;
+    };
+    // a password login works on the internal API, "Sign in with remilia.net" only on /api/v1
+    $w = $get('/api/profile/whoami', 'Cookie: authToken=' . $token);
     $handle = (string)($w['userHandle'] ?? '');
+    $name   = (string)($w['displayName'] ?? '');
+    if ($handle === '') {
+        $v = $get('/api/v1/me', 'Authorization: Bearer ' . $token);
+        $u = $v['user'] ?? $v['data']['user'] ?? [];
+        $handle = (string)($u['username'] ?? '');
+        $name   = (string)($u['displayName'] ?? '');
+    }
     if (!preg_match('/^[A-Za-z0-9_.-]{1,40}$/', $handle)) return null;
-    $me = ['u' => $handle, 'd' => mb_substr((string)($w['displayName'] ?? $handle), 0, 40)];
+    $me = ['u' => $handle, 'd' => mb_substr($name !== '' ? $name : $handle, 0, 40)];
     @file_put_contents($ck, json_encode($me));
     if (mt_rand(0, 49) === 0) foreach (glob(sys_get_temp_dir() . '/bbroomid_*') ?: [] as $f) if (filemtime($f) < time() - 900) @unlink($f);
     return $me;
