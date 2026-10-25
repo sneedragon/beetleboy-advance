@@ -52,7 +52,7 @@ $body   = $input['body'] ?? null;
 $token  = $input['token'] ?? '';
 
 if (!$path || !$token) { http_response_code(400); echo '{"error":"bad request"}'; exit; }
-if (strpos($token, "\r") !== false || strpos($token, "\n") !== false) {
+if (!in_array($method, ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'], true) || preg_match('/[\x00-\x20;]/', $token) || preg_match('/[\x00-\x20]/', $path)) {
     http_response_code(400); echo '{"error":"bad request"}'; exit;
 }
 

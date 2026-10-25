@@ -7,3 +7,9 @@
 
 
 AddType application/manifest+json .webmanifest
+
+# Notes, scripts and dot-folders never get served, even if one slips into a deploy
+<FilesMatch "\.(md|sh|py|bak|log|sqlite|db)$">
+  Require all denied
+</FilesMatch>
+RedirectMatch 404 /\.(git|claude)(/|$)
