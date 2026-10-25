@@ -192,9 +192,57 @@ async function check(label, viewport) {
   await page.close();
 }
 
+// chat-only page: starts, tags messages, filters, search, side panel, /commands
+async function checkChatPage(label, viewport) {
+  const page = await browser.newPage({ viewport });
+  page.on('pageerror', e => fail(`${label}: page error: ${e.message}`));
+  page.on('console', m => { if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) fail(`${label}: console error: ${m.text()}`); });
+  page.on('response', r => { if (r.url().startsWith(BASE) && r.status() >= 400) fail(`${label}: ${r.status()} ${r.url().slice(BASE.length)}`); });
+  await page.addInitScript(t => { localStorage.setItem('bb_access', t); localStorage.setItem('bb_refresh', 'r'); localStorage.setItem('bb_mute', '1'); localStorage.setItem('bbc_lastread', '10'); }, fakeJwt);
+  await page.route('**/proxy.php', route => {
+    const { path } = JSON.parse(route.request().postData() || '{}');
+    route.fulfill({ contentType: 'application/json', body: JSON.stringify(apiAnswer(path || '')) });
+  });
+  let sent = null;
+  await page.route(/(chatroom|push)\.php/, route => { sent = route.request().postData(); route.fulfill({ contentType: 'application/json', body: '{"ok":true}' }); });
+  await page.route(/^https?:\/\/(?!127\.0\.0\.1)/, route => route.abort());
+  await page.goto(BASE + '/chat/');
+  await page.waitForTimeout(1200);
+  if (await page.isVisible('#login-screen')) fail(`${label}: chat page did not start`);
+  const n = await page.$$eval('#chat-messages .chat-msg', els => els.length);
+  if (n !== 3) fail(`${label}: chat page shows ${n} messages, expected 3`);
+  if (!await page.$('#cp-divider')) fail(`${label}: chat page has no unread divider`);
+  await page.click('.cp-chip[data-filter="me"]');
+  if (await page.$$eval('#chat-messages .chat-msg', els => els.filter(e => e.offsetParent).length) !== 1) fail(`${label}: "For me" filter wrong`);
+  await page.click('.cp-chip[data-filter="all"]');
+  await page.fill('#cp-search', 'guide');
+  await page.waitForTimeout(300);
+  if (await page.$$eval('#chat-messages .chat-msg', els => els.filter(e => e.offsetParent).length) !== 1) fail(`${label}: chat search wrong`);
+  await page.fill('#cp-search', '');
+  await page.waitForTimeout(300);
+  if (viewport.width <= 720) await page.click('#cp-people-btn');
+  if (!(await page.textContent('#cp-people')).includes('Beetle Fan')) fail(`${label}: side panel misses who is around`);
+  await page.click('.cp-person[data-user="beetlefan"] .chat-user');
+  if (await page.$$eval('#chat-messages .chat-msg', els => els.filter(e => e.offsetParent).length) !== 2) fail(`${label}: filtering by person wrong`);
+  await page.click('#cp-user-chip');
+  await page.click('.chat-item-link', { force: true });
+  if (!await page.isVisible('#cp-card')) fail(`${label}: item link opened no card`);
+  await page.keyboard.press('Escape');
+  await page.fill('#chat-input', '/roll 6');
+  await page.press('#chat-input', 'Enter');
+  await page.waitForTimeout(400);
+  if (!/rolled [1-6] \(1-6\)/.test(sent || '')) fail(`${label}: /roll did not send a roll (${sent})`);
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  if (overflow > 2) fail(`${label}: chat page scrolls sideways by ${overflow}px`);
+  await page.screenshot({ path: `${ROOT}tests/out/${label}-chatpage.png` });
+  await page.close();
+}
+
 try {
   await check('desktop', { width: 1400, height: 860 });
   await check('phone', { width: 400, height: 860 });
+  await checkChatPage('desktop', { width: 1400, height: 860 });
+  await checkChatPage('phone', { width: 400, height: 860 });
 } finally {
   await browser.close();
   server.kill();
@@ -204,4 +252,4 @@ if (problems.length) {
   console.error(`✗ smoke test failed (${problems.length}):\n  ` + [...new Set(problems)].join('\n  '));
   process.exit(1);
 }
-console.log('✓ smoke test passed (desktop + phone). Screenshots in tests/out/');
+console.log('✓ smoke test passed (desktop + phone, game + chat page). Screenshots in tests/out/');

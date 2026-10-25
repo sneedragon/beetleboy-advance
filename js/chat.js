@@ -569,6 +569,88 @@ async function sendChatMsg() {
 }
 
 
+// Input, suggestions and message clicks; shared by the game and the chat page.
+function setupChatListeners() {
+  const input   = document.getElementById('chat-input');
+  const suggest = document.getElementById('chat-suggest');
+
+  document.getElementById('chat-send').addEventListener('click', sendChatMsg);
+  document.getElementById('chat-attach').addEventListener('click', () => document.getElementById('chat-file-input').click());
+  document.getElementById('chat-file-input').addEventListener('change', e => {
+    const file = e.target.files[0];
+    if (file) setPendingAttachment(file);
+    e.target.value = '';
+  });
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter')  { e.preventDefault(); sendChatMsg(); }
+    if (e.key === 'Escape') suggest.classList.remove('open');
+  });
+  input.addEventListener('paste', e => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (const item of items) {
+      if (item.type.startsWith('image/')) {
+        e.preventDefault();
+        setPendingAttachment(item.getAsFile());
+        break;
+      }
+    }
+  });
+  input.addEventListener('input', () => updateChatSuggest(input));
+  input.addEventListener('blur',  () => setTimeout(() => suggest.classList.remove('open'), 150));
+  input.addEventListener('dragover', e => {
+    if (e.dataTransfer.types.includes('text/plain')) e.preventDefault();
+  });
+  input.addEventListener('drop', e => {
+    const key = e.dataTransfer.getData('text/plain');
+    if (!NAMES[key]) return;
+    e.preventDefault();
+    const pos  = input.selectionStart ?? input.value.length;
+    const link = `[${iname(key)}]`;
+    input.value = input.value.slice(0, pos) + link + input.value.slice(pos);
+    input.setSelectionRange(pos + link.length, pos + link.length);
+    input.focus();
+  });
+  suggest.addEventListener('click', e => {
+    const item = e.target.closest('.chat-sug-item');
+    if (!item) return;
+    if (item.dataset.handle) {                       // mention: RemiliaNET writes them as ~handle
+      const pos = input.selectionStart, before = input.value.slice(0, pos);
+      const start = Math.max(before.lastIndexOf('@'), before.lastIndexOf('~'));
+      input.value = before.slice(0, start) + `~${item.dataset.handle} ` + input.value.slice(pos);
+      const np = start + item.dataset.handle.length + 2;
+      input.setSelectionRange(np, np);
+      suggest.classList.remove('open');
+      input.focus();
+    } else insertChatLink(item.dataset.key);
+  });
+  document.getElementById('chat-messages').addEventListener('scroll', e => {
+    if (e.target.scrollTop < 60) loadOlderChat();
+  }, { passive: true });
+  document.getElementById('chat-messages').addEventListener('click', e => {
+    const prof = e.target.closest('[data-profile]');
+    if (prof && !e.ctrlKey && !e.metaKey && !e.shiftKey && e.button === 0) { e.preventDefault(); openProfile(prof.dataset.profile); return; }
+    const link = e.target.closest('.chat-item-link');
+    if (link) { openCard(link.dataset.key); return; }
+    const pic = e.target.closest('img.chat-img');
+    if (pic) { openLightbox(pic.src); return; }
+    const reactBtn = e.target.closest('.react-trigger');
+    if (reactBtn) { sendReact(Number(reactBtn.dataset.msgid), reactBtn.dataset.emoji); return; }
+    const quote = e.target.closest('.chat-reply-quote');
+    if (quote) { jumpToChatMsg(Number(quote.dataset.replyId)); return; }
+    const replyBtn = e.target.closest('.reply-trigger');
+    if (replyBtn) {
+      setReplyTarget({
+        id: Number(replyBtn.dataset.msgid),
+        username: replyBtn.dataset.uname,
+        displayname: replyBtn.dataset.dname,
+        body: replyBtn.dataset.body,
+      });
+    }
+  });
+  document.getElementById('reply-bar-cancel').addEventListener('click', () => setReplyTarget(null));
+}
+
 // ── IMAGES LARGE ──────────────────────────────────────────────────────────────
 // Tap a chat image to see it big; tap again (or Esc) to close.
 function openLightbox(src) {

@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content">
+  <base href="../">
+  <title>Beetle Chat</title>
+  <meta name="theme-color" content="#1e2442">
+  <link rel="stylesheet" href="style.css?v=202610252305">
+  <link rel="stylesheet" href="chat/chat.css?v=202610252305">
+  <link rel="icon" href="icons/beetles/green.png" type="image/png">
+</head>
+<body class="chatpage">
+
+  <div id="login-screen" class="hidden">
+    <div class="login-box">
+      <div class="login-logo">🪲</div>
+      <h1>Beetle Chat</h1>
+      <p class="login-sub">Sign in with your remilia.net account</p>
+      <form id="login-form">
+        <input id="lf-user" type="text" placeholder="Username" autocomplete="username" required>
+        <input id="lf-pass" type="password" placeholder="Password" autocomplete="current-password" required>
+        <input id="lf-otp" type="text" inputmode="numeric" placeholder="2FA code" autocomplete="one-time-code" maxlength="8" hidden>
+        <button type="submit" id="login-btn">LOG IN</button>
+        <div id="login-err"></div>
+      </form>
+      <p class="login-disclaimer">Your credentials go straight to remilia.net. Only a session token is kept in your browser.</p>
+    </div>
+  </div>
+
+  <div id="cp" class="hidden">
+    <header id="cp-head">
+      <a id="cp-game" href="./" title="Back to the game">🪲</a>
+      <h1>Beetle Chat</h1>
+      <input id="cp-search" type="search" placeholder="Search…" autocomplete="off">
+      <button type="button" id="cp-people-btn" title="People">👥</button>
+      <button type="button" id="cp-settings-btn" title="Settings">⚙</button>
+    </header>
+    <div id="cp-filters">
+      <button type="button" class="cp-chip active" data-filter="all">All</button>
+      <button type="button" class="cp-chip" data-filter="me">For me <span id="cp-me-count"></span></button>
+      <button type="button" class="cp-chip" data-filter="media">Pics &amp; links</button>
+      <button type="button" class="cp-chip hidden" id="cp-user-chip"></button>
+      <button type="button" id="cp-older" class="hidden">Search further back</button>
+    </div>
+
+    <div id="cp-main">
+      <div id="mode-chat">
+        <div id="chat-notif"></div>
+        <div id="chat-messages"></div>
+        <button type="button" id="cp-jump" class="hidden"></button>
+        <div id="reply-bar" class="hidden">
+          <span>↩ Replying to <strong id="reply-bar-name"></strong></span>
+          <button id="reply-bar-cancel" type="button">✕</button>
+        </div>
+        <div id="chat-attach-preview" class="hidden"></div>
+        <div id="chat-input-row">
+          <div id="chat-suggest"></div>
+          <input id="chat-file-input" type="file" accept="image/*" style="display:none">
+          <button id="chat-attach" type="button" title="Attach image">📎</button>
+          <input id="chat-input" type="text" placeholder="Say something… ([item], ~name, /roll)" maxlength="2000" autocomplete="off">
+          <button id="chat-send" type="button">▶</button>
+        </div>
+      </div>
+
+      <aside id="cp-side">
+        <section>
+          <h2>Around lately</h2>
+          <div id="cp-people"></div>
+        </section>
+        <section>
+          <h2>Today</h2>
+          <div id="cp-today"></div>
+        </section>
+      </aside>
+    </div>
+
+    <div id="cp-settings" class="hidden">
+      <label>Alert me when someone writes
+        <input id="cp-words" type="text" placeholder="e.g. trade, diamond, gm">
+      </label>
+      <label class="cp-check"><input type="checkbox" id="cp-sound"> Sounds</label>
+      <label class="cp-check"><input type="checkbox" id="cp-compact"> Compact view</label>
+      <button type="button" id="cp-notif">Allow desktop notifications</button>
+      <div id="cp-muted"></div>
+      <button type="button" id="cp-logout">Log out</button>
+    </div>
+
+    <div id="cp-card" class="hidden"></div>
+  </div>
+
+  <script src="assets.js?v=202610252305"></script>
+  <script src="data.js?v=202610252305"></script>
+  <script src="sfx.js?v=202610252305"></script>
+  <script src="js/core.js?v=202610252305"></script>
+  <script src="js/api.js?v=202610252305"></script>
+  <script src="js/chat.js?v=202610252305"></script>
+  <script src="js/chatpage.js?v=202610252305"></script>
+</body>
+</html>

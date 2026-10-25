@@ -1623,6 +1623,9 @@ body[data-scheme="light"] .chat-card { background: rgba(255,255,255,0.5); }
 #chat-big-btn { flex-shrink: 0; font-size: 14px; line-height: 1; padding: 0 7px; border: 1px solid var(--border2); border-radius: 4px;
   background: transparent; color: var(--dim); cursor: pointer; align-self: stretch; }
 #chat-big-btn:hover { color: var(--text); opacity: 1; }
+.chat-page-link { display: block; padding: 0 10px 6px; font-size: 0.7em; color: var(--dim); }
+.chat-page-link:hover { color: var(--text); }
+#sp-chat .chat-page-link { display: none; }
 /* chat on the main screen: the pane fills the screen, readable on the scene background */
 #sp-chat { padding-top: 16px; position: relative; z-index: 5; }
 #sp-chat #mode-chat { display: flex; flex-direction: column; height: 100%; min-height: 0; }

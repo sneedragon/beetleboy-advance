@@ -8,7 +8,7 @@ REMOTE='ssh300010381@ngcobalt438.manitu.net:/home/sites/site100039010/web/beetle
 if [ -n "$(git status --porcelain)" ]; then echo "Commit your changes first."; exit 1; fi
 node tests/smoke.mjs || { echo "Not deployed: fix the smoke test first."; exit 1; }
 V=$(date +%Y%m%d%H%M)
-sed -i -E "s/\?v=[0-9a-z]+\"/?v=$V\"/g" index.html
+sed -i -E "s/\?v=[0-9a-z]+\"/?v=$V\"/g" index.html chat/index.html
 sed -i -E "s/const APP_VERSION = '[^']*'/const APP_VERSION = '$V'/" js/core.js
 git commit -qam "Deploy $V"
 rsync -az --delete --omit-dir-times \
