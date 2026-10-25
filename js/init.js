@@ -245,6 +245,8 @@ function setupChatListeners() {
     if (pic) { openLightbox(pic.src); return; }
     const reactBtn = e.target.closest('.react-trigger');
     if (reactBtn) { sendReact(Number(reactBtn.dataset.msgid), reactBtn.dataset.emoji); return; }
+    const quote = e.target.closest('.chat-reply-quote');
+    if (quote) { jumpToChatMsg(Number(quote.dataset.replyId)); return; }
     const replyBtn = e.target.closest('.reply-trigger');
     if (replyBtn) {
       setReplyTarget({

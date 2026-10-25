@@ -232,6 +232,16 @@ async function loadOlderChat() {
   } finally { chatLoadingOlder = false; }
 }
 
+// Scroll to a quoted message; page back through older history if it isn't loaded yet.
+async function jumpToChatMsg(id) {
+  for (let i = 0; i < 10 && !renderedPostEls.get(id) && chatHasOlder; i++) await loadOlderChat();
+  const el = renderedPostEls.get(id);
+  if (!el) return;
+  el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  el.classList.add('chat-msg-flash');
+  setTimeout(() => el.classList.remove('chat-msg-flash'), 1600);
+}
+
 async function chatAction(payload) {
   const { access } = getTokens();
   if (!access) return { ok: false, error: 'not logged in' };

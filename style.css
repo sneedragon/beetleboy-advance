@@ -1365,8 +1365,10 @@ body[data-scheme="light"] .chat-user[data-chat-theme="orange"] { color: #883010;
 .chat-reply-quote {
   font-size: 0.72em; border-left: 2px solid var(--accent);
   padding: 1px 6px; margin-bottom: 3px; color: var(--dim);
-  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer;
 }
+.chat-msg-flash { animation: chat-flash 1.6s ease-out; }
+@keyframes chat-flash { from { background: color-mix(in srgb, var(--accent) 35%, transparent); } to { background: transparent; } }
 
 /* Reply bar */
 #reply-bar {
