@@ -71,7 +71,7 @@ async function roomTick() {
     let c = room.cats.get(p.u);
     if (!c || c.ghost) {
       const was = c;
-      c = { u: p.u, d: p.d, x: p.x, y: p.y, tx: p.x, ty: p.y, dir: 'down', flip: false, moving: false, t0: Math.random() * 4, bubble: was?.bubble, bubbleT: was?.bubbleT };
+      c = { u: p.u, d: p.d, x: p.x, y: p.y, tx: p.x, ty: p.y, dir: 'down', flip: false, moving: false, t0: Math.random() * 4, bubble: was?.bubble };
       room.cats.set(p.u, c);
     }
     c.d = p.d;
@@ -178,7 +178,7 @@ function roomDraw(now) {
     g.restore();
     roomLabel(g, c, x, y, hue);
     g.globalAlpha = 1;
-    if (c.bubble && Date.now() < c.bubbleT) roomBubble(g, c.bubble, x, y - 52);
+    if (c.bubble && Date.now() < c.bubble.until) roomBubble(g, c.bubble, x, y - 52);
   }
 }
 
@@ -196,24 +196,31 @@ function roomLabel(g, c, x, y, hue) {
   g.fillText(name, x, y + 6);
 }
 
-function roomBubble(g, text, x, y) {
+// a bubble holds up to two lines of about 26 characters and a picture, if the message had one
+function roomBubble(g, b, x, y) {
   g.font = roomFont(11);
   g.textAlign = 'center'; g.textBaseline = 'middle';
-  // up to two lines of about 26 characters
-  const words = text.split(/\s+/), lines = [''];
-  for (const w of words) {
+  const lines = [];
+  for (const w of b.text ? b.text.split(/\s+/) : []) {
     const l = lines[lines.length - 1];
-    if ((l + ' ' + w).trim().length > 26 && l) { if (lines.length === 2) { lines[1] += '…'; break; } lines.push(w); }
-    else lines[lines.length - 1] = (l + ' ' + w).trim();
+    if (l === undefined || ((l + ' ' + w).length > 26 && lines.length < 2)) lines.push(w);
+    else if ((l + ' ' + w).length > 26) { if (!l.endsWith('…')) lines[1] += '…'; }
+    else lines[lines.length - 1] = l + ' ' + w;
   }
+  const img = b.img?.complete && b.img.naturalWidth ? b.img : null;
+  const k = img ? Math.min(80 / img.naturalWidth, 60 / img.naturalHeight) : 0;
+  const iw = img ? img.naturalWidth * k : 0, ih = img ? img.naturalHeight * k : 0;
   const m = g.measureText('Mg'), lh1 = m.fontBoundingBoxAscent + m.fontBoundingBoxDescent + 1;
-  const lw = Math.max(...lines.map(l => g.measureText(l).width)) + 12, lh = lines.length * lh1 + 8;
+  const lw = Math.max(iw, ...lines.map(l => g.measureText(l).width)) + 12;
+  const lh = lines.length * lh1 + (img ? ih + (lines.length ? 4 : 0) : 0) + 8;
   const bx = Math.max(2, Math.min(ROOM_W - lw - 2, x - lw / 2)), by = Math.max(2, y - lh);
   g.fillStyle = '#fff'; g.strokeStyle = '#000'; g.lineWidth = 1;
   roundRect(g, bx, by, lw, lh, 6); g.fill(); g.stroke();
   g.beginPath(); g.moveTo(x - 4, by + lh); g.lineTo(x, by + lh + 5); g.lineTo(x + 4, by + lh); g.closePath(); g.fill();
+  if (img) { g.imageSmoothingEnabled = true; g.drawImage(img, bx + (lw - iw) / 2, by + 4, iw, ih); g.imageSmoothingEnabled = false; }
   g.fillStyle = '#111';
-  lines.forEach((l, i) => g.fillText(l, bx + lw / 2, by + 4 + lh1 / 2 + i * lh1));
+  const ty = by + 4 + (img ? ih + 4 : 0);
+  lines.forEach((l, i) => g.fillText(l, bx + lw / 2, ty + lh1 / 2 + i * lh1));
 }
 
 function roomFrame(now) {
@@ -300,24 +307,33 @@ function setupRoom() {
 }
 
 // ── speech bubbles from the chat ─────────────────────────────────────────────
-const roomSaid = new Set();
+// Each message pops up once. The chat poll hands back messages it already
+// showed, so they are remembered by id. My own message comes twice: first as
+// my local copy (id below 0), then from the server; the second one stays quiet.
+const roomSeen = new Set();
+const roomMine = new Map();          // text of my local copies → when
 const _roomAppend = appendChatPosts;
 appendChatPosts = function (posts, isInit, prepend = false) {
   _roomAppend(posts, isInit, prepend);
-  if (prepend) return;
-  if (room.open) placeGhosts();
   for (const p of posts) {
+    const fresh = !roomSeen.has(p.id);
+    roomSeen.add(p.id);
+    if (!fresh || isInit || prepend) continue;
     const u = p.user?.username;
-    if (!u) continue;
+    if (!u || muted.has(u)) continue;
     const text = bodyToPlainText(p.body || '').trim();
-    // the message I just sent shows up twice: first as my own copy, then from the server
-    const key = `${u}\n${text}`;
-    if (isInit || !text || roomSaid.has(key) || muted.has(u)) { roomSaid.add(key); continue; }
-    roomSaid.add(key);
-    setTimeout(() => roomSaid.delete(key), 60_000);
+    const pic = (p.media || []).map(m => m.kind === 'video' ? m.thumb : m.url).find(Boolean);
+    const key = `${u}\n${text}\n${(p.media || []).length}`;
+    if (p.id <= 0) roomMine.set(key, Date.now());
+    else if (Date.now() - (roomMine.get(key) || 0) < 60_000) { roomMine.delete(key); continue; }
+    if (room.open) placeGhosts();
     const c = room.cats.get(u);
-    if (c) { c.bubble = text; c.bubbleT = Date.now() + 6000; }
+    if (!c || (!text && !pic)) continue;
+    let img = null;
+    if (pic) { img = new Image(); img.src = pic; }
+    c.bubble = { text, img, until: Date.now() + (pic ? 8000 : 6000) };
   }
+  if (room.open && !isInit) placeGhosts();
 };
 
 document.addEventListener('DOMContentLoaded', setupRoom);

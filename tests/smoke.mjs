@@ -261,7 +261,23 @@ async function checkChatPage(label, viewport) {
   await page.fill('#chat-input', 'hello room');
   await page.press('#chat-input', 'Enter');
   await page.waitForTimeout(1200);
-  if (await page.evaluate(() => room.cats.get('tester')?.bubble) !== 'hello room') fail(`${label}: no speech bubble over my cat`);
+  if (await page.evaluate(() => room.cats.get('tester')?.bubble?.text) !== 'hello room') fail(`${label}: no speech bubble over my cat`);
+  const again = await page.evaluate(() => {
+    room.cats.get('tester').bubble = null;
+    appendChatPosts([...pagePosts.values()], false);              // the poll hands back old messages
+    const old = room.cats.get('tester').bubble;
+    const guest = { username: 'guest', displayname: 'Guest Cat' };
+    appendChatPosts([{ id: 990001, time: Date.now() / 1000, body: 'Test', user: guest, reactions: {}, media: [] }], false);
+    room.cats.get('guest').bubble = null;
+    appendChatPosts([{ id: 990002, time: Date.now() / 1000, body: 'Test', user: guest, reactions: {}, media: [] }], false);
+    const twice = room.cats.get('guest').bubble?.text;
+    appendChatPosts([{ id: 990003, time: Date.now() / 1000, body: '', user: guest, reactions: {}, media: [{ kind: 'img', url: 'icons/remicat.png' }] }], false);
+    return { old, twice, pic: !!room.cats.get('guest').bubble?.img };
+  });
+  if (again.old) fail(`${label}: an old message popped up again as a bubble`);
+  if (again.twice !== 'Test') fail(`${label}: the same text sent twice got no second bubble`);
+  if (!again.pic) fail(`${label}: a picture message got no bubble`);
+  await page.waitForTimeout(300);
   await page.screenshot({ path: `${ROOT}tests/out/${label}-chatpage-room.png` });
   await page.click('#cp-room-btn');
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
