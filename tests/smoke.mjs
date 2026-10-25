@@ -227,7 +227,19 @@ async function checkChatPage(label, viewport) {
   await page.click('#cp-user-chip');
   await page.click('.chat-item-link', { force: true });
   if (!await page.isVisible('#cp-card')) fail(`${label}: item link opened no card`);
+  if (!/You have \d/.test(await page.textContent('#cp-card'))) fail(`${label}: item card does not show how many you have`);
+  await page.screenshot({ path: `${ROOT}tests/out/${label}-chatpage-card.png` });
   await page.keyboard.press('Escape');
+  await page.click('#cp-brag-btn');
+  await page.waitForSelector('.cp-brag-img img', { timeout: 4000 }).catch(() => fail(`${label}: brag card was not drawn`));
+  await page.screenshot({ path: `${ROOT}tests/out/${label}-chatpage-brag.png` });
+  if (label === 'desktop') await page.$eval('.cp-brag-img img', async img => {
+    const b = await (await fetch(img.src)).blob();
+    const r = new FileReader(); return new Promise(res => { r.onload = () => res(r.result); r.readAsDataURL(b); });
+  }).then(d => import('node:fs').then(fs => fs.writeFileSync(`${ROOT}tests/out/brag.png`, Buffer.from(d.split(',')[1], 'base64'))));
+  await page.click('#cp-brag-send');
+  await page.waitForSelector('#chat-attach-preview .attach-thumb', { timeout: 3000 }).catch(() => fail(`${label}: brag card did not land in the attachment slot`));
+  await page.click('#chat-attach-remove');
   await page.fill('#chat-input', '/roll 6');
   await page.press('#chat-input', 'Enter');
   await page.waitForTimeout(400);

@@ -39,8 +39,191 @@ function openCard(key) {
     (IMAGES[key] ? `<img src="${esc(IMAGES[key])}" alt="">` : '') +
     `<div><strong class="${rcls(key)}">${esc(iname(key))}</strong>` +
     `<span>${esc(RARITY_NAMES[r] || '')}${SCIENTIFIC[key] ? ` · <i>${esc(SCIENTIFIC[key])}</i>` : ''}</span>` +
-    (DESCRIPTIONS[key] ? `<p>${esc(DESCRIPTIONS[key])}</p>` : '') + `</div>`;
+    (DESCRIPTIONS[key] ? `<p>${esc(DESCRIPTIONS[key])}</p>` : '') + cardInvInfo(key) + `</div>`;
   box.classList.remove('hidden');
+}
+
+// What your own inventory says about it: how many you have, how close you are
+// to making it, and what it makes
+function cardInvInfo(key) {
+  if (!invLoaded) return '';
+  const have = state.inv[key] || 0;
+  const ingText = i => `${i.key ? iname(i.key) : i.label}${i.need > 1 ? ' ×' + i.need : ''}${i.sacrifice ? ' (sac)' : ''}`;
+  let html = `<p class="cp-have">${have ? `You have <b>${have.toLocaleString()}</b>` : "You don't have any"}</p>`;
+  const make = treeRecipes(key)[0];
+  if (make) {
+    html += `<p class="cp-make"><b>${make.ready ? '✓ You can make it' : 'Made from'}</b>` +
+      make.ings.map(i => `<span class="${i.have >= i.need ? 'ok' : 'miss'}">${esc(ingText(i))} <small>${Math.min(i.have, i.need)}/${i.need}</small></span>`).join('') + '</p>';
+  }
+  const uses = treeUses(key).filter(u => u.kind !== 'sac');
+  if (uses.length) {
+    const outs = [...new Set(uses.flatMap(u => u.outs.map(o => o.key ? iname(o.key) : o.label)))];
+    html += `<p class="cp-uses"><b>Makes</b> ${esc(outs.slice(0, 5).join(', '))}${outs.length > 5 ? ` +${outs.length - 5}` : ''}</p>`;
+  }
+  return html;
+}
+
+// ── brag card: your collection as a picture, sent like any other image ──────
+const RARITY_HEX = { tin: '#2ea02e', brz: '#c9a800', mth: '#00b3b3', adm: '#b100c4', dia: '#5577ff', pnk: '#d455e6' };
+const loadImg = (src, cors) => new Promise(res => {
+  if (!src) return res(null);
+  const img = new Image();
+  if (cors) img.crossOrigin = 'anonymous';
+  img.onload = () => res(img); img.onerror = () => res(null);
+  img.src = src;
+});
+const rarityRank = k => RARITY_ORDER.indexOf(RARITY[k]);
+
+async function drawBragCard() {
+  await loadInv();
+  const inv = state.inv, u = state.user;
+  const owned = k => (inv[k] || 0) > 0;
+  const collection = [...KNOWN_KEYS].filter(k => !k.startsWith('junk_cube') && k !== 'cheese');
+  // best first: rarest tier, then the one you have fewest of
+  // (beetles win ties, and the big picture is always your rarest beetle)
+  const isB = k => BEETLES.includes(k);
+  const best = collection.filter(owned).sort((a, b) => rarityRank(b) - rarityRank(a) || isB(b) - isB(a) || inv[a] - inv[b]);
+  const hero = best.find(isB) || best[0];
+  const shown = [...best.filter(k => isB(k) && k !== hero), ...best.filter(k => !isB(k) && k !== hero)].slice(0, 7);
+  const beetles = BEETLES.reduce((n, k) => n + (inv[k] || 0), 0);
+  const trophies = TROPHIES.filter(([k]) => owned(k)).length;
+  const pins = Object.keys(inv).filter(k => owned(k) && pinnedBeetle(k)).length;
+
+  const W = 1200, H = 630, c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  const g = c.getContext('2d');
+  const font = (px, bold = true) => `${bold ? 'bold ' : ''}${px}px "Courier New", Courier, monospace`;
+  const heroCol = RARITY_HEX[RARITY[hero]] || '#7a86c2';
+
+  const bg = g.createLinearGradient(0, 0, W, H);
+  bg.addColorStop(0, '#151a33'); bg.addColorStop(1, '#0b0e1d');
+  g.fillStyle = bg; g.fillRect(0, 0, W, H);
+
+  // left: your rarest thing on its own scene
+  const [art, figure, heroImg, pfp] = await Promise.all([
+    loadImg(hero && localBg(hero)),
+    loadImg(hero && LOCAL_CARD.has(hero) && `icons/_card/${hero}.webp`),
+    loadImg(hero && IMAGES[hero]), loadImg(u.pfpUrl, true)]);
+  const LW = 430;
+  g.save();
+  g.beginPath(); g.rect(0, 0, LW, H); g.clip();
+  if (art) {
+    const s = Math.max(LW / art.width, H / art.height);
+    g.drawImage(art, (LW - art.width * s) / 2, (H - art.height * s) / 2, art.width * s, art.height * s);
+  } else {
+    const rg = g.createRadialGradient(LW / 2, H / 2 - 40, 20, LW / 2, H / 2, 420);
+    rg.addColorStop(0, heroCol); rg.addColorStop(1, '#0b0e1d');
+    g.fillStyle = rg; g.fillRect(0, 0, LW, H);
+  }
+  const fade = g.createLinearGradient(0, H * 0.55, 0, H);
+  fade.addColorStop(0, 'rgba(8,10,22,0)'); fade.addColorStop(1, 'rgba(8,10,22,0.92)');
+  g.fillStyle = fade; g.fillRect(0, 0, LW, H);
+  if (figure) {
+    const s = (H - 70) / figure.height;
+    g.drawImage(figure, (LW - figure.width * s) / 2, 10, figure.width * s, figure.height * s);
+    g.fillStyle = fade; g.fillRect(0, 0, LW, H);
+  } else if (heroImg) { g.imageSmoothingEnabled = false; g.drawImage(heroImg, LW / 2 - 140, 110, 280, 280); g.imageSmoothingEnabled = true; }
+  g.restore();
+  g.fillStyle = heroCol; g.fillRect(LW - 4, 0, 4, H);
+  g.textAlign = 'center';
+  if (hero) {
+    g.fillStyle = heroCol; g.font = font(20);
+    g.fillText((RARITY_NAMES[RARITY[hero]] || '').toUpperCase(), LW / 2, H - 78);
+    g.fillStyle = '#fff'; g.font = font(fitFont(g, iname(hero), 34, LW - 40));
+    g.fillText(iname(hero), LW / 2, H - 40);
+  } else {
+    g.fillStyle = '#fff'; g.font = font(30); g.fillText('No beetles yet', LW / 2, H / 2);
+  }
+
+  // right: who you are and what you've got
+  const X = LW + 50;
+  g.textAlign = 'left';
+  let nx = X;
+  if (pfp) {
+    g.save(); g.beginPath(); g.arc(X + 42, 92, 42, 0, Math.PI * 2); g.clip();
+    g.drawImage(pfp, X, 50, 84, 84); g.restore();
+    nx = X + 104;
+  }
+  const name = u.displayname || u.username || '';
+  g.fillStyle = '#fff'; g.font = font(fitFont(g, name, 50, W - nx - 50));
+  g.fillText(name, nx, 96);
+  g.fillStyle = '#8b93c4'; g.font = font(24, false);
+  g.fillText(`~${u.username || ''}`, nx, 128);
+
+  const stats = [
+    [u.level != null ? `${u.level}` : '?', 'level'],
+    [beetles.toLocaleString(), 'beetles'],
+    [`${collection.filter(owned).length}/${collection.length}`, 'collected'],
+    [`${trophies}/${TROPHIES.length}`, 'trophies'],
+  ];
+  const SW = (W - X - 50) / stats.length;
+  stats.forEach(([v, l], i) => {
+    const sx = X + i * SW;
+    g.fillStyle = '#fff'; g.font = font(fitFont(g, v, 44, SW - 16)); g.fillText(v, sx, 232);
+    g.fillStyle = '#8b93c4'; g.font = font(18, false); g.fillText(l.toUpperCase(), sx, 260);
+  });
+
+  // the next rarest things in a row
+  const T = 84, gap = 14, ty = 320;
+  g.fillStyle = '#8b93c4'; g.font = font(18, false);
+  g.fillText(shown.length ? 'ALSO IN THE COLLECTION' : '', X, ty - 14);
+  const icons = await Promise.all(shown.map(k => loadImg(IMAGES[k])));
+  shown.forEach((k, i) => {
+    const tx = X + i * (T + gap), col = RARITY_HEX[RARITY[k]] || '#556';
+    g.fillStyle = 'rgba(255,255,255,0.05)'; roundRect(g, tx, ty, T, T, 10); g.fill();
+    g.strokeStyle = col; g.lineWidth = 3; roundRect(g, tx, ty, T, T, 10); g.stroke();
+    if (icons[i]) { g.imageSmoothingEnabled = false; g.drawImage(icons[i], tx + 8, ty + 8, T - 16, T - 16); g.imageSmoothingEnabled = true; }
+    const n = inv[k] > 999 ? `${Math.floor(inv[k] / 1000)}k` : `${inv[k]}`;
+    g.font = font(16); const bw = g.measureText(n).width + 10;
+    g.fillStyle = col; roundRect(g, tx + T - bw - 4, ty + T - 24, bw, 20, 6); g.fill();
+    g.fillStyle = '#fff'; g.fillText(n, tx + T - bw + 1, ty + T - 9);
+  });
+
+  // a line of character at the bottom
+  const facts = [];
+  if (inv.cheese) facts.push(`${inv.cheese.toLocaleString()} cheese`);
+  if (pins) facts.push(`${pins} pinned`);
+  const hammer = [...HAMMERS].reverse().find(owned);
+  if (hammer) facts.push(iname(hammer));
+  g.fillStyle = '#c6cbea'; g.font = font(22, false);
+  g.fillText(facts.join('  ·  '), X, 470);
+
+  g.fillStyle = '#5b6394'; g.font = font(16, false); g.textAlign = 'right';
+  g.fillText(new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }), W - 50, H - 36);
+  return c;
+}
+
+function fitFont(g, text, px, max) {
+  for (; px > 14; px -= 2) { g.font = `bold ${px}px "Courier New", Courier, monospace`; if (g.measureText(text).width <= max) break; }
+  return px;
+}
+function roundRect(g, x, y, w, h, r) {
+  g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r);
+  g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath();
+}
+
+async function openBrag() {
+  const modal = document.getElementById('cp-brag');
+  modal.classList.remove('hidden');
+  modal.querySelector('.cp-brag-img').innerHTML = '<p class="cp-empty">Counting your beetles…</p>';
+  let c;
+  try { c = await drawBragCard(); } catch (e) { console.warn(e); }
+  if (!c) { modal.querySelector('.cp-brag-img').innerHTML = '<p class="cp-empty">Could not draw the card.</p>'; return; }
+  c.toBlob(blob => {
+    modal._file = new File([blob], 'collection.png', { type: 'image/png' });
+    modal.querySelector('.cp-brag-img').innerHTML = `<img src="${URL.createObjectURL(blob)}" alt="Your collection card">`;
+  }, 'image/png');
+}
+
+// Your beetle inventory, so item cards and the brag card know what you own
+let invLoaded = false;
+async function loadInv() {
+  const u = await apiGet('/api/beetle/user');
+  if (!u || u.success === false) return;
+  state.inv = u.inventory || {};
+  state.user = { ...u, ...state.user };
+  state.user.level = u.level;
+  invLoaded = true;
 }
 
 // ── every rendered message gets tagged so filters can work on it ─────────────
@@ -318,8 +501,22 @@ function setupPage() {
     const card = document.getElementById('cp-card');
     if (!card.classList.contains('hidden') && !e.target.closest('#cp-card, .chat-item-link')) card.classList.add('hidden');
   });
+  // brag card: preview first, then it goes into the normal attachment slot,
+  // so you can still add a line before sending
+  const brag = document.getElementById('cp-brag');
+  document.getElementById('cp-brag-btn').addEventListener('click', openBrag);
+  document.getElementById('cp-brag-again').addEventListener('click', openBrag);
+  document.getElementById('cp-brag-close').addEventListener('click', () => brag.classList.add('hidden'));
+  brag.addEventListener('click', e => { if (e.target === brag) brag.classList.add('hidden'); });
+  document.getElementById('cp-brag-send').addEventListener('click', () => {
+    if (!brag._file) return;
+    setPendingAttachment(brag._file);
+    brag.classList.add('hidden');
+    input.focus();
+  });
+
   document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') { settings.classList.add('hidden'); document.getElementById('cp-card').classList.add('hidden'); }
+    if (e.key === 'Escape') { settings.classList.add('hidden'); document.getElementById('cp-card').classList.add('hidden'); brag.classList.add('hidden'); }
   });
 
   document.getElementById('login-form').addEventListener('submit', async e => {
@@ -360,7 +557,9 @@ async function start() {
   if (!w?.userHandle) return;
   state.user = { username: w.userHandle, displayname: w.displayName || w.userHandle, pfpUrl: rnUrl(w.pfpUrl || '') };
   startChatPoll();
+  loadInv();
   setInterval(renderSide, 60_000);    // "x minutes ago" keeps moving
+  setInterval(loadInv, 5 * 60_000);
 }
 
 document.addEventListener('DOMContentLoaded', () => {

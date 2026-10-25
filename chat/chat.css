@@ -112,6 +112,31 @@ body.cp-compact .chat-card, body.cp-compact .chat-yt { display: none; }
 #cp-card span { color: var(--dim); }
 #cp-card p { margin-top: 6px; line-height: 1.4; }
 
+.cp-have { margin-top: 10px !important; padding-top: 8px; border-top: 1px solid var(--border); }
+.cp-make span { display: inline-block; margin: 3px 6px 0 0; padding: 1px 6px; border-radius: 4px; background: var(--ctrl-bg-2); }
+.cp-make span.miss { opacity: 0.6; }
+.cp-make span.ok small { color: var(--tin); }
+#cp-card .cp-make b, #cp-card .cp-uses b { display: block; color: var(--text); font-size: 0.8em; text-transform: uppercase; letter-spacing: 0.06em; }
+#cp-card .cp-make small, #cp-card .cp-uses { color: var(--dim); }
+
+#cp-brag {
+  position: fixed; inset: 0; z-index: 80; background: rgba(0,0,0,0.65);
+  display: flex; align-items: center; justify-content: center; padding: 16px;
+}
+#cp-brag.hidden { display: none; }
+.cp-brag-box {
+  width: min(760px, 100%); background: var(--panel); border: 1px solid var(--border2);
+  border-radius: 12px; padding: 14px; box-shadow: 0 12px 40px rgba(0,0,0,0.6);
+}
+.cp-brag-img { aspect-ratio: 1200 / 630; display: flex; align-items: center; justify-content: center; }
+.cp-brag-img img { width: 100%; border-radius: 8px; display: block; }
+.cp-brag-acts { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12px; flex-wrap: wrap; }
+.cp-brag-acts button {
+  background: var(--ctrl-bg-1); color: var(--text); border: 1px solid var(--border);
+  border-radius: 6px; padding: 7px 12px; font: inherit; cursor: pointer;
+}
+.cp-brag-acts .cp-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+
 @media (max-width: 720px) {
   #cp-head h1 { display: none; }
   #cp-people-btn { display: block; }
