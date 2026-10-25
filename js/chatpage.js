@@ -564,7 +564,7 @@ async function start() {
 
 // ── "Sign in with remilia.net" (their login page, Authorization Code + PKCE) ─
 // Needs the client id of our Login app from remilia.net's developer portal.
-const RN_CLIENT_ID = '';
+const RN_CLIENT_ID = 'tpa-beetleboysp';
 const RN_AUTH_URL  = 'https://www.remilia.net/oidc/realms/remilia/protocol/openid-connect/auth';
 const rnRedirect   = () => location.origin + location.pathname;
 const b64url = buf => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
