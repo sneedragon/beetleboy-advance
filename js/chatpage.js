@@ -636,6 +636,8 @@ async function runDiag() {
     ['chat websocket (send, react)', await ws()],
     ['API v1 /me', await v1('/me')],
     ['API v1 chat read', await v1('/global-chat/messages?limit=1')],
+    ['room', await (async () => { try { const r = await fetch('room.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: access }) }); return [r.ok, `${r.status} ${(await r.text()).slice(0, 80)}`]; } catch (e) { return [false, e.message]; } })()],
+    ['token length', [true, String(access.length)]],
   ];
   document.body.innerHTML = `<div style="padding:16px;font:14px monospace;color:#fff;background:#222;min-height:100vh"><h1 style="font-size:18px">Token check</h1>
     <table>${checks.map(([n, [ok, note]]) => row(n, ok, note)).join('')}</table>

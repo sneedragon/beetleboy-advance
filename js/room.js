@@ -50,7 +50,9 @@ async function roomPost(body) {
   if (!access) return null;
   try {
     const r = await fetch('room.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: access, ...body }) });
-    if (r.status === 401) { await tryRefresh(access); return null; }
+    // only renew a token that has run out: refreshing on every refused tick
+    // would burn through the single-use refresh tokens once a second
+    if (r.status === 401 && jwtExp(access) * 1000 < Date.now() + 30000) { await tryRefresh(access); return null; }
     return r.ok ? await r.json() : null;
   } catch { return null; }
 }

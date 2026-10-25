@@ -23,9 +23,9 @@ if ($n >= 120) fail(429, 'slow down');
 @file_put_contents($rk, $n + 1);
 if (mt_rand(0, 199) === 0) foreach (glob(sys_get_temp_dir() . '/bbroomrl_*') ?: [] as $f) if (filemtime($f) < time() - 180) @unlink($f);
 
-$in    = json_decode(file_get_contents('php://input', false, null, 0, 4000), true) ?? [];
+$in    = json_decode(file_get_contents('php://input', false, null, 0, 20000), true) ?? [];
 $token = (string)($in['token'] ?? '');
-if ($token === '' || strlen($token) > 4000 || preg_match('/[\x00-\x20;]/', $token)) fail(400, 'missing token');
+if ($token === '' || strlen($token) > 16000 || preg_match('/[\x00-\x20;]/', $token)) fail(400, 'missing token');
 
 // ── who is this? (asked once, then remembered for 10 minutes) ──
 function whoami(string $token): ?array {
@@ -37,7 +37,7 @@ function whoami(string $token): ?array {
     $get = function (string $path, string $auth) {
         $ch = curl_init('https://' . RN_HOST . $path);
         curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 8, CURLOPT_FOLLOWLOCATION => false,
-            CURLOPT_HTTPHEADER => [$auth, 'Accept: application/json']]);
+            CURLOPT_USERAGENT => 'BeetleBoySP-room/1', CURLOPT_HTTPHEADER => [$auth, 'Accept: application/json']]);
         $r = curl_exec($ch); $code = curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch);
         return $code === 200 ? json_decode((string)$r, true) : null;
     };
