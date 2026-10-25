@@ -205,6 +205,12 @@ async function checkChatPage(label, viewport) {
   });
   let sent = null;
   await page.route(/(chatroom|push)\.php/, route => { sent = route.request().postData(); route.fulfill({ contentType: 'application/json', body: '{"ok":true}' }); });
+  let roomSent = null;
+  await page.route('**/room.php', route => {
+    roomSent = JSON.parse(route.request().postData() || '{}');
+    route.fulfill({ contentType: 'application/json', body: JSON.stringify({ me: 'tester', people: [
+      { u: 'tester', d: 'Tester', x: roomSent.x ?? 200, y: roomSent.y ?? 200 }, { u: 'guest', d: 'Guest Cat', x: 420, y: 160 }] }) });
+  });
   await page.route(/^https?:\/\/(?!127\.0\.0\.1)/, route => route.abort());
   await page.goto(BASE + '/chat/');
   await page.waitForTimeout(1200);
@@ -244,6 +250,20 @@ async function checkChatPage(label, viewport) {
   await page.press('#chat-input', 'Enter');
   await page.waitForTimeout(400);
   if (!/rolled [1-6] \(1-6\)/.test(sent || '')) fail(`${label}: /roll did not send a roll (${sent})`);
+  await page.click('#cp-room-btn');
+  await page.waitForTimeout(1500);
+  if (!await page.isVisible('#cp-room-canvas')) fail(`${label}: the room did not open`);
+  if ((await page.textContent('#cp-room-count')).trim() !== '2') fail(`${label}: the room does not count 2 cats`);
+  const box = await page.$eval('#cp-room-canvas', c => { const r = c.getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height }; });
+  await page.mouse.click(box.x + box.w * 0.8, box.y + box.h * 0.7);
+  await page.waitForTimeout(400);
+  if (!(roomSent?.x > 400)) fail(`${label}: clicking the room did not send where to walk (${JSON.stringify(roomSent)})`);
+  await page.fill('#chat-input', 'hello room');
+  await page.press('#chat-input', 'Enter');
+  await page.waitForTimeout(1200);
+  if (await page.evaluate(() => room.cats.get('tester')?.bubble) !== 'hello room') fail(`${label}: no speech bubble over my cat`);
+  await page.screenshot({ path: `${ROOT}tests/out/${label}-chatpage-room.png` });
+  await page.click('#cp-room-btn');
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   if (overflow > 2) fail(`${label}: chat page scrolls sideways by ${overflow}px`);
   await page.screenshot({ path: `${ROOT}tests/out/${label}-chatpage.png` });

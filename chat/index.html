@@ -33,6 +33,7 @@
       <a id="cp-game" href="./" title="Back to the game">🪲</a>
       <h1>Beetle Chat</h1>
       <input id="cp-search" type="search" placeholder="Search…" autocomplete="off">
+      <button type="button" id="cp-room-btn" title="The room: walk around with everyone on this page">🐾 <span id="cp-room-count"></span></button>
       <button type="button" id="cp-brag-btn" title="Show off your collection">🏆</button>
       <button type="button" id="cp-people-btn" title="People">👥</button>
       <button type="button" id="cp-settings-btn" title="Settings">⚙</button>
@@ -47,6 +48,10 @@
 
     <div id="cp-main">
       <div id="mode-chat">
+        <div id="cp-room" class="hidden">
+          <canvas id="cp-room-canvas"></canvas>
+          <div id="cp-room-note"></div>
+        </div>
         <div id="chat-notif"></div>
         <div id="chat-messages"></div>
         <button type="button" id="cp-jump" class="hidden"></button>
@@ -110,5 +115,6 @@
   <script src="js/advisor.js?v=202610252331"></script>
   <script src="js/tree.js?v=202610252331"></script>
   <script src="js/chatpage.js?v=202610252331"></script>
+  <script src="js/room.js?v=202610252331"></script>
 </body>
 </html>

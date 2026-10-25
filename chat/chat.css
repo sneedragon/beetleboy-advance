@@ -137,6 +137,15 @@ body.cp-compact .chat-card, body.cp-compact .chat-yt { display: none; }
 }
 .cp-brag-acts .cp-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
 
+/* the room */
+#cp-head button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+#cp-room-count:empty { display: none; }
+#cp-room { flex-shrink: 0; display: flex; flex-direction: column; align-items: center; border-bottom: 1px solid var(--border); background: var(--panel); }
+#cp-room.hidden { display: none; }
+#cp-room-canvas { display: block; cursor: pointer; touch-action: none; image-rendering: pixelated; }
+#cp-room-note:empty { display: none; }
+#cp-room-note { font-size: 0.7em; color: var(--dim); padding: 2px 0 4px; }
+
 @media (max-width: 720px) {
   #cp-head h1 { display: none; }
   #cp-people-btn { display: block; }
