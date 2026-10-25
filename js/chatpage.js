@@ -628,7 +628,9 @@ async function runDiag() {
     ['API v1 chat read', await v1('/global-chat/messages?limit=1')],
   ];
   document.body.innerHTML = `<div style="padding:16px;font:14px monospace;color:#fff;background:#222;min-height:100vh"><h1 style="font-size:18px">Token check</h1>
-    <table>${checks.map(([n, [ok, note]]) => row(n, ok, note)).join('')}</table></div>`;
+    <table>${checks.map(([n, [ok, note]]) => row(n, ok, note)).join('')}</table>
+    <p style="margin-top:16px"><button type="button" id="diag-rn" style="padding:10px 14px;font:inherit">Check again with "Sign in on remilia.net"</button></p></div>`;
+  document.getElementById('diag-rn').addEventListener('click', rnLogin);
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
