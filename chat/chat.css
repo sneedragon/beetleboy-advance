@@ -1,12 +1,13 @@
 /* BeetleBoy SP · chat-only page. Builds on style.css (colours, chat messages). */
 body.chatpage {
-  display: block; height: 100dvh; overflow: hidden;
+  /* pinned to the screen: 100vh from style.css is taller than a phone's visible area and let the header scroll away */
+  display: block; position: fixed; inset: 0; min-height: 0; height: auto; overflow: hidden;
   background: linear-gradient(160deg, var(--chassis-grad-1), var(--chassis3));
   color: var(--text);
 }
 body.chatpage::after { display: none; }
 
-#cp { height: 100dvh; display: flex; flex-direction: column; max-width: 1200px; margin: 0 auto; }
+#cp { height: 100%; display: flex; flex-direction: column; max-width: 1200px; margin: 0 auto; }
 #cp-head {
   display: flex; align-items: center; gap: 8px; padding: 8px 12px;
   border-bottom: 1px solid var(--border);
