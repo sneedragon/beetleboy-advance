@@ -5,20 +5,22 @@
 // Positions live in a small JSON file in the temp folder; coins, what you
 // bought and what you wear live in SQLite outside the web folder.
 
-header('Content-Type: application/json');
-header('Cache-Control: no-store');
+require __DIR__ . '/world_lib.php';
 
-const RN_HOST = 'www.remilia.net';
 const W = 1800, H = 1200;          // the map in world units
 const STALE = 20;                  // seconds without a word and you have left
-// shared ball: it rolls inside the yard and slows down on its own
+// shared ball: it rolls inside the park and slows down on its own
 const PEN = [120, 860, 600, 1100]; // x0, y0, x1, y1
 const BALL_K = 1.4;
 // coins
 const DAILY = 25;                  // first visit of the day
 const ACT_CAP = 60;                // one a minute while active, at most this many a day
 const XP_PER_COIN = 200, XP_CAP = 150;
+const BUG_CAP = 40;                // coins a day from catching beetles
+const CAPSULE = 30;                // the capsule machine
+const WISH = 1;                    // a coin into the well
 
+// id => [slot, name, price]; price 0 = only from the capsule machine
 const SHOP = [
     'antenna'   => ['hat',   'Antenna',        40],
     'bow'       => ['hat',   'Bow',            60],
@@ -26,90 +28,37 @@ const SHOP = [
     'halo'      => ['hat',   'Halo',          120],
     'bear'      => ['hat',   'Bear hood',     200],
     'crown'     => ['hat',   'Crown',         300],
+    'star'      => ['hat',   'Little star',     0],
+    'feather'   => ['hat',   'Feather',         0],
+    'wings'     => ['back',  'Wings',           0],
     'c_red'     => ['col',   'Red fur',        80],
     'c_void'    => ['col',   'Void fur',      100],
     'c_ghost'   => ['col',   'Pale fur',      100],
+    'c_sky'     => ['col',   'Sky fur',         0],
     'c_glitch'  => ['col',   'Glitch fur',    400],
     'balloon'   => ['hold',  'Balloon',        50],
     'phone'     => ['hold',  'Flip phone',     40],
     'teddy'     => ['hold',  'Teddy',          90],
+    'lantern'   => ['hold',  'Lantern',         0],
     't_static'  => ['trail', 'Static trail',  150],
     't_hearts'  => ['trail', 'Heart trail',   150],
+    't_feathers'=> ['trail', 'Feather trail',   0],
 ];
+const SLOTS = ['hat', 'back', 'col', 'hold', 'trail'];
 const EMOTES = ['wave', 'heart', 'laugh', 'spark', 'sleep', 'dance', 'what'];
 
-function fail(int $code, string $msg): void { http_response_code($code); echo json_encode(['error' => $msg]); exit; }
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') fail(405, 'POST only');
-
-$in    = json_decode(file_get_contents('php://input', false, null, 0, 20000), true) ?? [];
-$token = (string)($in['token'] ?? '');
+[$in, $token, $me] = start(600, 150);
 $test  = str_contains(__DIR__, '/test');
 
-function limit(string $key, int $max): void {
-    $rk = sys_get_temp_dir() . '/bbworldrl_' . md5($key) . '_' . floor(time() / 60);
-    $n  = (int)@file_get_contents($rk);
-    if ($n >= $max) fail(429, 'slow down');
-    @file_put_contents($rk, $n + 1);
-}
-limit('ip' . ($_SERVER['REMOTE_ADDR'] ?? 'x'), 600);
-limit('tk' . $token, 150);
-if (mt_rand(0, 199) === 0) foreach (glob(sys_get_temp_dir() . '/bbworldrl_*') ?: [] as $f) if (filemtime($f) < time() - 180) @unlink($f);
-
-if ($token === '' || strlen($token) > 16000 || preg_match('/[\x00-\x20;]/', $token)) fail(400, 'missing token');
-
-function rn(string $path, string $auth): ?array {
-    $ch = curl_init('https://' . RN_HOST . $path);
-    curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 8, CURLOPT_FOLLOWLOCATION => false,
-        CURLOPT_USERAGENT => 'BeetleBoySP-world/1', CURLOPT_HTTPHEADER => [$auth, 'Accept: application/json']]);
-    $r = curl_exec($ch); $code = curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch);
-    return $code === 200 ? json_decode((string)$r, true) : null;
-}
-
-// ── who is this? (asked once, then remembered for 10 minutes) ──
-function whoami(string $token): ?array {
-    $ck = sys_get_temp_dir() . '/bbworldid_' . hash('sha256', $token);
-    if (is_file($ck) && filemtime($ck) > time() - 600) {
-        $c = json_decode((string)@file_get_contents($ck), true);
-        if (is_array($c)) return $c;
-    }
-    // a password login works on the internal API, "Sign in with remilia.net" only on /api/v1
-    $w = rn('/api/profile/whoami', 'Cookie: authToken=' . $token);
-    $handle = (string)($w['userHandle'] ?? ''); $name = (string)($w['displayName'] ?? ''); $api = 'i';
-    if ($handle === '') {
-        $v = rn('/api/v1/me', 'Authorization: Bearer ' . $token);
-        $u = $v['user'] ?? $v['data']['user'] ?? [];
-        $handle = (string)($u['username'] ?? ''); $name = (string)($u['displayName'] ?? ''); $api = 'v';
-    }
-    if (!preg_match('/^[A-Za-z0-9_.-]{1,40}$/', $handle)) return null;
-    $me = ['u' => $handle, 'd' => mb_substr($name !== '' ? $name : $handle, 0, 40), 'api' => $api];
-    @file_put_contents($ck, json_encode($me));
-    if (mt_rand(0, 49) === 0) foreach (glob(sys_get_temp_dir() . '/bbworldid_*') ?: [] as $f) if (filemtime($f) < time() - 900) @unlink($f);
-    return $me;
-}
 function beetleXp(string $token, string $api): ?int {
     $r = $api === 'i' ? rn('/api/beetle/user', 'Cookie: authToken=' . $token) : rn('/api/v1/me/beetle', 'Authorization: Bearer ' . $token);
     $xp = $r['data']['xp'] ?? $r['xp'] ?? null;
     return is_numeric($xp) ? (int)$xp : null;
 }
 
-$me = whoami($token);
-if (!$me) fail(401, 'login expired');
 $U = $me['u'];
 
 // ── coins and wardrobe ──
-function db(bool $test): PDO {
-    static $db;
-    if ($db) return $db;
-    $dir = dirname(__DIR__, $test ? 3 : 2) . '/beetleboy-private';
-    if (!is_dir($dir)) $dir = sys_get_temp_dir();
-    $db = new PDO('sqlite:' . $dir . ($test ? '/world_test.sqlite' : '/world.sqlite'));
-    $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-    $db->exec('PRAGMA busy_timeout = 3000');
-    $db->exec('CREATE TABLE IF NOT EXISTS users (u TEXT PRIMARY KEY, coins INT NOT NULL DEFAULT 0, day TEXT NOT NULL DEFAULT "",
-        act_coins INT NOT NULL DEFAULT 0, xp_coins INT NOT NULL DEFAULT 0, xp INT, xp_rest INT NOT NULL DEFAULT 0,
-        owned TEXT NOT NULL DEFAULT "[]", wear TEXT NOT NULL DEFAULT "{}", since INT NOT NULL DEFAULT 0)');
-    return $db;
-}
 function loadUser(bool $test, string $u): array {
     $q = db($test)->prepare('SELECT * FROM users WHERE u = ?'); $q->execute([$u]);
     $r = $q->fetch(PDO::FETCH_ASSOC);
@@ -118,12 +67,14 @@ function loadUser(bool $test, string $u): array {
         $q->execute([$u]); $r = $q->fetch(PDO::FETCH_ASSOC);
     }
     $r['owned'] = json_decode($r['owned'], true) ?: [];
+    $r['bug_coins'] = (int)($r['bug_coins'] ?? 0);
     $r['wear']  = json_decode($r['wear'], true) ?: [];
     return $r;
 }
 function saveUser(bool $test, array $r): void {
     db($test)->prepare('UPDATE users SET coins=?, day=?, act_coins=?, xp_coins=?, xp=?, xp_rest=?, owned=?, wear=? WHERE u=?')
         ->execute([$r['coins'], $r['day'], $r['act_coins'], $r['xp_coins'], $r['xp'], $r['xp_rest'], json_encode(array_values($r['owned'])), json_encode((object)$r['wear']), $r['u']]);
+    db($test)->prepare('UPDATE users SET bug_coins=? WHERE u=?')->execute([$r['bug_coins'], $r['u']]);
 }
 
 // the ball rolls from where it was kicked, slows down and bounces off the fence;
@@ -131,6 +82,21 @@ function saveUser(bool $test, array $r): void {
 function fold(float $p, float $a, float $b): float {
     $l = $b - $a; $q = fmod($p - $a, 2 * $l); if ($q < 0) $q += 2 * $l;
     return $a + ($q <= $l ? $q : 2 * $l - $q);
+}
+
+// beetles wander about; every browser works out the same ones from the clock.
+// Keep in step with bugAt() in js/world.js.
+const BUG_N = 7, BUG_LIFE = 90;
+const BUG_AREAS = [[1180, 830, 1700, 1130], [1180, 830, 1700, 1130], [1180, 830, 1700, 1130], [140, 820, 620, 1120], [720, 480, 1080, 720], [60, 450, 660, 740], [1140, 450, 1740, 740]];
+function hrand(float $n): float { $v = sin($n * 12.9898) * 43758.5453; return $v - floor($v); }
+function bugAt(int $k, float $t): array {
+    $g = (int)floor(($t + $k * 13) / BUG_LIFE);
+    $s = $g * 31 + $k * 7;
+    [$x0, $y0, $x1, $y1] = BUG_AREAS[$k];
+    $r = hrand($s + 3);
+    return ['id' => $k . ':' . $g, 'kind' => $r < 0.06 ? 2 : ($r < 0.3 ? 1 : 0),
+        'x' => $x0 + hrand($s + 1) * ($x1 - $x0) + 36 * sin($t * (0.3 + hrand($s + 4) * 0.4) + $s),
+        'y' => $y0 + hrand($s + 2) * ($y1 - $y0) + 24 * sin($t * (0.25 + hrand($s + 5) * 0.4) + $s * 2)];
 }
 function ballAt(array $b, float $t): array {
     $d = (1 - exp(-BALL_K * max(0, $t - $b['t']))) / BALL_K;
@@ -144,7 +110,8 @@ if (!$fp) fail(500, 'world unavailable');
 flock($fp, LOCK_EX);
 $world = json_decode(stream_get_contents($fp) ?: '{}', true);
 if (!is_array($world)) $world = [];
-$world += ['people' => [], 'ball' => ['x' => 360, 'y' => 980, 'vx' => 0, 'vy' => 0, 't' => 0], 'tv' => null];
+$world += ['people' => [], 'ball' => ['x' => 360, 'y' => 980, 'vx' => 0, 'vy' => 0, 't' => 0], 'tv' => null, 'caught' => []];
+foreach ($world['caught'] as $id => $t) if ($t < time() - BUG_LIFE * 2) unset($world['caught'][$id]);
 $now = microtime(true); $sec = time(); $day = gmdate('Y-m-d');
 foreach ($world['people'] as $u => $p) if (($p['t'] ?? 0) < $sec - STALE) unset($world['people'][$u]);
 
@@ -166,7 +133,7 @@ else {
     if (!$prev || $p['c'] === null || $p['w'] === null) {
         $getUser(); $r = &$user;
         if ($r['day'] !== $day) {
-            $r['day'] = $day; $r['act_coins'] = 0; $r['xp_coins'] = 0;
+            $r['day'] = $day; $r['act_coins'] = 0; $r['xp_coins'] = 0; $r['bug_coins'] = 0;
             $r['coins'] += DAILY; $out['bonus'] = DAILY; $dirty = true;
         }
         $p['c'] = $r['coins']; $p['w'] = $r['wear'];
@@ -178,7 +145,7 @@ else {
         if ($p['act'] >= 60) {
             $p['act'] -= 60;
             $getUser(); $r = &$user;
-            if ($r['day'] !== $day) { $r['day'] = $day; $r['act_coins'] = 0; $r['xp_coins'] = 0; }
+            if ($r['day'] !== $day) { $r['day'] = $day; $r['act_coins'] = 0; $r['xp_coins'] = 0; $r['bug_coins'] = 0; }
             if ($r['act_coins'] < ACT_CAP) { $r['act_coins']++; $r['coins']++; $dirty = true; }
         }
     }
@@ -191,7 +158,7 @@ else {
         if ($xp !== null) {
             $getUser(); $r = &$user;
             if ($r['xp'] !== null && $xp > $r['xp']) {
-                if ($r['day'] !== $day) { $r['day'] = $day; $r['act_coins'] = 0; $r['xp_coins'] = 0; }
+                if ($r['day'] !== $day) { $r['day'] = $day; $r['act_coins'] = 0; $r['xp_coins'] = 0; $r['bug_coins'] = 0; }
                 $gain = intdiv($xp - $r['xp'] + $r['xp_rest'], XP_PER_COIN);
                 $r['xp_rest'] = ($xp - $r['xp'] + $r['xp_rest']) % XP_PER_COIN;
                 $gain = max(0, min($gain, XP_CAP - $r['xp_coins']));
@@ -202,7 +169,7 @@ else {
     }
 
     // shop: buy and wear
-    if (isset($in['buy']) && isset(SHOP[$in['buy']])) {
+    if (isset($in['buy']) && isset(SHOP[$in['buy']]) && SHOP[$in['buy']][2] > 0) {
         $getUser(); $r = &$user; $id = $in['buy'];
         if (in_array($id, $r['owned'], true)) $out['shop'] = 'owned';
         elseif ($r['coins'] < SHOP[$id][2]) $out['shop'] = 'poor';
@@ -213,7 +180,7 @@ else {
     }
     if (isset($in['wear']) && is_array($in['wear'])) {
         $getUser(); $r = &$user;
-        foreach (['hat', 'col', 'hold', 'trail'] as $slot) {
+        foreach (SLOTS as $slot) {
             if (!array_key_exists($slot, $in['wear'])) continue;
             $id = $in['wear'][$slot];
             if ($id === null || $id === '') unset($r['wear'][$slot]);
@@ -224,7 +191,42 @@ else {
     if (!empty($in['shopinfo'])) {
         $getUser(); $r = &$user;
         $out['catalog'] = array_map(fn($id, $s) => ['id' => $id, 'slot' => $s[0], 'name' => $s[1], 'price' => $s[2]], array_keys(SHOP), SHOP);
+        $out['capsule_price'] = CAPSULE;
         $out['owned'] = $r['owned'];
+    }
+    // the capsule machine: something you do not have yet, at random
+    if (!empty($in['capsule'])) {
+        $getUser(); $r = &$user;
+        $left = array_values(array_filter(array_keys(SHOP), fn($id) => SHOP[$id][2] === 0 && !in_array($id, $r['owned'], true)));
+        if (!$left) $out['capsule'] = 'all';
+        elseif ($r['coins'] < CAPSULE) $out['capsule'] = 'poor';
+        else {
+            $id = $left[mt_rand(0, count($left) - 1)];
+            $r['coins'] -= CAPSULE; $r['owned'][] = $id; $r['wear'][SHOP[$id][0]] = $id;
+            $dirty = true; $out['capsule'] = $id; $out['capsule_name'] = SHOP[$id][1];
+        }
+    }
+    // a coin into the well, at most one every few seconds
+    if (!empty($in['wish'])) {
+        $getUser(); $r = &$user;
+        if ($sec - ($prev['wish'] ?? 0) < 4) $out['wish'] = 'wait';
+        elseif ($r['coins'] < WISH) $out['wish'] = 'poor';
+        else { $r['coins'] -= WISH; $dirty = true; $out['wish'] = 'ok'; $p['wish'] = $sec; }
+    }
+    if (isset($prev['wish']) && !isset($p['wish'])) $p['wish'] = $prev['wish'];
+    // catching a beetle: it has to be there, close to you, and nobody got it first
+    if (isset($in['catch']) && is_string($in['catch']) && preg_match('/^(\d):(\d+)$/', $in['catch'], $m) && (int)$m[1] < BUG_N) {
+        $b = bugAt((int)$m[1], $now);
+        if ($b['id'] !== $in['catch'] || isset($world['caught'][$b['id']])) $out['caught'] = 'gone';
+        elseif (hypot($b['x'] - $x, $b['y'] - $y) > 80) $out['caught'] = 'far';
+        else {
+            $world['caught'][$b['id']] = $sec;
+            $getUser(); $r = &$user;
+            if ($r['day'] !== $day) { $r['day'] = $day; $r['act_coins'] = 0; $r['xp_coins'] = 0; $r['bug_coins'] = 0; }
+            $gain = min([1, 2, 5][$b['kind']], BUG_CAP - $r['bug_coins']);
+            if ($gain > 0) { $r['coins'] += $gain; $r['bug_coins'] += $gain; $dirty = true; }
+            $out['caught'] = $b['id']; $out['bug_coins'] = max(0, $gain);
+        }
     }
     if ($user) { $p['c'] = $user['coins']; $p['w'] = $user['wear']; }
 
@@ -270,6 +272,9 @@ foreach ($world['people'] as $u => $p) {
     if ($p['e'] && $p['e'][1] > $now - 4) $o['e'] = [$p['e'][0], round($now - $p['e'][1], 2)];
     $out['people'][] = $o;
 }
+$out['gone'] = array_keys($world['caught']);
+// the newest direct message for me, so the page knows when to fetch them
+try { $q = db($test)->prepare('SELECT MAX(id) FROM dm WHERE b = ?'); $q->execute([$U]); $out['dm'] = (int)$q->fetchColumn(); } catch (Throwable $e) {}
 $out['coins'] = $world['people'][$U]['c'] ?? ($user['coins'] ?? 0);
 $out['wear'] = (object)($world['people'][$U]['w'] ?? []);
 $b = $world['ball'];

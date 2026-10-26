@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content">
   <title>Layer 01</title>
-  <meta name="theme-color" content="#050407">
+  <meta name="theme-color" content="#e6e6f6">
   <link rel="stylesheet" href="style.css?v=202610260118">
   <link rel="stylesheet" href="chat/chat.css?v=202610260118">
   <link rel="stylesheet" href="world.css?v=202610260118">
@@ -24,7 +24,7 @@
         <div id="login-err"></div>
       </form>
       <button type="button" id="login-rn" hidden>Sign in on remilia.net instead</button>
-      <p class="login-disclaimer">Your credentials go straight to remilia.net. Only a session token is kept in your browser. With the remilia.net sign-in you can chat and walk around, but the lab (the beetle game) needs the password login.</p>
+      <p class="login-disclaimer">Your credentials go straight to remilia.net. Only a session token is kept in your browser. With the remilia.net sign-in you can chat and walk around, but the beetle garden (the beetle game) needs the password login.</p>
     </div>
   </div>
 
@@ -33,6 +33,7 @@
       <a id="cp-game" href="index.html" title="The beetle game">🪲</a>
       <h1>Layer 01</h1>
       <input id="cp-search" type="search" placeholder="Search…" autocomplete="off">
+      <button type="button" id="cp-dm-btn" title="Messages">✉<span id="cp-dm-badge" class="hidden"></span></button>
       <button type="button" id="cp-brag-btn" title="Show off your collection">🏆</button>
       <button type="button" id="cp-people-btn" title="People">👥</button>
       <button type="button" id="cp-settings-btn" title="Settings">⚙</button>
@@ -48,8 +49,9 @@
     <div id="cp-main">
       <div id="world">
         <canvas id="w-canvas"></canvas>
+        <canvas id="w-top"></canvas>
         <div id="w-hud">
-          <span id="w-coins" title="Coins: for being here, and for crafting in the lab. Spend them at the terminal."></span>
+          <span id="w-coins" title="Coins: for being here, catching beetles and crafting in the beetle garden. Spend them at the terminal."></span>
           <span id="w-count"></span>
         </div>
         <div id="w-zone"></div>
@@ -57,7 +59,6 @@
         <div id="w-toast"></div>
         <div id="w-bar">
           <button type="button" id="w-emote-btn" title="Emotes">☺</button>
-          <button type="button" id="w-act" class="hidden"></button>
         </div>
         <div id="w-emotes" class="hidden">
           <button type="button" data-emote="wave">👋</button>
@@ -92,8 +93,24 @@
           </div>
         </div>
 
+        <div id="w-capsule" class="w-panel hidden">
+          <div class="w-box">
+            <header><h2>Capsule machine</h2><button type="button" id="w-cap-close">✕</button></header>
+            <p>Thirty coins for a capsule with something you can only find in here: wings, a star, a lantern and a few other things.</p>
+            <div id="w-cap-got" class="hidden"><canvas width="64" height="64"></canvas><span></span></div>
+            <button type="button" id="w-cap-turn">Turn the handle (◉ 30)</button>
+          </div>
+        </div>
+
+        <div id="w-who" class="hidden">
+          <strong></strong>
+          <button type="button" data-who="dm">✉ Message</button>
+          <button type="button" data-who="wave">👋 Wave</button>
+          <button type="button" data-who="mention">~ Mention</button>
+        </div>
+
         <div id="w-lab" class="hidden">
-          <button type="button" id="w-lab-close">✕ Back to the world</button>
+          <button type="button" id="w-lab-close">✕ Back to the garden</button>
         </div>
       </div>
 
@@ -114,6 +131,15 @@
           <button id="chat-send" type="button">▶</button>
         </div>
       </div>
+
+      <aside id="w-dm" class="hidden">
+        <header><button type="button" id="dm-back" class="hidden">‹</button><h2 id="dm-title">Messages</h2><button type="button" id="dm-close">✕</button></header>
+        <div id="dm-body"></div>
+        <div id="dm-input-row" class="hidden">
+          <input id="dm-input" type="text" maxlength="1000" placeholder="Write a message…" autocomplete="off">
+          <button type="button" id="dm-send">▶</button>
+        </div>
+      </aside>
 
       <aside id="cp-side">
         <section>
@@ -162,5 +188,6 @@
   <script src="js/tree.js?v=202610260118"></script>
   <script src="js/chatpage.js?v=202610260118"></script>
   <script src="js/world.js?v=202610260118"></script>
+  <script src="js/dm.js?v=202610260118"></script>
 </body>
 </html>

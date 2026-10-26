@@ -575,14 +575,16 @@ async function start() {
 // ── "Sign in with remilia.net" (their login page, Authorization Code + PKCE) ─
 // Needs the client id of our Login app from remilia.net's developer portal.
 const RN_AUTH_URL  = 'https://www.remilia.net/oidc/realms/remilia/protocol/openid-connect/auth';
-const rnRedirect   = () => location.origin + location.pathname;
+// remilia.net only takes the redirect addresses we registered, so every page signs in through
+// chat/ next to it, and the chat page sends you back to where you started.
+const rnRedirect   = () => location.origin + location.pathname.replace(/[^/]*$/, '').replace(/chat\/$/, '') + 'chat/';
 const b64url = buf => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 
 async function rnLogin() {
   const verifier = b64url(crypto.getRandomValues(new Uint8Array(32)));
   const stateVal = b64url(crypto.getRandomValues(new Uint8Array(16)));
   const challenge = b64url(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier)));
-  sessionStorage.setItem('bb_pkce', JSON.stringify({ verifier, state: stateVal, diag: location.search.includes('diag') }));
+  sessionStorage.setItem('bb_pkce', JSON.stringify({ verifier, state: stateVal, diag: location.search.includes('diag'), back: location.pathname }));
   location.href = `${RN_AUTH_URL}?${new URLSearchParams({
     client_id: RN_CLIENT_ID, response_type: 'code', redirect_uri: rnRedirect(), scope: 'openid',
     state: stateVal, code_challenge: challenge, code_challenge_method: 'S256',
@@ -606,6 +608,7 @@ async function rnFinish() {
   const t = await oidc({ grant_type: 'authorization_code', code: q.get('code'), redirect_uri: rnRedirect(), code_verifier: saved.verifier });
   if (!t?.access) { localStorage.removeItem(LS_CHAT_RN); err.textContent = 'Sign-in failed, please try again.'; return false; }
   saveTokens(t.access, t.refresh);
+  if (saved.back && saved.back !== location.pathname) { location.replace(saved.back + (saved.diag ? '?diag' : '')); return new Promise(() => {}); }
   return true;
 }
 

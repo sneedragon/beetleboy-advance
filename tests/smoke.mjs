@@ -346,7 +346,21 @@ async function checkWorld(label, viewport) {
       people: [{ u: 'tester', d: 'Tester', x: w.x, y: w.y, w: w.wear }, { u: 'guest', d: 'Guest Cat', x: 960, y: 640, w: { hat: 'crown' }, e: ['wave', 1] }] };
     if (b.buy === 'antenna' && w.coins >= 40) { w.coins -= 40; w.owned.push('antenna'); w.wear.hat = 'antenna'; out.shop = 'bought'; out.coins = w.coins; }
     if (b.tv) w.tv = out.tv = { v: 'dQw4w9WgXcQ', age: 0, by: 'Tester' };
-    if (b.shopinfo) { out.catalog = [{ id: 'antenna', slot: 'hat', name: 'Antenna', price: 40 }, { id: 'crown', slot: 'hat', name: 'Crown', price: 300 }]; out.owned = w.owned; }
+    if (b.capsule) { w.wear.back = 'wings'; out.capsule = 'wings'; out.capsule_name = 'Wings'; }
+    if (b.wish) out.wish = 'ok';
+    if (b.catch) { out.caught = b.catch; out.bug_coins = 1; out.gone = [b.catch]; }
+    if (b.shopinfo) { out.catalog = [{ id: 'antenna', slot: 'hat', name: 'Antenna', price: 40 }, { id: 'crown', slot: 'hat', name: 'Crown', price: 300 }, { id: 'wings', slot: 'back', name: 'Wings', price: 0 }]; out.owned = w.owned; }
+    route.fulfill({ contentType: 'application/json', body: JSON.stringify(out) });
+  });
+  // dm.php: the guest's key is my own, so a message to them opens on my side too
+  const dm = { keys: {}, msgs: [] };
+  await page.route('**/dm.php', route => {
+    const b = JSON.parse(route.request().postData() || '{}');
+    const out = { me: 'tester', now: Math.floor(Date.now() / 1000) };
+    if (b.act === 'setkey') dm.keys.tester = dm.keys.guest = b.pub;
+    if (b.act === 'pub') out.pub = dm.keys[b.u] || null;
+    if (b.act === 'send') { dm.msgs.push({ id: dm.msgs.length + 1, a: 'tester', b: b.to, ka: b.ka, kb: b.kb, iv: b.iv, ct: b.ct, t: out.now }); out.id = dm.msgs.length; }
+    if (['setkey', 'send', 'inbox', 'hello'].includes(b.act)) { out.msgs = dm.msgs.filter(m => m.id > (b.since || 0)); out.oldest = dm.msgs[0]?.id || 0; out.key = dm.keys.tester || null; }
     route.fulfill({ contentType: 'application/json', body: JSON.stringify(out) });
   });
   await page.route(/^https?:\/\/(?!127\.0\.0\.1)/, route => route.abort());
@@ -357,7 +371,7 @@ async function checkWorld(label, viewport) {
   if (!(await page.textContent('#w-coins')).includes('100')) fail(`${label} world: coins not shown`);
   if (await page.evaluate(() => world.cats.size) < 2) fail(`${label} world: the other cat is missing`);
   await page.screenshot({ path: `${ROOT}tests/out/${label}-world.png` });
-  const box = await page.$eval('#w-canvas', c => { const r = c.getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height }; });
+  const box = await page.$eval('#w-top', c => { const r = c.getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height }; });
   await page.mouse.click(box.x + box.w * 0.75, box.y + box.h * 0.5);
   await page.waitForTimeout(500);
   if (!(w.sent.at(-1)?.x > 900)) fail(`${label} world: clicking did not send where to walk`);
@@ -365,36 +379,66 @@ async function checkWorld(label, viewport) {
   await page.click('#w-emotes [data-emote="heart"]');
   await page.waitForTimeout(300);
   if (!w.sent.some(b => b.emote === 'heart')) fail(`${label} world: emote not sent`);
-  // walk into the terminal and buy the antenna
-  await page.evaluate(() => { const me = world.cats.get(world.me); me.x = me.tx = 1440; me.y = me.ty = 330; world.target = null; });
+  const goTo = (x, y) => page.evaluate(([x, y]) => { const me = world.cats.get(world.me); me.x = me.tx = x; me.y = me.ty = y; world.target = null; world.pending = null; }, [x, y]);
+  // walk up to the counter in the terminal: a prompt floats over it, E opens the wardrobe
+  await goTo(1440, 330);
   await page.waitForTimeout(300);
-  if (!await page.isVisible('#w-act')) fail(`${label} world: no shop button in the terminal`);
-  await page.click('#w-act');
+  if (await page.evaluate(() => world.near?.id) !== 'shop') fail(`${label} world: no prompt at the counter`);
+  await page.keyboard.press('e');
   await page.waitForSelector('[data-buy="antenna"]', { timeout: 3000 }).catch(() => fail(`${label} world: shop shows no items`));
   await page.click('[data-buy="antenna"]');
   await page.waitForTimeout(500);
   if (!await page.$('[data-off="hat"]')) fail(`${label} world: buying did not put the hat on`);
   await page.screenshot({ path: `${ROOT}tests/out/${label}-world-shop.png` });
   await page.keyboard.press('Escape');
-  // the club screen
-  await page.evaluate(() => { const me = world.cats.get(world.me); me.x = me.tx = 360; me.y = me.ty = 330; });
+  // the capsule machine
+  await goTo(1640, 350);
   await page.waitForTimeout(300);
-  await page.click('#w-act');
+  await page.keyboard.press('e');
+  await page.click('#w-cap-turn');
+  await page.waitForTimeout(600);
+  if (!await page.isVisible('#w-cap-got')) fail(`${label} world: the capsule machine gave nothing`);
+  await page.keyboard.press('Escape');
+  // the well
+  await goTo(900, 660);
+  await page.waitForTimeout(300);
+  await page.keyboard.press('e');
+  await page.waitForTimeout(500);
+  if (!w.sent.some(b => b.wish)) fail(`${label} world: the well took no wish`);
+  // the club screen: tapping it walks there and opens it on arrival
+  await goTo(360, 330);
+  await page.waitForTimeout(300);
+  await page.evaluate(() => { world.pending = SPOTS.find(s => s.id === 'screen'); world.target = { ...world.pending.at }; });
+  await page.waitForTimeout(800);
   if (!await page.isVisible('#w-tv-consent')) fail(`${label} world: the screen asks no consent before YouTube`);
   await page.fill('#w-tv-url', 'https://youtu.be/dQw4w9WgXcQ');
   await page.click('#w-tv-play');
   await page.waitForTimeout(1300);
   if (!w.sent.some(b => b.tv)) fail(`${label} world: video not sent`);
-  // the lab opens the game for a password login
-  await page.evaluate(() => { const me = world.cats.get(world.me); me.x = me.tx = 1440; me.y = me.ty = 900; });
+  await page.screenshot({ path: `${ROOT}tests/out/${label}-world-club.png` });
+  // a beetle in the garden gets caught by walking into it
+  await page.evaluate(() => { const b = bugAt(0, netNow()); const me = world.cats.get(world.me); me.x = me.tx = b.x; me.y = me.ty = b.y; world.target = null; });
+  await page.waitForTimeout(700);
+  if (!w.sent.some(b => b.catch)) fail(`${label} world: walking into a beetle caught nothing`);
+  // the workbench opens the game for a password login
+  await goTo(1440, 950);
   await page.waitForTimeout(300);
-  await page.click('#w-act');
-  if (!await page.$('#w-lab iframe')) fail(`${label} world: the lab did not open the game`);
+  await page.keyboard.press('e');
+  if (!await page.$('#w-lab iframe')) fail(`${label} world: the workbench did not open the game`);
   await page.click('#w-lab-close');
   await page.waitForTimeout(300);
-  if (!w.sent.some(b => b.xp)) fail(`${label} world: closing the lab asked for no coins`);
-  // the remilia sign-in sees the lab taped off
-  if (await page.evaluate(() => { localStorage.setItem('bb_chat_rn', '1'); const r = blocked(1440, 784); localStorage.removeItem('bb_chat_rn'); return r; }) !== 'lab') fail(`${label} world: the lab door is open for the remilia sign-in`);
+  if (!w.sent.some(b => b.xp)) fail(`${label} world: closing the game asked for no coins`);
+  // the remilia sign-in finds the garden gate shut
+  if (await page.evaluate(() => { localStorage.setItem('bb_chat_rn', '1'); const r = blocked(1440, 784); localStorage.removeItem('bb_chat_rn'); return r; }) !== 'lab') fail(`${label} world: the garden gate is open for the remilia sign-in`);
+  await page.screenshot({ path: `${ROOT}tests/out/${label}-world-garden.png` });
+  // a message to the other cat, sealed in the browser
+  await page.evaluate(() => window.dmOpen('guest', 'Guest Cat'));
+  await page.fill('#dm-input', 'hello in secret');
+  await page.click('#dm-send');
+  await page.waitForTimeout(800);
+  if (!dm.msgs.length || dm.msgs[0].ct.includes('hello')) fail(`${label} world: message not sent sealed (${JSON.stringify(dm.msgs)})`);
+  if (!(await page.textContent('#dm-body')).includes('hello in secret')) fail(`${label} world: own message cannot be read back`);
+  await page.screenshot({ path: `${ROOT}tests/out/${label}-world-dm.png` });
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   if (overflow > 2) fail(`${label} world: scrolls sideways by ${overflow}px`);
   await page.close();

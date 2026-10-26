@@ -1,41 +1,81 @@
-// BeetleBoy SP · The world (world.html): a dark little piece of the network
-// where everyone signed in walks around as a Remicat while the RemiliaNET chat
-// runs beside it. A junction under the power lines, a club with a shared
-// screen, a terminal that sells hats, a yard with a ball, and the lab where the
-// beetle game runs (password login only, the remilia sign-in cannot craft).
-// world.php keeps positions, emotes, the ball, the screen and the coins.
+// BeetleBoy SP · The world (world.html): a small place on the network, half
+// up in the clouds and half under the power lines, where everyone signed in
+// walks around as a Remicat while the RemiliaNET chat runs beside it.
+// A plaza with a wishing well, Cyberia with a shared screen and a dance
+// floor, the terminal with the wardrobe and a capsule machine, a park with a
+// ball, and the beetle garden where the beetle game runs (password login only,
+// the remilia sign-in cannot craft). Beetles wander about to be caught.
+// world.php keeps positions, emotes, the ball, the screen, beetles and coins.
 
 const WORLD_W = 1800, WORLD_H = 1200;
 const W_SPEED = 170;                 // world units a second
 const W_POLL = 1000;
 const W_ACTIVE = 180_000;            // input this recent counts as "here" for coins
-const PEN = [120, 860, 600, 1100];   // the yard's ball pen, as in world.php
+const PEN = [120, 860, 600, 1100];   // the park's ball pen, as in world.php
 const BALL_K = 1.4, BALL_R = 10;
 
 const ZONES = [
-  { id: 'club', name: 'CLUB', x: 60, y: 40, w: 600, h: 380, door: 'bottom', col: '#ff2a3a' },
-  { id: 'shop', name: 'TERMINAL', x: 1140, y: 40, w: 600, h: 380, door: 'bottom', col: '#9cffb0' },
-  { id: 'yard', name: 'YARD', x: 60, y: 780, w: 600, h: 380, door: 'top', col: '#e8d68a' },
-  { id: 'lab', name: 'LAB', x: 1140, y: 780, w: 600, h: 380, door: 'top', col: '#9cffb0' },
+  { id: 'club', name: 'CYBERIA', x: 60, y: 40, w: 600, h: 380, door: 'bottom', col: '#ff3d6e', dark: true },
+  { id: 'shop', name: 'TERMINAL', x: 1140, y: 40, w: 600, h: 380, door: 'bottom', col: '#5b63e6' },
+  { id: 'park', name: 'PARK', x: 60, y: 780, w: 600, h: 380, door: 'top', col: '#4f9d58' },
+  { id: 'garden', name: 'BEETLE GARDEN', x: 1140, y: 780, w: 600, h: 380, door: 'top', col: '#2f9a5e' },
 ];
-const JUNCTION = { id: 'junction', name: 'JUNCTION' };
+const PLAZA = { id: 'plaza', name: 'PLAZA' };
 const CLUB_SCREEN = { x: 200, y: 52, w: 320, h: 180 };          // the club screen, 16:9
-const LAB_DOOR = { x: 1370, y: 772, w: 140, h: 24 };
+const DANCE = { x: 90, y: 270, w: 540, h: 120 };                 // the floor that sings
+const GARDEN_GATE = { x: 1370, y: 772, w: 140, h: 24 };
+const WELL = { x: 900, y: 600 };
+const TREES = [[1250, 892], [1650, 892]];
 const POLES = [[700, 450], [1100, 450], [700, 750], [1100, 750], [300, 600], [1500, 600]];
-const LAMPS = [[900, 470], [900, 730], [480, 600], [1320, 600]];
 const EMOTE_ICON = { wave: '👋', heart: '❤️', laugh: '😂', spark: '✨', sleep: '💤', dance: '🎵', what: '❓' };
 const GLITCH_LINES = ['PRESENT DAY', 'PRESENT TIME', 'you are connected', 'layer 01', 'who is here?', 'the network remembers', 'no carrier'];
+const FORTUNES = [
+  'Someone on the network is thinking of you.', 'You are connected. You always were.', 'The wires hum your name tonight.',
+  'Something small and golden is wandering nearby.', 'Close your eyes. Layer 01 will still be here.',
+  'Today is a good day to wave at a stranger.', 'Heaven is a server you have not logged into yet.',
+  'Every message you send stays with someone.', 'The sky is loading. Please wait.', 'You are not alone in here.',
+  'Light comes down the wires to find you.', 'A cat somewhere just waved at you.', 'Rest. The network keeps watch.',
+  'What you lost will come back as a signal.', 'Present day, present time, and you are here.', 'The angels are buffering.',
+  'Make a friend before the screen goes dark.', 'The well heard you. It always does.',
+];
+
+// things you can walk up to and use: the prompt floats above them
+const SPOTS = [
+  { id: 'screen', r: { x: 200, y: 52, w: 320, h: 180 }, at: { x: 360, y: 300 }, col: '#ff3d6e', text: () => world.tv ? '▶ Watch along' : '▶ Put on a video', act: () => openScreen() },
+  { id: 'shop', r: { x: 1300, y: 236, w: 280, h: 40 }, at: { x: 1440, y: 310 }, col: '#5b63e6', text: () => '◉ Wardrobe', act: () => openShop() },
+  { id: 'capsule', r: { x: 1650, y: 214, w: 56, h: 92 }, at: { x: 1640, y: 350 }, col: '#d65bb6', text: () => '◉ 30 Capsule', act: () => openCapsule() },
+  { id: 'well', r: { x: 862, y: 566, w: 76, h: 56 }, at: { x: 900, y: 660 }, col: '#7fb8ff', text: () => '✧ Wish (◉ 1)', act: () => makeWish() },
+  { id: 'game', r: { x: 1380, y: 984, w: 120, h: 56 }, at: { x: 1440, y: 960 }, col: '#2f9a5e', text: () => '🪲 Play the beetle game', act: () => openLab(), hide: () => labLocked() },
+  { id: 'gate', r: { x: 1370, y: 740, w: 140, h: 60 }, at: { x: 1440, y: 740 }, col: '#c23a4a', text: () => '🔒 Password sign-in only', act: () => labDenied(true), hide: () => !labLocked() },
+];
+
+// beetles: every browser works out the same ones from the clock (bugAt() in world.php)
+const BUG_N = 7, BUG_LIFE = 90;
+const BUG_AREAS = [[1180, 830, 1700, 1130], [1180, 830, 1700, 1130], [1180, 830, 1700, 1130], [140, 820, 620, 1120], [720, 480, 1080, 720], [60, 450, 660, 740], [1140, 450, 1740, 740]];
+const BUG_KINDS = [['green', 'ladybug', 'pillbug', 'cucumber'], ['stag', 'purple', 'harlequin', 'blue_longicorn'], ['golden', 'golden_tiger']];
+const BUG_COINS = [1, 2, 5];
+const hrand = n => { const v = Math.sin(n * 12.9898) * 43758.5453; return v - Math.floor(v); };
+function bugAt(k, t) {
+  const g = Math.floor((t + k * 13) / BUG_LIFE), s = g * 31 + k * 7;
+  const [x0, y0, x1, y1] = BUG_AREAS[k], r = hrand(s + 3);
+  return {
+    id: `${k}:${g}`, kind: r < 0.06 ? 2 : r < 0.3 ? 1 : 0, s,
+    x: x0 + hrand(s + 1) * (x1 - x0) + 36 * Math.sin(t * (0.3 + hrand(s + 4) * 0.4) + s),
+    y: y0 + hrand(s + 2) * (y1 - y0) + 24 * Math.sin(t * (0.25 + hrand(s + 5) * 0.4) + s * 2),
+  };
+}
 
 const world = {
-  me: '', cats: new Map(), canvas: null, ctx: null, z: 1, dpr: 1, cw: 0, ch: 0,
+  me: '', cats: new Map(), canvas: null, ctx: null, top: null, tctx: null, z: 1, dpr: 1, cw: 0, ch: 0,
   cam: { x: 0, y: 0 }, sprite: null, tinted: new Map(), timer: null, raf: 0, last: 0,
-  target: null, keys: new Set(), failing: 0, busy: false, err: '',
+  target: null, pending: null, near: null, prompt: null, keys: new Set(), failing: 0, busy: false, err: '',
   coins: null, wear: {}, owned: [], catalog: null, zone: null, active: Date.now(),
   ball: { x: 360, y: 980, vx: 0, vy: 0, t0: 0 }, kickAt: 0, tv: null, tvAt: 0,
-  out: {}, bg: null, noise: [], scan: null, glitch: null, nextGlitch: 0, solids: [],
+  out: {}, bg: null, noise: [], scan: null, haze: null, glitch: null, nextGlitch: 0, solids: [],
+  skew: 0, gone: new Set(), catching: new Set(), bugImg: {}, splashes: [], tile: '', dm: 0,
 };
 
-// ── the map: walls with a doorway toward the street, a few solid things ─────
+// ── the map: walls with a doorway toward the plaza, a few solid things ──────
 function buildSolids() {
   const s = [], T = 16;
   for (const z of ZONES) {
@@ -46,22 +86,26 @@ function buildSolids() {
     s.push([z.x, z.y, T, z.h], [z.x + z.w - T, z.y, T, z.h]);
   }
   s.push([CLUB_SCREEN.x - 10, z0('club').y, CLUB_SCREEN.w + 20, CLUB_SCREEN.h + 20]);        // the screen stands against the club wall
-  s.push([1220, 90, 260, 90], [1540, 90, 140, 120]);                           // terminal monitors
-  s.push([1200, 860, 200, 40], [1480, 860, 200, 40], [1200, 960, 200, 40], [1480, 960, 200, 40]); // server racks
+  s.push([1220, 90, 260, 90], [1540, 90, 92, 120]);                            // terminal monitors
+  s.push([1300, 236, 280, 40], [1650, 214, 56, 92]);                           // the counter, the capsule machine
+  s.push([WELL.x - 34, WELL.y - 18, 68, 36]);
+  for (const [x, y] of TREES) s.push([x - 18, y - 6, 36, 16]);
+  s.push([1380, 990, 120, 40]);                                                // the workbench
   for (const [x, y] of POLES) s.push([x - 8, y - 8, 16, 16]);
   world.solids = s.map(([x, y, w, h]) => ({ x, y, w, h }));
 }
 const z0 = id => ZONES.find(z => z.id === id);
 const labLocked = () => rnAuth();
 const inRect = (x, y, r) => x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h;
-const zoneAt = (x, y) => ZONES.find(z => inRect(x, y, z)) || JUNCTION;
+const zoneAt = (x, y) => ZONES.find(z => inRect(x, y, z)) || PLAZA;
+const netNow = () => Date.now() / 1000 + world.skew;
 
 // the cat's feet are a small box; bump it against walls one axis at a time
 function blocked(x, y) {
   if (x < 20 || x > WORLD_W - 20 || y < 30 || y > WORLD_H - 8) return true;
   const box = { x: x - 13, y: y - 8, w: 26, h: 10 };
   const hit = r => box.x < r.x + r.w && box.x + box.w > r.x && box.y < r.y + r.h && box.y + box.h > r.y;
-  if (labLocked() && hit(LAB_DOOR)) return 'lab';
+  if (labLocked() && hit(GARDEN_GATE)) return 'lab';
   return world.solids.some(hit);
 }
 
@@ -79,6 +123,7 @@ function furOf(c, t) {
     case 'c_red': return [355, 0.85, 0.5];
     case 'c_void': return [260, 0.25, 0.16];
     case 'c_ghost': return [220, 0.15, 0.9];
+    case 'c_sky': return [205, 0.7, 0.78];
     case 'c_glitch': return [Math.floor(t * 2) % 12 * 30, 0.8, 0.6];
     default: return [nameHue(c.d || c.u), 0.7, c.ghost ? 0.7 : 0.6];
   }
@@ -130,16 +175,20 @@ async function worldTickNow() {
   const me = world.cats.get(world.me);
   const at = world.target || me;
   const extra = world.out; world.out = {};
-  const body = { ...(at ? { x: Math.round(at.x), y: Math.round(at.y) } : {}), ...extra };
+  // a catch counts where I am now, not where I am walking to
+  const pos = extra.catch && me ? me : at;
+  const body = { ...(pos ? { x: Math.round(pos.x), y: Math.round(pos.y) } : {}), ...extra };
   if (Date.now() - world.active < W_ACTIVE) body.a = 1;
   const d = await worldPost(body);
   if (!d?.people) {
+    if (extra.catch) world.catching.delete(extra.catch);
     if (++world.failing === 5) worldNote(`The world is not answering right now (${world.err || '?'}).`);
     return;
   }
   if (world.failing >= 5) worldNote('');
   world.failing = 0;
   world.me = d.me;
+  if (d.now) world.skew = d.now - Date.now() / 1000;
   const clock = performance.now() / 1000;
   const here = new Set();
   for (const p of d.people) {
@@ -164,6 +213,20 @@ async function worldTickNow() {
   if (d.shop === 'bought') { worldToast('Bought and put on'); sfx('claim'); }
   if (d.shop === 'poor') worldToast('Not enough coins yet');
   if (d.tv_err) worldToast(d.tv_err);
+  if (d.capsule) capsuleResult(d);
+  if (d.wish) wishResult(d.wish);
+  world.gone = new Set(d.gone || []);
+  if (extra.catch) {
+    world.catching.delete(extra.catch);
+    if (d.caught === extra.catch) {
+      const b = bugAt(+extra.catch.split(':')[0], netNow());
+      world.gone.add(extra.catch);
+      const what = ['a beetle', 'a rare beetle', 'a golden beetle'][b.kind];
+      worldToast(d.bug_coins ? `Caught ${what}: +${d.bug_coins}` : `Caught ${what}! (no more beetle coins today)`);
+      sfx('claim');
+    }
+  }
+  if (d.dm != null && d.dm !== world.dm) { world.dm = d.dm; window.dmPoke?.(d.dm); }
 
   // the ball: my own kick stays as I predicted it until the server agrees
   if (performance.now() - world.kickAt > 1500 && d.ball) world.ball = { x: d.ball.x, y: d.ball.y, vx: d.ball.vx, vy: d.ball.vy, t0: clock - d.ball.age };
@@ -172,7 +235,7 @@ async function worldTickNow() {
 }
 
 // people who chatted in the last ten minutes but are not in the world stand
-// at the edge of the junction, flickering
+// around the well, flickering
 function placeEchoes() {
   const since = Date.now() / 1000 - 600;
   const seen = new Map();
@@ -183,7 +246,8 @@ function placeEchoes() {
   for (const [u, c] of world.cats) if (c.ghost && !seen.has(u)) world.cats.delete(u);
   const echoes = [...seen].filter(([u]) => !world.cats.has(u) || world.cats.get(u).ghost).sort((a, b) => a[0].localeCompare(b[0])).slice(0, 14);
   echoes.forEach(([u, d], i) => {
-    const x = 720 + (i % 7) * 60 + (i >= 7 ? 30 : 0), y = i >= 7 ? 520 : 470;
+    const a = (i / Math.max(8, echoes.length)) * Math.PI * 2 - Math.PI / 2;
+    const x = WELL.x + Math.cos(a) * (i % 2 ? 150 : 128), y = WELL.y + 10 + Math.sin(a) * (i % 2 ? 100 : 84);
     const c = world.cats.get(u);
     if (c) { c.x = c.tx = x; c.y = c.ty = y; c.d = d; return; }
     world.cats.set(u, { u, d, x, y, tx: x, ty: y, dir: 'down', flip: false, moving: false, ghost: true, t0: Math.random() * 4, trail: [] });
@@ -206,11 +270,11 @@ function setCoins(n) {
 }
 function worldNote(t) { const el = document.getElementById('w-note'); if (el) el.textContent = t; }
 let toastTimer = 0;
-function worldToast(t) {
+function worldToast(t, ms = 3200) {
   const el = document.getElementById('w-toast');
   el.textContent = t; el.classList.add('show');
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => el.classList.remove('show'), 3200);
+  toastTimer = setTimeout(() => el.classList.remove('show'), ms);
 }
 
 // ── moving ───────────────────────────────────────────────────────────────────
@@ -220,7 +284,7 @@ function worldStep(dt, clock) {
     const k = world.keys;
     const vx = (k.has('right') ? 1 : 0) - (k.has('left') ? 1 : 0);
     const vy = (k.has('down') ? 1 : 0) - (k.has('up') ? 1 : 0);
-    if (vx || vy) world.target = { x: me.x + vx * 40, y: me.y + vy * 40 };
+    if (vx || vy) { world.target = { x: me.x + vx * 40, y: me.y + vy * 40 }; world.pending = null; }
   }
   for (const c of world.cats.values()) {
     const mine = c === me;
@@ -231,7 +295,7 @@ function worldStep(dt, clock) {
     c.moving = dist > 1;
     if (!c.moving) continue;
     const mx = step >= dist ? dx : dx / dist * step, my = step >= dist ? dy : dy / dist * step;
-    if (mine) {
+    if (mine && blocked(c.x, c.y) !== true) {
       // slide along walls: try both axes, then each on its own
       const bx = blocked(c.x + mx, c.y), by = blocked(c.x, c.y + my), bb = blocked(c.x + mx, c.y + my);
       if (!bb) { c.x += mx; c.y += my; }
@@ -239,41 +303,41 @@ function worldStep(dt, clock) {
       else if (!by) c.y += my;
       else { world.target = null; c.tx = c.x; c.ty = c.y; c.moving = false; }
       if ([bx, by, bb].includes('lab')) labDenied();
-    } else { c.x += mx; c.y += my; }
+    } else { c.x += mx; c.y += my; }          // someone else, or me stuck inside something: let them out
     if (Math.abs(dx) > Math.abs(dy)) { c.dir = 'side'; c.flip = dx < 0; } else c.dir = dy < 0 ? 'up' : 'down';
-    if (c.w?.trail && Math.random() < dt * 14) c.trail.push({ x: c.x + (Math.random() - 0.5) * 16, y: c.y - 6 - Math.random() * 18, t: clock });
+    if (c.w?.trail && Math.random() < dt * (c.w.trail === 't_feathers' ? 5 : 14)) c.trail.push({ x: c.x + (Math.random() - 0.5) * 16, y: c.y - 6 - Math.random() * 18, t: clock, r: Math.random() });
   }
-  if (me) {
-    const z = zoneAt(me.x, me.y);
-    if (z !== world.zone) enterZone(z);
-    kickCheck(me, clock);
+  if (!me) return;
+  const z = zoneAt(me.x, me.y);
+  if (z !== world.zone) enterZone(z);
+  kickCheck(me, clock);
+  catchCheck(me);
+  danceCheck(me);
+  // the nearest thing to use, and walking up to the one I tapped
+  world.near = SPOTS.filter(s => !s.hide?.()).map(s => ({ s, d: Math.hypot(s.at.x - me.x, s.at.y - me.y) })).filter(o => o.d < 110).sort((a, b) => a.d - b.d)[0]?.s || null;
+  const p = world.pending;
+  if (p) {
+    const d = Math.hypot(p.at.x - me.x, p.at.y - me.y);
+    if (d < 30 || (!me.moving && d < 110)) { world.pending = null; p.act(); }
+    else if (!me.moving) world.pending = null;
   }
 }
 
 let deniedAt = 0;
-function labDenied() {
-  if (Date.now() - deniedAt < 4000) return;
+function labDenied(force) {
+  if (!force && Date.now() - deniedAt < 4000) return;
   deniedAt = Date.now();
-  worldToast('The lab needs the password login: remilia sign-in cannot play the beetle game.');
+  worldToast('The beetle garden is for the password sign-in: the remilia.net sign-in cannot play the beetle game.', 4500);
 }
 
 function enterZone(z) {
   world.zone = z;
   const el = document.getElementById('w-zone');
   el.textContent = z.name; el.classList.remove('show'); void el.offsetWidth; el.classList.add('show');
-  const act = document.getElementById('w-act');
-  const acts = { club: '▶ Screen', shop: '◉ Shop', lab: labLocked() ? '🔒 Lab' : '⌁ Jack in' };
-  act.textContent = acts[z.id] || '';
-  act.classList.toggle('hidden', !acts[z.id]);
   tvActive();
 }
 
-function worldAct() {
-  const z = world.zone?.id;
-  if (z === 'club') openScreen();
-  else if (z === 'shop') openShop();
-  else if (z === 'lab') labLocked() ? labDenied() : openLab();
-}
+function worldAct() { if (world.near) { world.pending = null; world.near.act(); } }
 
 // ── the ball ─────────────────────────────────────────────────────────────────
 function fold(p, a, b) { const l = b - a; let q = (p - a) % (2 * l); if (q < 0) q += 2 * l; return a + (q <= l ? q : 2 * l - q); }
@@ -295,6 +359,45 @@ function kickCheck(me, clock) {
   sfx('click');
 }
 
+// ── beetles to catch ─────────────────────────────────────────────────────────
+function liveBugs() {
+  const t = netNow(), out = [];
+  for (let k = 0; k < BUG_N; k++) {
+    const b = bugAt(k, t);
+    if (!world.gone.has(b.id)) out.push(b);
+  }
+  return out;
+}
+function catchCheck(me) {
+  if (world.catching.size) return;
+  for (const b of liveBugs()) {
+    if (Math.hypot(b.x - me.x, b.y - me.y) > 30) continue;
+    world.catching.add(b.id);
+    worldSend({ catch: b.id }, true);
+    return;
+  }
+}
+
+// ── the dance floor in Cyberia: each tile has a note ─────────────────────────
+let chimeCtx = null;
+function chime(i) {
+  if (SFX.isMuted?.()) return;
+  try {
+    chimeCtx ??= new (window.AudioContext || window.webkitAudioContext)();
+    const f = 330 * 2 ** ([0, 2, 4, 7, 9, 12, 14, 16, 19, 21][i % 10] / 12);
+    const t = chimeCtx.currentTime, o = chimeCtx.createOscillator(), g = chimeCtx.createGain();
+    o.type = 'triangle'; o.frequency.value = f;
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.06, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.9);
+    o.connect(g); g.connect(chimeCtx.destination); o.start(t); o.stop(t + 1);
+  } catch {}
+}
+const danceTile = c => inRect(c.x, c.y, DANCE) ? `${Math.floor((c.x - DANCE.x) / 30)},${Math.floor((c.y - DANCE.y) / 30)}` : '';
+function danceCheck(me) {
+  const t = danceTile(me);
+  if (t && t !== world.tile) { const [a, b] = t.split(',').map(Number); chime(a + (3 - b) * 2); }
+  world.tile = t;
+}
+
 // ── drawing ──────────────────────────────────────────────────────────────────
 function noiseTile(alpha) {
   const c = document.createElement('canvas'); c.width = c.height = 128;
@@ -309,92 +412,114 @@ function buildBackground() {
   const c = document.createElement('canvas'); c.width = WORLD_W; c.height = WORLD_H;
   const g = c.getContext('2d');
   const rnd = (a, b) => a + Math.random() * (b - a);
-  g.fillStyle = '#0a090e'; g.fillRect(0, 0, WORLD_W, WORLD_H);
-  // grit
-  for (let i = 0; i < 9000; i++) { g.fillStyle = `rgba(${Math.random() < 0.5 ? '255,255,255' : '0,0,0'},${rnd(0.02, 0.06)})`; g.fillRect(rnd(0, WORLD_W) | 0, rnd(0, WORLD_H) | 0, 2, 2); }
-  // the streets: one across, one down the middle
-  g.fillStyle = '#141219';
-  g.fillRect(0, 440, WORLD_W, 320); g.fillRect(680, 0, 440, WORLD_H);
-  g.fillStyle = 'rgba(232,214,138,0.18)';
-  for (let x = 0; x < WORLD_W; x += 60) if (x < 660 || x > 1120) g.fillRect(x, 598, 30, 4);
-  for (let y = 0; y < WORLD_H; y += 60) if (y < 420 || y > 780) g.fillRect(898, y, 4, 30);
-  // the crossing
-  g.fillStyle = 'rgba(220,220,230,0.07)';
-  for (let x = 700; x < 1100; x += 28) { g.fillRect(x, 452, 16, 52); g.fillRect(x, 696, 16, 52); }
-  for (let y = 520; y < 690; y += 28) { g.fillRect(692, y, 52, 16); g.fillRect(1056, y, 52, 16); }
+  // the sky the place floats in
+  const sky = g.createLinearGradient(0, 0, 0, WORLD_H);
+  sky.addColorStop(0, '#dfe5f8'); sky.addColorStop(0.5, '#ece8f6'); sky.addColorStop(1, '#f6e9f0');
+  g.fillStyle = sky; g.fillRect(0, 0, WORLD_W, WORLD_H);
+  for (let i = 0; i < 70; i++) {
+    const x = rnd(0, WORLD_W), y = rnd(0, WORLD_H), r = rnd(60, 190);
+    const gr = g.createRadialGradient(x, y, 0, x, y, r);
+    gr.addColorStop(0, 'rgba(255,255,255,0.75)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = gr; g.fillRect(x - r, y - r, r * 2, r * 2);
+  }
+  // the walkways: pale glass, with a faint circuit in it
+  const walk = (x, y, w, h) => {
+    g.fillStyle = 'rgba(255,255,255,0.6)'; g.fillRect(x, y, w, h);
+    g.strokeStyle = 'rgba(120,128,200,0.16)'; g.lineWidth = 1;
+    for (let gx = x; gx <= x + w; gx += 40) { g.beginPath(); g.moveTo(gx + 0.5, y); g.lineTo(gx + 0.5, y + h); g.stroke(); }
+    for (let gy = y; gy <= y + h; gy += 40) { g.beginPath(); g.moveTo(x, gy + 0.5); g.lineTo(x + w, gy + 0.5); g.stroke(); }
+    g.fillStyle = 'rgba(150,160,230,0.35)'; g.fillRect(x, y, w, 2); g.fillRect(x, y + h - 2, w, 2);
+  };
+  walk(0, 440, WORLD_W, 320); walk(680, 0, 440, WORLD_H);
+  g.fillStyle = 'rgba(120,128,200,0.22)';
+  for (let x = 0; x < WORLD_W; x += 60) if (x < 640 || x > 1160) g.fillRect(x, 598, 30, 3);
+  for (let y = 0; y < WORLD_H; y += 60) if (y < 420 || y > 780) g.fillRect(898, y, 3, 30);
+  // the plaza: rings around the well
+  for (let r = 260; r > 60; r -= 40) {
+    g.strokeStyle = `rgba(150,160,230,${0.1 + (260 - r) / 1200})`; g.lineWidth = 2;
+    g.beginPath(); g.ellipse(WELL.x, WELL.y, r, r * 0.7, 0, 0, Math.PI * 2); g.stroke();
+  }
 
   // floors
   const floor = (z, fn) => { g.save(); g.beginPath(); g.rect(z.x, z.y, z.w, z.h); g.clip(); fn(z); g.restore(); };
   floor(z0('club'), z => {
+    g.fillStyle = '#120d1a'; g.fillRect(z.x, z.y, z.w, z.h);
     for (let y = z.y; y < z.y + z.h; y += 30) for (let x = z.x; x < z.x + z.w; x += 30) {
-      g.fillStyle = ((x + y) / 30) % 2 ? '#130a12' : '#0d070d'; g.fillRect(x, y, 30, 30);
+      g.fillStyle = ((x + y) / 30) % 2 ? '#1a1326' : '#100b18'; g.fillRect(x, y, 30, 30);
     }
   });
   floor(z0('shop'), z => {
-    g.fillStyle = '#0b0e0e'; g.fillRect(z.x, z.y, z.w, z.h);
-    g.strokeStyle = 'rgba(156,255,176,0.05)';
+    g.fillStyle = '#efedf5'; g.fillRect(z.x, z.y, z.w, z.h);
+    g.strokeStyle = 'rgba(91,99,230,0.08)';
     for (let x = z.x; x < z.x + z.w; x += 24) { g.beginPath(); g.moveTo(x, z.y); g.lineTo(x, z.y + z.h); g.stroke(); }
     for (let y = z.y; y < z.y + z.h; y += 24) { g.beginPath(); g.moveTo(z.x, y); g.lineTo(z.x + z.w, y); g.stroke(); }
-  });
-  floor(z0('lab'), z => {
-    g.fillStyle = '#070c09'; g.fillRect(z.x, z.y, z.w, z.h);
-    g.strokeStyle = 'rgba(156,255,176,0.07)';
-    for (let x = z.x; x < z.x + z.w; x += 40) { g.beginPath(); g.moveTo(x, z.y); g.lineTo(x, z.y + z.h); g.stroke(); }
-    for (let y = z.y; y < z.y + z.h; y += 40) { g.beginPath(); g.moveTo(z.x, y); g.lineTo(z.x + z.w, y); g.stroke(); }
-    // cables across the floor
-    g.strokeStyle = '#020403'; g.lineWidth = 3;
-    for (let i = 0; i < 9; i++) {
-      g.beginPath(); g.moveTo(rnd(z.x, z.x + z.w), z.y + 20);
-      g.bezierCurveTo(rnd(z.x, z.x + z.w), rnd(z.y, z.y + z.h), rnd(z.x, z.x + z.w), rnd(z.y, z.y + z.h), 1440 + rnd(-30, 30), 1070);
-      g.stroke();
-    }
+    // cables to the monitors
+    g.strokeStyle = 'rgba(40,36,56,0.5)'; g.lineWidth = 2;
+    for (let i = 0; i < 7; i++) { g.beginPath(); g.moveTo(1230 + i * 40, 180); g.bezierCurveTo(1240 + i * 30, 300, rnd(1160, 1300), 340, 1156, 360 + i * 6); g.stroke(); }
     g.lineWidth = 1;
   });
-  floor(z0('yard'), z => {
-    g.fillStyle = '#0c0f0a'; g.fillRect(z.x, z.y, z.w, z.h);
-    for (let i = 0; i < 2500; i++) { g.fillStyle = `rgba(${rnd(60, 110) | 0},${rnd(90, 130) | 0},${rnd(40, 70) | 0},${rnd(0.05, 0.16)})`; g.fillRect(rnd(z.x, z.x + z.w) | 0, rnd(z.y, z.y + z.h) | 0, 2, 3); }
+  const grass = (z, base, n, flowers) => {
+    g.fillStyle = base; g.fillRect(z.x, z.y, z.w, z.h);
+    for (let i = 0; i < n; i++) { g.fillStyle = `rgba(${rnd(70, 120) | 0},${rnd(140, 180) | 0},${rnd(80, 110) | 0},${rnd(0.12, 0.3)})`; g.fillRect(rnd(z.x, z.x + z.w) | 0, rnd(z.y, z.y + z.h) | 0, 2, 4); }
+    for (let i = 0; i < flowers; i++) {
+      const x = rnd(z.x + 20, z.x + z.w - 20), y = rnd(z.y + 20, z.y + z.h - 20);
+      g.fillStyle = ['#ffffff', '#ffd6ea', '#fff3b0', '#d9d4ff'][i % 4];
+      for (const [ox, oy] of [[-2, 0], [2, 0], [0, -2], [0, 2]]) g.fillRect(x + ox, y + oy, 2, 2);
+      g.fillStyle = '#e8b84a'; g.fillRect(x, y, 2, 2);
+    }
+  };
+  floor(z0('park'), z => grass(z, '#dcebd5', 2600, 40));
+  floor(z0('garden'), z => {
+    grass(z, '#cde5c4', 3600, 70);
+    // stepping stones to the workbench
+    g.fillStyle = 'rgba(255,255,255,0.7)';
+    for (let i = 0; i < 5; i++) { g.beginPath(); g.ellipse(1440 + (i % 2 ? 10 : -10), 810 + i * 34, 16, 8, 0, 0, Math.PI * 2); g.fill(); }
   });
 
-  // walls: a lit top and a dark face below it
+  // walls: a lit top and a face below it; Cyberia stays dark
+  const club = z0('club');
   for (const s of world.solids) {
     if (s.w === 16 && s.h === 16) continue;               // poles are drawn with the wires
-    g.fillStyle = '#05040a'; g.fillRect(s.x, s.y + s.h, s.w, 10);
-    g.fillStyle = '#1b1922'; g.fillRect(s.x, s.y, s.w, s.h);
-    g.fillStyle = '#2a2733'; g.fillRect(s.x, s.y, s.w, 2);
+    const dark = inRect(s.x + 1, s.y + 1, club);
+    g.fillStyle = dark ? 'rgba(10,6,16,0.6)' : 'rgba(80,80,130,0.18)'; g.fillRect(s.x, s.y + s.h, s.w, 8);
+    g.fillStyle = dark ? '#221a2e' : '#d9d6e8'; g.fillRect(s.x, s.y, s.w, s.h);
+    g.fillStyle = dark ? '#3a2d4a' : '#ffffff'; g.fillRect(s.x, s.y, s.w, 2);
   }
-  // terminal: old monitors stacked up
+  // terminal: old beige monitors stacked up
   const crt = (x, y, w, h) => {
-    g.fillStyle = '#c9c3b0'; g.fillRect(x, y, w, h);
-    g.fillStyle = '#8f8a7a'; g.fillRect(x, y + h - 6, w, 6);
-    g.fillStyle = '#050806'; g.fillRect(x + 6, y + 6, w - 12, h - 18);
+    g.fillStyle = '#d8d1bd'; g.fillRect(x, y, w, h);
+    g.fillStyle = '#a69f8b'; g.fillRect(x, y + h - 6, w, 6);
+    g.fillStyle = '#0d1410'; g.fillRect(x + 6, y + 6, w - 12, h - 18);
   };
-  [[1226, 96], [1290, 96], [1354, 96], [1418, 96], [1546, 96], [1610, 96], [1546, 150], [1610, 150]].forEach(([x, y]) => crt(x, y, 58, 48));
-  [[1226, 140], [1290, 140], [1354, 140], [1418, 140]].forEach(([x, y]) => crt(x, y, 58, 40));
-  g.fillStyle = '#25212c'; g.fillRect(1300, 250, 280, 26);
-  g.fillStyle = '#3a3445'; g.fillRect(1300, 250, 280, 3);
-  // lab: racks
-  for (const [x, y] of [[1200, 860], [1480, 860], [1200, 960], [1480, 960]]) {
-    g.fillStyle = '#0d0f12'; g.fillRect(x, y, 200, 40);
-    g.fillStyle = '#1c2026';
-    for (let i = 0; i < 10; i++) g.fillRect(x + 4 + i * 20, y + 4, 16, 32);
-  }
-  // the chair you jack in from
-  g.fillStyle = '#1a1620'; g.fillRect(1418, 1050, 44, 34);
-  g.fillStyle = '#2b2533'; g.fillRect(1418, 1050, 44, 6);
-  // yard fence posts
-  g.fillStyle = '#2a2622';
+  MONITORS.forEach(([x, y, w, h]) => crt(x, y, w, h));
+  g.fillStyle = '#c9c4da'; g.fillRect(1300, 236, 280, 40);
+  g.fillStyle = '#f4f2fa'; g.fillRect(1300, 236, 280, 4);
+  // the well
+  g.fillStyle = 'rgba(80,80,140,0.18)'; g.beginPath(); g.ellipse(WELL.x, WELL.y + 14, 44, 16, 0, 0, Math.PI * 2); g.fill();
+  g.fillStyle = '#e9e7f2'; g.beginPath(); g.ellipse(WELL.x, WELL.y, 38, 22, 0, 0, Math.PI * 2); g.fill();
+  g.fillStyle = '#c9c6dc'; g.fillRect(WELL.x - 38, WELL.y, 76, 12);
+  g.beginPath(); g.ellipse(WELL.x, WELL.y + 12, 38, 22, 0, 0, Math.PI); g.fill();
+  // garden: tree trunks, the workbench with jars of beetles on it
+  for (const [x, y] of TREES) { g.fillStyle = '#7a5a44'; g.fillRect(x - 8, y - 40, 16, 46); g.fillStyle = 'rgba(40,80,40,0.25)'; g.beginPath(); g.ellipse(x, y + 6, 40, 12, 0, 0, Math.PI * 2); g.fill(); }
+  g.fillStyle = '#b48a64'; g.fillRect(1380, 990, 120, 40);
+  g.fillStyle = '#d4ab82'; g.fillRect(1380, 990, 120, 5);
+  g.fillStyle = '#8a6646'; g.fillRect(1386, 1030, 6, 10); g.fillRect(1488, 1030, 6, 10);
+  // park fence posts
+  g.fillStyle = '#b9b2c9';
   for (let x = PEN[0] - 12; x <= PEN[2] + 12; x += 40) { g.fillRect(x, PEN[1] - 22, 4, 10); g.fillRect(x, PEN[3] + 12, 4, 10); }
-  // the club: a speaker stack either side of the screen, a bar along the right
-  g.fillStyle = '#0a090c';
+  // Cyberia: a speaker stack either side of the screen, a bar along the right
+  g.fillStyle = '#07050a';
   g.fillRect(140, 70, 44, 90); g.fillRect(536, 70, 44, 90);
   g.fillStyle = '#1d1a22';
   for (const x of [162, 558]) for (const y of [92, 132]) { g.beginPath(); g.arc(x, y, 14, 0, Math.PI * 2); g.fill(); }
-  g.fillStyle = '#1d1720'; g.fillRect(600, 80, 30, 260);
+  g.fillStyle = '#2a1f33'; g.fillRect(600, 80, 30, 260);
   world.bg = c;
 }
+const MONITORS = [[1226, 96, 58, 48], [1290, 96, 58, 48], [1354, 96, 58, 48], [1418, 96, 58, 48], [1546, 96, 40, 48], [1588, 96, 40, 48], [1546, 150, 40, 48], [1588, 150, 40, 48],
+  [1226, 140, 58, 40], [1290, 140, 58, 40], [1354, 140, 58, 40], [1418, 140, 58, 40]];
 
 function worldDraw(now) {
-  const g = world.ctx, z = world.z, s = z * world.dpr;
+  const g = world.ctx, gt = world.tctx, z = world.z, s = z * world.dpr;
   const clock = now / 1000;
   const vw = world.cw / z, vh = world.ch / z;
   const me = world.cats.get(world.me);
@@ -403,59 +528,54 @@ function worldDraw(now) {
     world.cam.y = vh >= WORLD_H ? (WORLD_H - vh) / 2 : Math.max(0, Math.min(WORLD_H - vh, me.y - vh / 2));
   }
   const cx = Math.round(world.cam.x * s) / s, cy = Math.round(world.cam.y * s) / s;
+  // the floor goes on the bottom canvas, under the club video
   g.setTransform(1, 0, 0, 1, 0, 0);
-  g.fillStyle = '#050407'; g.fillRect(0, 0, world.canvas.width, world.canvas.height);
+  g.fillStyle = '#e6e6f6'; g.fillRect(0, 0, world.canvas.width, world.canvas.height);
   g.setTransform(s, 0, 0, s, -cx * s, -cy * s);
   g.imageSmoothingEnabled = false;
   g.drawImage(world.bg, 0, 0);
-
   drawLive(g, clock);
-
+  drawBugs(g, netNow());
   if (world.target && me?.moving) {
-    g.strokeStyle = '#ff2a3a'; g.globalAlpha = 0.6;
+    g.strokeStyle = '#ff3d6e'; g.globalAlpha = 0.6;
     g.beginPath(); g.ellipse(world.target.x, world.target.y, 10, 4, 0, 0, Math.PI * 2); g.stroke();
     g.globalAlpha = 1;
   }
 
-  // things that stand on the floor, back to front
+  // everyone and everything above it goes on the top canvas, over the video
+  gt.setTransform(1, 0, 0, 1, 0, 0);
+  gt.clearRect(0, 0, world.top.width, world.top.height);
+  gt.setTransform(s, 0, 0, s, -cx * s, -cy * s);
+  gt.imageSmoothingEnabled = false;
   const b = ballAt(clock);
   const things = [...world.cats.values()].map(c => ({ y: c.y, c }));
   things.push({ y: b.y, ball: b });
   things.sort((a, b2) => a.y - b2.y);
-  for (const t of things) t.ball ? drawBall(g, t.ball, clock) : drawCat(g, t.c, clock);
-  for (const c of world.cats.values()) if (c.bubble && Date.now() < c.bubble.until) drawBubble(g, c.bubble, Math.round(c.x), Math.round(c.y) - 58, cx, vw);
+  for (const t of things) t.ball ? drawBall(gt, t.ball, clock) : drawCat(gt, t.c, clock);
+  drawTrees(gt, me);
+  drawWires(gt, clock, cx, cy);
+  drawLights(gt, clock, cx, cy, vw, vh);
+  drawSigns(gt, clock);
+  drawPrompt(gt, clock);
+  for (const c of world.cats.values()) if (c.bubble && Date.now() < c.bubble.until) drawBubble(gt, c.bubble, Math.round(c.x), Math.round(c.y) - 58, cx, vw);
+  drawSplashes(gt, clock);
 
-  drawWires(g, clock, cx, cy);
-  drawLights(g, clock);
-  drawSigns(g, clock);
-
-  // the screen effects, in device pixels
-  g.setTransform(1, 0, 0, 1, 0, 0);
-  post(g, now);
+  gt.setTransform(1, 0, 0, 1, 0, 0);
+  post(gt, now);
   if (world.tvEl) placeTv(cx, cy);
 }
 
-// blinking LEDs, the monitors, the screen, the lab door
+// the monitors, the screen, the dance floor, the well, the capsule machine
 function drawLive(g, t) {
-  // terminal monitors: green text that scrolls
-  const mons = [[1226, 96, 58, 48], [1290, 96, 58, 48], [1354, 96, 58, 48], [1418, 96, 58, 48], [1546, 96, 58, 48], [1610, 96, 58, 48], [1546, 150, 58, 48], [1610, 150, 58, 48],
-    [1226, 140, 58, 40], [1290, 140, 58, 40], [1354, 140, 58, 40], [1418, 140, 58, 40]];
-  mons.forEach(([x, y, w, h], i) => {
-    const on = (Math.sin(t * 0.7 + i * 1.7) > -0.8);
-    if (!on) return;
-    g.fillStyle = 'rgba(156,255,176,0.10)'; g.fillRect(x + 6, y + 6, w - 12, h - 18);
-    g.fillStyle = 'rgba(156,255,176,0.55)';
+  MONITORS.forEach(([x, y, w, h], i) => {
+    if (Math.sin(t * 0.7 + i * 1.7) < -0.8) return;
+    g.fillStyle = 'rgba(156,255,176,0.12)'; g.fillRect(x + 6, y + 6, w - 12, h - 18);
+    g.fillStyle = 'rgba(156,255,176,0.6)';
     for (let l = 0; l < 4; l++) {
       const len = ((Math.sin(i * 9 + l * 3 + Math.floor(t * 2 + i)) + 1) / 2) * (w - 20);
       g.fillRect(x + 9, y + 9 + l * ((h - 22) / 4), len, 2);
     }
   });
-  // rack LEDs
-  for (const [x, y] of [[1200, 860], [1480, 860], [1200, 960], [1480, 960]]) for (let i = 0; i < 10; i++) {
-    const k = Math.sin(t * (3 + i % 4) + i * 7 + x) > 0.3;
-    g.fillStyle = k ? '#9cffb0' : '#1f4a2c'; g.fillRect(x + 8 + i * 20, y + 10, 3, 3);
-    g.fillStyle = Math.sin(t * 5 + i * 3 + y) > 0.8 ? '#ff2a3a' : '#3a1418'; g.fillRect(x + 8 + i * 20, y + 18, 3, 3);
-  }
   // the club screen
   const S = CLUB_SCREEN;
   g.fillStyle = '#000'; g.fillRect(S.x - 6, S.y - 6, S.w + 12, S.h + 12);
@@ -463,50 +583,92 @@ function drawLive(g, t) {
     g.drawImage(world.noise[Math.floor(t * 20) % world.noise.length], 0, 0, 128, 72, S.x, S.y, S.w, S.h);
     g.fillStyle = 'rgba(0,0,0,0.45)'; g.fillRect(S.x, S.y, S.w, S.h);
     g.font = wf(13, 'bold'); g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#e9e4ff';
-    g.fillText(world.tv ? (world.zone?.id === 'club' ? '▶ press Screen to watch along' : '▶ something is playing') : 'NO SIGNAL', S.x + S.w / 2, S.y + S.h / 2);
+    g.fillText(world.tv ? (world.tvEl ? 'tuning in…' : '▶ something is playing') : 'NO SIGNAL', S.x + S.w / 2, S.y + S.h / 2);
     if (world.tv?.by) { g.font = wf(10); g.fillStyle = 'rgba(233,228,255,0.7)'; g.fillText(`put on by ${world.tv.by}`, S.x + S.w / 2, S.y + S.h / 2 + 20); }
   }
-  // the dance floor lights up while the screen plays
-  if (world.tv) {
-    const club = z0('club');
-    for (let i = 0; i < 6; i++) {
-      const px = club.x + 60 + ((Math.sin(t * 0.9 + i * 2.1) + 1) / 2) * (club.w - 120);
-      const py = club.y + 260 + ((Math.cos(t * 1.1 + i * 1.3) + 1) / 2) * 100;
-      const gr = g.createRadialGradient(px, py, 0, px, py, 60);
-      gr.addColorStop(0, i % 2 ? 'rgba(255,42,58,0.18)' : 'rgba(150,90,255,0.16)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
-      g.fillStyle = gr; g.fillRect(px - 60, py - 60, 120, 120);
-    }
+  // the dance floor: tiles light up under anyone standing on them
+  const lit = new Set([...world.cats.values()].filter(c => !c.ghost).map(danceTile));
+  for (let ty = 0; ty < DANCE.h / 30; ty++) for (let tx = 0; tx < DANCE.w / 30; tx++) {
+    const on = lit.has(`${tx},${ty}`);
+    const pulse = world.tv ? (Math.sin(t * 3 + tx * 0.7 + ty) + 1) / 2 : 0;
+    const a = on ? 0.55 : pulse * 0.12;
+    if (a < 0.02) continue;
+    g.fillStyle = `hsla(${(tx * 24 + ty * 40 + t * 20) % 360} 90% 65% / ${a})`;
+    g.fillRect(DANCE.x + tx * 30 + 1, DANCE.y + ty * 30 + 1, 28, 28);
   }
-  // the lab door: taped off for the remilia sign-in
+  // the well: water with light in it
+  const wg = g.createRadialGradient(WELL.x, WELL.y, 2, WELL.x, WELL.y, 30);
+  wg.addColorStop(0, '#ffffff'); wg.addColorStop(0.5, '#bfe0ff'); wg.addColorStop(1, '#8fb5f0');
+  g.fillStyle = wg; g.beginPath(); g.ellipse(WELL.x, WELL.y, 30, 15, 0, 0, Math.PI * 2); g.fill();
+  g.strokeStyle = 'rgba(255,255,255,0.8)'; g.lineWidth = 1;
+  for (let i = 0; i < 2; i++) { const r = ((t * 12 + i * 15) % 30); g.globalAlpha = 1 - r / 30; g.beginPath(); g.ellipse(WELL.x, WELL.y, r, r / 2, 0, 0, Math.PI * 2); g.stroke(); }
+  g.globalAlpha = 1;
+  // the capsule machine
+  const M = { x: 1650, y: 214 };
+  g.fillStyle = '#e14d9c'; g.fillRect(M.x, M.y + 46, 56, 46);
+  g.fillStyle = '#b8347b'; g.fillRect(M.x, M.y + 86, 56, 6);
+  g.fillStyle = '#fff'; g.fillRect(M.x + 18, M.y + 62, 20, 14);
+  g.fillStyle = 'rgba(220,235,255,0.75)'; g.beginPath(); g.arc(M.x + 28, M.y + 30, 26, Math.PI, 0); g.fill(); g.fillRect(M.x + 2, M.y + 30, 52, 16);
+  [['#ffd34d', 14, 36], ['#7fd1ff', 28, 30], ['#ff8fb8', 40, 38], ['#a9f0b0', 22, 42], ['#c7a6ff', 36, 22]].forEach(([c, ox, oy], i) => {
+    g.fillStyle = c; g.beginPath(); g.arc(M.x + ox, M.y + oy + Math.sin(t * 2 + i) * 0.6, 5, 0, Math.PI * 2); g.fill();
+  });
+  g.fillStyle = 'rgba(255,255,255,0.7)'; g.fillRect(M.x + 12, M.y + 12, 4, 10);
+  // the workbench glows when the beetle game is open to you
+  if (!labLocked()) {
+    const gr = g.createRadialGradient(1440, 1000, 0, 1440, 1000, 90);
+    gr.addColorStop(0, `rgba(170,255,190,${0.25 + Math.sin(t * 2) * 0.08})`); gr.addColorStop(1, 'rgba(170,255,190,0)');
+    g.fillStyle = gr; g.fillRect(1350, 910, 180, 180);
+  }
+  for (let i = 0; i < 4; i++) {        // jars on the bench
+    g.fillStyle = 'rgba(230,245,255,0.85)'; g.fillRect(1392 + i * 26, 974, 16, 20);
+    g.fillStyle = ['#3d9e4a', '#c43a3a', '#d4a531', '#6b4fc4'][i]; g.fillRect(1397 + i * 26, 984 + Math.round(Math.sin(t * 3 + i) * 2), 6, 5);
+  }
+  // the gate of the garden, closed for the remilia sign-in
   if (labLocked()) {
-    const D = LAB_DOOR;
-    g.fillStyle = 'rgba(255,42,58,0.12)'; g.fillRect(D.x, D.y - 4, D.w, D.h + 8);
-    g.save(); g.beginPath(); g.rect(D.x, D.y + 6, D.w, 10); g.clip();
-    for (let x = D.x - 20; x < D.x + D.w + 20; x += 20) { g.fillStyle = (x / 20) % 2 ? '#ff2a3a' : '#e9e4ff'; g.beginPath(); g.moveTo(x, D.y + 16); g.lineTo(x + 10, D.y + 6); g.lineTo(x + 20, D.y + 6); g.lineTo(x + 10, D.y + 16); g.fill(); }
-    g.restore();
-    g.font = wf(12, 'bold'); g.textAlign = 'center'; g.textBaseline = 'bottom';
-    g.fillStyle = Math.sin(t * 4) > -0.3 ? '#ff2a3a' : '#7a121c';
-    g.fillText('🔒 ACCESS DENIED', D.x + D.w / 2, D.y - 6);
+    const D = GARDEN_GATE;
+    g.fillStyle = '#8c86a3';
+    for (let x = D.x + 4; x < D.x + D.w; x += 14) g.fillRect(x, D.y - 18, 4, 40);
+    g.fillRect(D.x, D.y - 12, D.w, 4); g.fillRect(D.x, D.y + 10, D.w, 4);
+    g.fillStyle = '#c23a4a'; g.fillRect(D.x + D.w / 2 - 9, D.y - 4, 18, 14);
+    g.strokeStyle = '#c23a4a'; g.lineWidth = 2; g.beginPath(); g.arc(D.x + D.w / 2, D.y - 4, 6, Math.PI, 0); g.stroke();
   }
   // trails fade where they were dropped
   for (const c of world.cats.values()) {
-    c.trail = c.trail.filter(p => t - p.t < 1.2);
+    c.trail = c.trail.filter(p => t - p.t < (c.w?.trail === 't_feathers' ? 2.2 : 1.2));
     for (const p of c.trail) {
-      const a = 1 - (t - p.t) / 1.2;
-      if (c.w?.trail === 't_hearts') { g.globalAlpha = a; g.font = wf(9); g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('♥', p.x, p.y - (t - p.t) * 12); g.fillStyle = '#ff5a78'; }
-      else { g.globalAlpha = a * 0.8; g.fillStyle = Math.random() < 0.5 ? '#e9e4ff' : '#6b6680'; g.fillRect(p.x, p.y, 2, 2); }
+      const age = t - p.t;
+      if (c.w?.trail === 't_hearts') { g.globalAlpha = 1 - age / 1.2; g.font = wf(9); g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#ff5a78'; g.fillText('♥', p.x, p.y - age * 12); }
+      else if (c.w?.trail === 't_feathers') {
+        g.globalAlpha = 1 - age / 2.2; g.save(); g.translate(p.x + Math.sin(age * 3 + p.r * 6) * 6, p.y + age * 10); g.rotate(Math.sin(age * 2 + p.r) * 0.8);
+        g.fillStyle = '#ffffff'; g.beginPath(); g.ellipse(0, 0, 2, 5, 0, 0, Math.PI * 2); g.fill(); g.fillStyle = '#c9c6dc'; g.fillRect(-0.5, -4, 1, 8); g.restore();
+      } else { g.globalAlpha = (1 - age / 1.2) * 0.8; g.fillStyle = Math.random() < 0.5 ? '#6b6680' : '#2a2635'; g.fillRect(p.x, p.y, 2, 2); }
     }
     g.globalAlpha = 1;
   }
 }
 
+function drawBugs(g, t) {
+  for (const b of liveBugs()) {
+    const names = BUG_KINDS[b.kind], img = world.bugImg[names[Math.floor(hrand(b.s + 9) * names.length)]];
+    if (!img?.complete || !img.naturalWidth) continue;
+    const n = bugAt(+b.id.split(':')[0], t + 0.2);
+    const ang = Math.atan2(n.y - b.y, n.x - b.x) + Math.PI / 2;
+    const size = b.kind === 2 ? 26 : 22;
+    g.fillStyle = 'rgba(40,40,70,0.2)'; g.beginPath(); g.ellipse(b.x, b.y + 3, size / 2.6, size / 6, 0, 0, Math.PI * 2); g.fill();
+    g.save(); g.translate(b.x, b.y - 4); g.rotate(ang + Math.sin(t * 14 + b.s) * 0.08);
+    g.imageSmoothingEnabled = true; g.drawImage(img, -size / 2, -size / 2, size, size); g.imageSmoothingEnabled = false;
+    g.restore();
+    if (b.kind === 2 && Math.sin(t * 4 + b.s) > 0.6) { g.fillStyle = '#fff6c0'; g.fillRect(b.x + 8, b.y - 16, 2, 6); g.fillRect(b.x + 6, b.y - 14, 6, 2); }
+  }
+}
+
 function drawBall(g, b, t) {
-  g.fillStyle = 'rgba(0,0,0,0.45)';
+  g.fillStyle = 'rgba(40,40,80,0.25)';
   g.beginPath(); g.ellipse(b.x, b.y + 2, 10, 4, 0, 0, Math.PI * 2); g.fill();
   const hop = Math.min(8, b.speed / 60) * Math.abs(Math.sin(t * 9));
-  g.fillStyle = '#c3122f';
+  g.fillStyle = '#e8435f';
   g.beginPath(); g.arc(b.x, b.y - BALL_R - hop, BALL_R, 0, Math.PI * 2); g.fill();
-  g.fillStyle = 'rgba(255,255,255,0.35)';
+  g.fillStyle = 'rgba(255,255,255,0.5)';
   g.beginPath(); g.arc(b.x - 3, b.y - BALL_R - hop - 4, 3, 0, Math.PI * 2); g.fill();
 }
 
@@ -523,15 +685,16 @@ function drawCat(g, c, t) {
   const x = Math.round(c.x);
   const hop = dancing && !c.moving ? Math.round(Math.abs(Math.sin((t - c.emote.at) * 8)) * 6) : 0;
   const y = Math.round(c.y);
-  const flick = c.ghost ? (Math.sin(t * 11 + c.t0 * 5) > 0.85 ? 0.12 : 0.38) : 1;
+  const flick = c.ghost ? (Math.sin(t * 11 + c.t0 * 5) > 0.85 ? 0.15 : 0.45) : 1;
   g.globalAlpha = flick;
   // shadow, with the red spots shadows have out here
-  g.fillStyle = 'rgba(0,0,0,0.55)';
+  g.fillStyle = 'rgba(40,36,80,0.28)';
   g.beginPath(); g.ellipse(x, y, 15, 5, 0, 0, Math.PI * 2); g.fill();
   if (!c.ghost) {
-    g.fillStyle = '#b3001e';
+    g.fillStyle = 'rgba(200,0,40,0.55)';
     for (const [ox, oy, r] of [[-6, 0, 1.6], [4, -1, 1.2], [8, 1, 1]]) { g.beginPath(); g.arc(x + ox, y + oy, r, 0, Math.PI * 2); g.fill(); }
   }
+  if (c.w?.back === 'wings') drawWings(g, x, y - hop, t + c.t0, c.moving);
   if (c.w?.hold === 'balloon') drawBalloon(g, x, y - hop, t + c.t0);
   g.save();
   g.translate(x, y - hop);
@@ -539,7 +702,7 @@ function drawCat(g, c, t) {
   g.drawImage(sheet, sx, sy, 48, 48, -24, -46, 48, 48);
   g.restore();
   if (c.w?.hat) drawHat(g, c.w.hat, x, y - hop - 38, dir, t);
-  if (c.w?.hold && c.w.hold !== 'balloon') drawHold(g, c.w.hold, x, y - hop, flip);
+  if (c.w?.hold && c.w.hold !== 'balloon') drawHold(g, c.w.hold, x, y - hop, flip, t);
   label(g, c, x, y);
   g.globalAlpha = 1;
   if (em) {
@@ -551,27 +714,51 @@ function drawCat(g, c, t) {
   }
 }
 
+function drawWings(g, x, y, t, moving) {
+  const flap = Math.sin(t * (moving ? 10 : 2.5)) * (moving ? 0.35 : 0.12);
+  for (const side of [-1, 1]) {
+    g.save(); g.translate(x + side * 6, y - 26); g.scale(side, 1); g.rotate(-0.35 - flap);
+    g.fillStyle = 'rgba(255,255,255,0.95)'; g.strokeStyle = 'rgba(160,160,210,0.8)'; g.lineWidth = 1;
+    g.beginPath(); g.moveTo(0, 0); g.quadraticCurveTo(10, -16, 24, -14); g.quadraticCurveTo(20, -6, 22, -2); g.quadraticCurveTo(14, 0, 18, 6); g.quadraticCurveTo(8, 8, 0, 4); g.closePath(); g.fill(); g.stroke();
+    g.restore();
+  }
+}
+
 function drawHat(g, id, x, y, dir, t) {
   g.save();
   switch (id) {
     case 'antenna':
-      g.strokeStyle = '#d8d4e8'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(x + 3, y + 4); g.lineTo(x + 7, y - 10); g.stroke();
+      g.strokeStyle = '#3a3445'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(x + 3, y + 4); g.lineTo(x + 7, y - 10); g.stroke();
       g.fillStyle = Math.sin(t * 6) > 0 ? '#ff2a3a' : '#7a121c'; g.beginPath(); g.arc(x + 7, y - 11, 2.5, 0, Math.PI * 2); g.fill();
       break;
     case 'bow':
-      g.fillStyle = '#ff2a3a';
+      g.fillStyle = '#ff2a5a';
       g.beginPath(); g.moveTo(x + 6, y + 2); g.lineTo(x - 2, y - 4); g.lineTo(x - 2, y + 7); g.closePath(); g.fill();
       g.beginPath(); g.moveTo(x + 6, y + 2); g.lineTo(x + 14, y - 4); g.lineTo(x + 14, y + 7); g.closePath(); g.fill();
-      g.fillStyle = '#9e0d1f'; g.fillRect(x + 4, y, 4, 4);
+      g.fillStyle = '#b50d33'; g.fillRect(x + 4, y, 4, 4);
       break;
     case 'headset':
-      g.strokeStyle = '#1a1820'; g.lineWidth = 3; g.beginPath(); g.arc(x, y + 8, 14, Math.PI * 1.05, Math.PI * 1.95); g.stroke();
-      g.fillStyle = '#2b2733'; g.fillRect(x - 17, y + 4, 6, 10); g.fillRect(x + 11, y + 4, 6, 10);
+      g.strokeStyle = '#2a2633'; g.lineWidth = 3; g.beginPath(); g.arc(x, y + 8, 14, Math.PI * 1.05, Math.PI * 1.95); g.stroke();
+      g.fillStyle = '#3b3646'; g.fillRect(x - 17, y + 4, 6, 10); g.fillRect(x + 11, y + 4, 6, 10);
       g.fillStyle = '#ff2a3a'; g.fillRect(x - 16, y + 7, 2, 2);
       break;
     case 'halo':
-      g.strokeStyle = '#ffe9a0'; g.lineWidth = 2; g.shadowColor = '#ffe9a0'; g.shadowBlur = 8;
+      g.strokeStyle = '#ffd860'; g.lineWidth = 2; g.shadowColor = '#fff2a0'; g.shadowBlur = 8;
       g.beginPath(); g.ellipse(x, y - 6 + Math.sin(t * 2) * 1.5, 11, 3.5, 0, 0, Math.PI * 2); g.stroke();
+      break;
+    case 'star': {
+      const sy = y - 12 + Math.sin(t * 2.4) * 2;
+      g.fillStyle = '#ffe36a'; g.shadowColor = '#fff6c0'; g.shadowBlur = 10;
+      g.beginPath();
+      for (let i = 0; i < 10; i++) { const r = i % 2 ? 2.5 : 6, a = i * Math.PI / 5 - Math.PI / 2 + t * 0.8; g.lineTo(x + Math.cos(a) * r, sy + Math.sin(a) * r); }
+      g.closePath(); g.fill();
+      break;
+    }
+    case 'feather':
+      g.translate(x - 8, y + 2); g.rotate(-0.5 + Math.sin(t * 1.5) * 0.08);
+      g.fillStyle = '#ffffff'; g.strokeStyle = '#b9b5d2'; g.lineWidth = 1;
+      g.beginPath(); g.ellipse(0, -9, 3.5, 10, 0, 0, Math.PI * 2); g.fill(); g.stroke();
+      g.beginPath(); g.moveTo(0, 2); g.lineTo(0, -18); g.stroke();
       break;
     case 'bear':
       g.fillStyle = '#c9a47a';
@@ -589,12 +776,12 @@ function drawHat(g, id, x, y, dir, t) {
 }
 function drawBalloon(g, x, y, t) {
   const bx = x + 18 + Math.sin(t * 1.3) * 3, by = y - 70 + Math.sin(t * 1.7) * 2;
-  g.strokeStyle = 'rgba(233,228,255,0.6)'; g.lineWidth = 1;
+  g.strokeStyle = 'rgba(90,86,120,0.6)'; g.lineWidth = 1;
   g.beginPath(); g.moveTo(x + 10, y - 14); g.quadraticCurveTo(x + 16, y - 40, bx, by + 11); g.stroke();
-  g.fillStyle = '#ff2a3a'; g.beginPath(); g.ellipse(bx, by, 9, 11, 0, 0, Math.PI * 2); g.fill();
-  g.fillStyle = 'rgba(255,255,255,0.35)'; g.beginPath(); g.arc(bx - 3, by - 4, 2.5, 0, Math.PI * 2); g.fill();
+  g.fillStyle = '#ff3d6e'; g.beginPath(); g.ellipse(bx, by, 9, 11, 0, 0, Math.PI * 2); g.fill();
+  g.fillStyle = 'rgba(255,255,255,0.45)'; g.beginPath(); g.arc(bx - 3, by - 4, 2.5, 0, Math.PI * 2); g.fill();
 }
-function drawHold(g, id, x, y, flip) {
+function drawHold(g, id, x, y, flip, t = 0) {
   const hx = x + (flip ? -15 : 15), hy = y - 14;
   if (id === 'phone') {
     g.fillStyle = '#c9c3b0'; g.fillRect(hx - 3, hy - 9, 7, 13);
@@ -603,6 +790,13 @@ function drawHold(g, id, x, y, flip) {
     g.fillStyle = '#9a7652';
     g.beginPath(); g.arc(hx, hy - 6, 5, 0, Math.PI * 2); g.arc(hx, hy + 2, 6, 0, Math.PI * 2); g.fill();
     g.beginPath(); g.arc(hx - 4, hy - 10, 2, 0, Math.PI * 2); g.arc(hx + 4, hy - 10, 2, 0, Math.PI * 2); g.fill();
+  } else if (id === 'lantern') {
+    const gr = g.createRadialGradient(hx, hy, 0, hx, hy, 26);
+    gr.addColorStop(0, `rgba(255,220,140,${0.45 + Math.sin(t * 5) * 0.05})`); gr.addColorStop(1, 'rgba(255,220,140,0)');
+    g.fillStyle = gr; g.fillRect(hx - 26, hy - 26, 52, 52);
+    g.strokeStyle = '#5a5070'; g.lineWidth = 1; g.beginPath(); g.moveTo(hx, hy - 12); g.lineTo(hx, hy - 7); g.stroke();
+    g.fillStyle = '#5a5070'; g.fillRect(hx - 4, hy - 7, 8, 2); g.fillRect(hx - 4, hy + 5, 8, 2);
+    g.fillStyle = '#ffd98a'; g.fillRect(hx - 3, hy - 5, 6, 10);
   }
 }
 
@@ -614,9 +808,9 @@ function label(g, c, x, y) {
   g.textAlign = 'center'; g.textBaseline = 'top';
   const name = (c.d || c.u).slice(0, 18) + (c.u === world.me ? ' (you)' : '');
   const m = g.measureText(name), w = m.width + 8, h = m.fontBoundingBoxAscent + m.fontBoundingBoxDescent + 3;
-  g.fillStyle = 'rgba(0,0,0,0.7)';
+  g.fillStyle = 'rgba(255,255,255,0.78)';
   g.fillRect(x - w / 2, y + 5, w, h);
-  g.fillStyle = c.ghost ? '#8a86a0' : `hsl(${nameHue(c.d || c.u)} 75% 75%)`;
+  g.fillStyle = c.ghost ? '#8a86a0' : `hsl(${nameHue(c.d || c.u)} 60% 38%)`;
   g.fillText(name, x, y + 7);
 }
 
@@ -637,13 +831,26 @@ function drawBubble(g, b, x, y, camX, vw) {
   const lw = Math.max(iw, ...lines.map(l => g.measureText(l).width)) + 12;
   const lh = lines.length * lh1 + (img ? ih + (lines.length ? 4 : 0) : 0) + 8;
   const bx = Math.max(camX + 2, Math.min(camX + vw - lw - 2, x - lw / 2)), by = y - lh;
-  g.fillStyle = '#e9e4ff'; g.strokeStyle = '#000'; g.lineWidth = 1;
-  roundRect(g, bx, by, lw, lh, 2); g.fill(); g.stroke();
+  g.fillStyle = '#ffffff'; g.strokeStyle = '#a9a4c8'; g.lineWidth = 1;
+  roundRect(g, bx, by, lw, lh, 3); g.fill(); g.stroke();
   g.beginPath(); g.moveTo(x - 4, by + lh); g.lineTo(x, by + lh + 5); g.lineTo(x + 4, by + lh); g.closePath(); g.fill();
   if (img) { g.imageSmoothingEnabled = true; g.drawImage(img, bx + (lw - iw) / 2, by + 4, iw, ih); g.imageSmoothingEnabled = false; }
-  g.fillStyle = '#0a0910';
+  g.fillStyle = '#211d2e';
   const ty = by + 4 + (img ? ih + 4 : 0);
   lines.forEach((l, i) => g.fillText(l, bx + lw / 2, ty + lh1 / 2 + i * lh1));
+}
+
+// the tree tops in the garden: you walk under them, they go see-through
+function drawTrees(g, me) {
+  for (const [x, y] of TREES) {
+    const under = me && Math.abs(me.x - x) < 60 && me.y < y + 10 && me.y > y - 110;
+    g.globalAlpha = under ? 0.45 : 0.95;
+    for (const [ox, oy, r, c] of [[0, -70, 46, '#5fae6a'], [-26, -52, 30, '#4f9d5c'], [28, -54, 32, '#58a764'], [6, -88, 28, '#76c27f']]) {
+      g.fillStyle = c; g.beginPath(); g.arc(x + ox, y + oy, r, 0, Math.PI * 2); g.fill();
+    }
+    g.fillStyle = 'rgba(255,255,255,0.25)'; g.beginPath(); g.arc(x - 10, y - 92, 14, 0, Math.PI * 2); g.fill();
+  }
+  g.globalAlpha = 1;
 }
 
 // power lines overhead: they sit a little above the world, so they drift
@@ -652,12 +859,12 @@ function drawWires(g, t, camX, camY) {
   const px = camX * 0.06, py = camY * 0.06;
   g.save(); g.translate(px, py);
   for (const [x, y] of POLES) {
-    g.fillStyle = 'rgba(0,0,0,0.5)'; g.fillRect(x - px - 4, y - py - 2, 30, 6);     // shadow on the street
-    g.fillStyle = '#030205'; g.fillRect(x - 3, y - 150, 6, 150);
+    g.fillStyle = 'rgba(40,40,80,0.18)'; g.fillRect(x - px - 4, y - py - 2, 30, 6);     // shadow on the ground
+    g.fillStyle = '#36314a'; g.fillRect(x - 3, y - 150, 6, 150);
     g.fillRect(x - 26, y - 140, 52, 4); g.fillRect(x - 20, y - 122, 40, 3);
     g.fillRect(x + 6, y - 112, 12, 16);                                              // transformer
   }
-  g.strokeStyle = '#030205'; g.lineWidth = 1.6;
+  g.strokeStyle = 'rgba(54,49,74,0.7)'; g.lineWidth = 1.2;
   const sag = (x1, y1, x2, y2, d) => { g.beginPath(); g.moveTo(x1, y1); g.quadraticCurveTo((x1 + x2) / 2, (y1 + y2) / 2 + d + Math.sin(t * 0.8 + x1) * 1.5, x2, y2); g.stroke(); };
   const links = [[0, 1], [2, 3], [0, 2], [1, 3], [4, 0], [4, 2], [1, 5], [3, 5]];
   for (const [a, b] of links) {
@@ -672,21 +879,36 @@ function drawWires(g, t, camX, camY) {
   g.restore();
 }
 
-function drawLights(g, t) {
+// light from above: soft shafts that sway, motes drifting up, Cyberia's glow
+function drawLights(g, t, cx, cy, vw, vh) {
   g.save();
-  g.globalCompositeOperation = 'lighter';
-  LAMPS.forEach(([x, y], i) => {
-    const flicker = Math.sin(t * 13 + i * 5) > 0.97 ? 0.3 : 1;
-    const gr = g.createRadialGradient(x, y, 0, x, y, 130);
-    gr.addColorStop(0, `rgba(216,192,112,${0.14 * flicker})`); gr.addColorStop(1, 'rgba(0,0,0,0)');
-    g.fillStyle = gr; g.fillRect(x - 130, y - 130, 260, 260);
-  });
-  // the terminal and the lab glow a little green, the club a little red
-  for (const [x, y, c] of [[1440, 180, '156,255,176'], [1440, 1000, '156,255,176'], [360, 260, '255,42,58']]) {
-    const gr = g.createRadialGradient(x, y, 0, x, y, 260);
-    gr.addColorStop(0, `rgba(${c},0.07)`); gr.addColorStop(1, 'rgba(0,0,0,0)');
-    g.fillStyle = gr; g.fillRect(x - 260, y - 260, 520, 520);
+  g.globalCompositeOperation = 'screen';
+  for (let i = 0; i < 5; i++) {
+    const x = 200 + i * 360 + Math.sin(t * 0.13 + i * 2) * 60;
+    const gr = g.createLinearGradient(x, 0, x + 260, WORLD_H);
+    gr.addColorStop(0, 'rgba(255,255,255,0)'); gr.addColorStop(0.5, `rgba(255,250,235,${0.12 + Math.sin(t * 0.4 + i) * 0.04})`); gr.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = gr;
+    g.beginPath(); g.moveTo(x, 0); g.lineTo(x + 70, 0); g.lineTo(x + 330, WORLD_H); g.lineTo(x + 200, WORLD_H); g.closePath(); g.fill();
   }
+  // above the well a column of light goes up into the sky
+  const wl = g.createLinearGradient(0, WELL.y - 260, 0, WELL.y);
+  wl.addColorStop(0, 'rgba(200,225,255,0)'); wl.addColorStop(1, `rgba(220,235,255,${0.35 + Math.sin(t * 1.3) * 0.08})`);
+  g.fillStyle = wl; g.fillRect(WELL.x - 26, WELL.y - 260, 52, 260);
+  g.restore();
+  g.save();
+  for (let i = 0; i < 46; i++) {
+    const x = (hrand(i + 1) * WORLD_W + Math.sin(t * 0.3 + i) * 30) % WORLD_W;
+    const y = WORLD_H - ((hrand(i + 50) * WORLD_H + t * (8 + hrand(i + 9) * 14)) % WORLD_H);
+    if (x < cx - 10 || x > cx + vw + 10 || y < cy - 10 || y > cy + vh + 10) continue;
+    g.globalAlpha = 0.35 + 0.35 * Math.sin(t * 2 + i);
+    g.fillStyle = i % 5 ? '#ffffff' : '#ffe9b0';
+    g.fillRect(x, y, 2, 2);
+  }
+  g.globalAlpha = 1;
+  g.globalCompositeOperation = 'lighter';
+  const gr = g.createRadialGradient(360, 260, 0, 360, 260, 260);
+  gr.addColorStop(0, 'rgba(255,61,110,0.08)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = gr; g.fillRect(100, 40, 520, 380);
   g.restore();
 }
 
@@ -694,25 +916,63 @@ function drawSigns(g, t) {
   g.save();
   g.textAlign = 'center'; g.textBaseline = 'middle';
   for (const z of ZONES) {
-    const sx = z.x + z.w / 2, sy = z.door === 'bottom' ? z.y + z.h + 22 : z.y - 22;
-    const dim = Math.sin(t * 7 + z.x) > 0.96;
-    g.font = wf(16, 'bold');
-    g.shadowColor = z.col; g.shadowBlur = dim ? 0 : 10;
-    g.fillStyle = dim ? '#3a3440' : z.col;
+    const sx = z.x + z.w / 2, sy = z.door === 'bottom' ? z.y + z.h + 22 : z.y - 24;
+    const dim = Math.sin(t * 7 + z.x) > 0.97;
+    g.font = wf(15, 'bold');
+    g.shadowColor = '#ffffff'; g.shadowBlur = dim ? 0 : 8;
+    g.fillStyle = dim ? '#b9b5cc' : z.col;
     g.fillText(z.name.split('').join(' '), sx, sy);
   }
   g.restore();
 }
 
-// scanlines, grain, a dark edge and now and then a glitch
+// the prompt over the nearest thing to use: tap it, or press E
+function drawPrompt(g, t) {
+  const s = world.near;
+  world.prompt = null;
+  if (!s) return;
+  const text = s.text() + (matchMedia('(pointer: fine)').matches ? '  [E]' : '');
+  g.font = wf(12, 'bold');
+  const m = g.measureText(text), w = m.width + 20, h = (m.fontBoundingBoxAscent + m.fontBoundingBoxDescent) + 12;
+  // above the thing, or below it when you stand above it, so it never hides your cat
+  const below = s.at.y < s.r.y;
+  const x = s.r.x + s.r.w / 2, y = (below ? s.r.y + s.r.h + 18 : s.r.y - 12 - h) + Math.sin(t * 3) * 2;
+  g.save();
+  g.shadowColor = s.col; g.shadowBlur = 14;
+  g.fillStyle = 'rgba(255,255,255,0.95)'; roundRect(g, x - w / 2, y, w, h, h / 2); g.fill();
+  g.shadowBlur = 0;
+  g.strokeStyle = s.col; g.lineWidth = 1.5; roundRect(g, x - w / 2, y, w, h, h / 2); g.stroke();
+  g.fillStyle = 'rgba(255,255,255,0.95)'; g.beginPath();
+  if (below) { g.moveTo(x - 5, y); g.lineTo(x, y - 6); g.lineTo(x + 5, y); } else { g.moveTo(x - 5, y + h); g.lineTo(x, y + h + 6); g.lineTo(x + 5, y + h); }
+  g.fill();
+  g.fillStyle = '#211d2e'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillText(text, x, y + h / 2 + 1);
+  g.restore();
+  world.prompt = { x: x - w / 2, y: y - 6, w, h: h + 12, s };
+}
+
+// coins dropping into the well, and the like
+function drawSplashes(g, t) {
+  world.splashes = world.splashes.filter(p => t - p.t < 1.4);
+  for (const p of world.splashes) {
+    const a = t - p.t;
+    g.globalAlpha = 1 - a / 1.4;
+    g.font = wf(12, 'bold'); g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillStyle = p.col || '#d4a531';
+    g.fillText(p.text, p.x, p.y - a * 30);
+  }
+  g.globalAlpha = 1;
+}
+
+// a soft haze at the edges, faint scanlines and grain, now and then a glitch
 function post(g, now) {
-  const W = world.canvas.width, H = world.canvas.height;
-  g.globalAlpha = 0.07;
+  const W = world.top.width, H = world.top.height;
+  g.globalAlpha = 0.035;
   const n = world.noise[Math.floor(now / 50) % world.noise.length];
   g.fillStyle = g.createPattern(n, 'repeat'); g.fillRect(0, 0, W, H);
   g.globalAlpha = 1;
   g.fillStyle = world.scan; g.fillRect(0, 0, W, H);
-  g.fillStyle = world.vignette; g.fillRect(0, 0, W, H);
+  g.fillStyle = world.haze; g.fillRect(0, 0, W, H);
   if (now > world.nextGlitch) {
     if (!world.glitch) world.glitch = { until: now + 160 + Math.random() * 200, line: GLITCH_LINES[Math.floor(Math.random() * GLITCH_LINES.length)] };
     if (now < world.glitch.until) {
@@ -721,9 +981,9 @@ function post(g, now) {
         g.drawImage(world.canvas, 0, y, W, h, dx, y, W, h);
       }
       g.font = `${14 * world.dpr}px ui-monospace, monospace`; g.textAlign = 'left'; g.textBaseline = 'top';
-      g.fillStyle = 'rgba(255,42,58,0.85)';
+      g.fillStyle = 'rgba(200,0,40,0.85)';
       g.fillText(world.glitch.line, 14 * world.dpr, H - 40 * world.dpr);
-    } else { world.glitch = null; world.nextGlitch = now + 15000 + Math.random() * 25000; }
+    } else { world.glitch = null; world.nextGlitch = now + 20000 + Math.random() * 30000; }
   }
 }
 
@@ -741,19 +1001,19 @@ function worldFit() {
   if (!cw || !ch) return;
   world.dpr = window.devicePixelRatio || 1;
   world.cw = cw; world.ch = ch;
-  world.canvas.width = Math.round(cw * world.dpr); world.canvas.height = Math.round(ch * world.dpr);
+  for (const c of [world.canvas, world.top]) { c.width = Math.round(cw * world.dpr); c.height = Math.round(ch * world.dpr); }
   world.z = Math.max(0.5, Math.min(1.6, ch / 560, cw / 480));
-  const g = world.ctx;
+  const g = world.tctx;
   const sc = document.createElement('canvas'); sc.width = 1; sc.height = Math.max(2, Math.round(3 * world.dpr));
-  const sg = sc.getContext('2d'); sg.fillStyle = 'rgba(0,0,0,0.18)'; sg.fillRect(0, 0, 1, Math.max(1, Math.round(world.dpr)));
+  const sg = sc.getContext('2d'); sg.fillStyle = 'rgba(60,50,110,0.05)'; sg.fillRect(0, 0, 1, Math.max(1, Math.round(world.dpr)));
   world.scan = g.createPattern(sc, 'repeat');
-  const W = world.canvas.width, H = world.canvas.height;
-  const v = g.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.35, W / 2, H / 2, Math.max(W, H) * 0.75);
-  v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,0.65)');
-  world.vignette = v;
+  const W = world.top.width, H = world.top.height;
+  const v = g.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.4, W / 2, H / 2, Math.max(W, H) * 0.75);
+  v.addColorStop(0, 'rgba(255,255,255,0)'); v.addColorStop(1, 'rgba(236,232,255,0.6)');
+  world.haze = v;
 }
 
-// ── the club screen: a YouTube video everyone in the club watches together ──
+// ── the club screen: a YouTube video everyone in Cyberia watches together ───
 // Nothing from YouTube loads until you press "Watch along" once.
 const LS_TV_OK = 'bb_world_tv';
 let ytReady = null;
@@ -772,7 +1032,7 @@ function tvUpdate(tv) {
   if (tv?.v !== was) tvActive(true);
 }
 
-// the player only runs while you stand in the club and said yes to YouTube
+// the player only runs while you are in Cyberia and said yes to YouTube
 async function tvActive(changed = false) {
   const want = world.tv && tvOk() && world.zone?.id === 'club';
   if (!want) {
@@ -785,13 +1045,16 @@ async function tvActive(changed = false) {
   const tv = world.tv;
   const start = Math.max(0, performance.now() / 1000 - tv.at);
   if (world.player?.loadVideoById) { world.player.loadVideoById({ videoId: tv.v, startSeconds: start }); return; }
+  if (!world.tvEl) {
+    // between the floor canvas and the canvas with everyone on it
+    const el = document.createElement('div'); el.id = 'w-tv';
+    el.appendChild(document.createElement('div'));
+    document.getElementById('world').insertBefore(el, world.top);
+    world.tvEl = el;
+  }
   await loadYt();
-  if (world.player || !world.tv || world.zone?.id !== 'club') return;
-  const el = document.createElement('div'); el.id = 'w-tv';
-  const inner = document.createElement('div'); el.appendChild(inner);
-  document.getElementById('world').appendChild(el);
-  world.tvEl = el;
-  world.player = new YT.Player(inner, {
+  if (world.player || !world.tv || world.zone?.id !== 'club' || !world.tvEl) return;
+  world.player = new YT.Player(world.tvEl.firstChild, {
     host: 'https://www.youtube-nocookie.com', videoId: tv.v,
     playerVars: { autoplay: 1, start: Math.floor(start), playsinline: 1, rel: 0, modestbranding: 1 },
     events: { onReady: e => { world.tvShown = true; e.target.playVideo(); } },
@@ -819,8 +1082,8 @@ function openScreen() {
   document.getElementById('w-tv-now').textContent = world.tv ? `Playing now, put on by ${world.tv.by}.` : 'Nothing is playing.';
 }
 
-// ── the terminal: hats, fur and things to carry ─────────────────────────────
-const SLOT_NAMES = { hat: 'On your head', col: 'Fur', hold: 'To carry', trail: 'Trail' };
+// ── the terminal: the wardrobe and the capsule machine ──────────────────────
+const SLOT_NAMES = { hat: 'On your head', back: 'On your back', col: 'Fur', hold: 'To carry', trail: 'Trail' };
 function openShop() {
   document.getElementById('w-shop').classList.remove('hidden');
   if (!world.catalog) document.getElementById('w-shop-list').innerHTML = '<p class="w-dim">Connecting…</p>';
@@ -829,39 +1092,77 @@ function openShop() {
 }
 function renderShop() {
   const list = document.getElementById('w-shop-list');
-  const me = world.cats.get(world.me);
   const groups = {};
   for (const it of world.catalog) (groups[it.slot] ??= []).push(it);
   list.innerHTML = Object.entries(groups).map(([slot, items]) => `<h3>${SLOT_NAMES[slot] || slot}</h3><div class="w-items">${items.map(it => {
     const own = world.owned.includes(it.id), on = world.wear[slot] === it.id;
     const btn = on ? `<button type="button" data-off="${slot}">Take off</button>`
       : own ? `<button type="button" data-wear="${it.id}" data-slot="${slot}">Wear</button>`
+      : !it.price ? '<span class="w-dim">from a capsule</span>'
       : `<button type="button" data-buy="${it.id}" ${world.coins < it.price ? 'disabled' : ''}>◉ ${it.price}</button>`;
-    return `<div class="w-item${on ? ' on' : ''}"><canvas width="64" height="64" data-prev="${it.id}" data-slot="${slot}"></canvas><span>${esc(it.name)}</span>${btn}</div>`;
+    return `<div class="w-item${on ? ' on' : ''}${!own && !it.price ? ' locked' : ''}"><canvas width="64" height="64" data-prev="${it.id}" data-slot="${slot}"></canvas><span>${esc(it.name)}</span>${btn}</div>`;
   }).join('')}</div>`).join('');
-  // a little picture of your own cat wearing it
-  list.querySelectorAll('canvas[data-prev]').forEach(cv => {
-    const g = cv.getContext('2d'); g.imageSmoothingEnabled = false;
-    const fake = { u: me?.u || '', d: me?.d || '', w: { ...world.wear, [cv.dataset.slot]: cv.dataset.prev }, x: 32, y: 56, dir: 'down', moving: false, t0: 0, trail: [] };
-    g.save(); g.translate(0, 0);
-    const z = world.z; world.z = 1;
-    drawCatPreview(g, fake);
-    world.z = z;
-    g.restore();
-  });
+  list.querySelectorAll('canvas[data-prev]').forEach(cv => previewCat(cv, { [cv.dataset.slot]: cv.dataset.prev }));
   setCoins(world.coins);
+}
+// a little picture of your own cat wearing something
+function previewCat(cv, extra) {
+  const me = world.cats.get(world.me);
+  const g = cv.getContext('2d'); g.imageSmoothingEnabled = false;
+  g.clearRect(0, 0, cv.width, cv.height);
+  const z = world.z; world.z = 1;
+  drawCatPreview(g, { u: me?.u || '', d: me?.d || '', w: { ...world.wear, ...extra } });
+  world.z = z;
 }
 function drawCatPreview(g, c) {
   const sheet = catSheet(furOf(c, 0));
+  if (c.w.back === 'wings') drawWings(g, 32, 58, 0, false);
   if (c.w.hold === 'balloon') drawBalloon(g, 26, 62, 0);
   g.drawImage(sheet, 48, 0, 48, 48, 8, 12, 48, 48);
   if (c.w.hat) drawHat(g, c.w.hat, 32, 20, 'down', 0);
   if (c.w.hold && c.w.hold !== 'balloon') drawHold(g, c.w.hold, 32, 58, false);
-  if (c.w.trail) { g.fillStyle = c.w.trail === 't_hearts' ? '#ff5a78' : '#e9e4ff'; for (let i = 0; i < 6; i++) g.fillRect(4 + i * 3, 30 + (i % 3) * 7, 2, 2); }
+  if (c.w.trail) { g.fillStyle = c.w.trail === 't_hearts' ? '#ff5a78' : c.w.trail === 't_feathers' ? '#b9b5d2' : '#6b6680'; for (let i = 0; i < 6; i++) g.fillRect(4 + i * 3, 30 + (i % 3) * 7, 2, 2); }
 }
 
-// ── the lab: the beetle game in a window over the world ──────────────────────
+function openCapsule() {
+  document.getElementById('w-capsule').classList.remove('hidden');
+  document.getElementById('w-cap-got').classList.add('hidden');
+  document.getElementById('w-cap-turn').disabled = false;
+  if (!world.catalog) worldSend({ shopinfo: 1 }, true);
+}
+function capsuleResult(d) {
+  const btn = document.getElementById('w-cap-turn');
+  btn.disabled = false;
+  if (d.capsule === 'poor') return worldToast('The capsule machine takes 30 coins.');
+  if (d.capsule === 'all') return worldToast('You have everything the capsule machine has. More soon.');
+  const got = document.getElementById('w-cap-got');
+  got.classList.remove('hidden');
+  got.querySelector('span').textContent = `${d.capsule_name}! You are wearing it now.`;
+  const slot = world.catalog?.find(i => i.id === d.capsule)?.slot || 'hat';
+  previewCat(got.querySelector('canvas'), { [slot]: d.capsule });
+  sfx('claim');
+}
+
+// ── the well ─────────────────────────────────────────────────────────────────
+function makeWish() {
+  if (world.coins != null && world.coins < 1) return worldToast('The well takes a coin. Come back with one.');
+  worldSend({ wish: 1 }, true);
+}
+function wishResult(r) {
+  if (r === 'poor') return worldToast('The well takes a coin. Come back with one.');
+  if (r !== 'ok') return;
+  const t = performance.now() / 1000;
+  world.splashes.push({ x: WELL.x, y: WELL.y - 20, t, text: '◉ -1' });
+  const me = world.cats.get(world.me);
+  if (me) me.emote = { k: 'spark', at: t };
+  worldSend({ emote: 'spark' });
+  worldToast(`✧ ${FORTUNES[Math.floor(Math.random() * FORTUNES.length)]}`, 5000);
+  sfx('claim');
+}
+
+// ── the beetle game, in a window over the garden ────────────────────────────
 function openLab() {
+  if (labLocked()) return labDenied(true);
   const box = document.getElementById('w-lab');
   if (!box.querySelector('iframe')) box.insertAdjacentHTML('beforeend', '<iframe src="index.html" title="Beetle game"></iframe>');
   box.classList.remove('hidden');
@@ -871,6 +1172,26 @@ function closeLab() {
   box.classList.add('hidden');
   box.querySelector('iframe')?.remove();
   worldSend({ xp: 1 }, true);         // crafting earns coins: ask for them right away
+}
+
+// ── someone else's cat: wave, mention, message ──────────────────────────────
+function catAt(x, y) {
+  let best = null;
+  for (const c of world.cats.values()) {
+    if (c.u === world.me) continue;
+    if (Math.abs(c.x - x) < 18 && y > c.y - 46 && y < c.y + 8 && (!best || c.y > best.y)) best = c;
+  }
+  return best;
+}
+function openWho(c, sx, sy) {
+  const box = document.getElementById('w-who');
+  box.dataset.u = c.u; box.dataset.d = c.d || c.u;
+  box.querySelector('strong').textContent = c.d || c.u;
+  box.querySelector('[data-who="dm"]').classList.toggle('hidden', !window.dmOpen);
+  box.classList.remove('hidden');
+  const wrap = document.getElementById('world');
+  box.style.left = `${Math.max(8, Math.min(wrap.clientWidth - box.offsetWidth - 8, sx - box.offsetWidth / 2))}px`;
+  box.style.top = `${Math.max(8, sy - box.offsetHeight - 60)}px`;
 }
 
 // ── input ────────────────────────────────────────────────────────────────────
@@ -889,10 +1210,32 @@ function worldKey(e, down) {
   if (down) world.keys.add(k); else world.keys.delete(k);
 }
 function closePanels() {
-  document.getElementById('w-shop').classList.add('hidden');
-  document.getElementById('w-screen').classList.add('hidden');
-  document.getElementById('w-emotes').classList.add('hidden');
+  for (const id of ['w-shop', 'w-screen', 'w-capsule', 'w-emotes', 'w-who']) document.getElementById(id).classList.add('hidden');
   if (!document.getElementById('w-lab').classList.contains('hidden')) closeLab();
+}
+
+// a tap: on a prompt or a thing, walk up and use it; on a cat, its menu; else walk there
+function worldPointer(e) {
+  const r = world.top.getBoundingClientRect();
+  const sx = e.clientX - r.left, sy = e.clientY - r.top;
+  const x = world.cam.x + sx / world.z, y = world.cam.y + sy / world.z;
+  world.active = Date.now();
+  document.getElementById('w-emotes').classList.add('hidden');
+  document.getElementById('w-who').classList.add('hidden');
+  const p = world.prompt;
+  if (p && inRect(x, y, p)) { world.pending = null; p.s.act(); return; }
+  const c = catAt(x, y);
+  if (c) { openWho(c, sx, sy); return; }
+  const spot = SPOTS.find(s => !s.hide?.() && inRect(x, y, { x: s.r.x - 8, y: s.r.y - 8, w: s.r.w + 16, h: s.r.h + 16 }));
+  if (spot) { world.pending = spot; world.target = { ...spot.at }; }
+  else { world.pending = null; world.target = { x, y }; }
+  worldTick();
+}
+function worldHover(e) {
+  const r = world.top.getBoundingClientRect();
+  const x = world.cam.x + (e.clientX - r.left) / world.z, y = world.cam.y + (e.clientY - r.top) / world.z;
+  const over = (world.prompt && inRect(x, y, world.prompt)) || catAt(x, y) || SPOTS.some(s => !s.hide?.() && inRect(x, y, s.r));
+  world.top.style.cursor = over ? 'pointer' : 'crosshair';
 }
 
 function worldLeave() {
@@ -904,28 +1247,26 @@ function startWorld() {
   if (world.started) return;
   world.started = true;
   worldFit();
-  enterZone(JUNCTION);
+  enterZone(PLAZA);
   worldTick();
   world.timer = setInterval(worldTick, W_POLL);
   world.raf = requestAnimationFrame(worldFrame);
+  window.dmStart?.();
 }
 
 function setupWorld() {
   world.canvas = document.getElementById('w-canvas');
   world.ctx = world.canvas.getContext('2d');
+  world.top = document.getElementById('w-top');
+  world.tctx = world.top.getContext('2d');
   world.sprite = new Image();
   world.sprite.src = 'icons/remicat.png';
+  for (const k of BUG_KINDS.flat()) { const i = new Image(); i.src = `icons/beetles/${k}.png`; world.bugImg[k] = i; }
   for (let i = 0; i < 4; i++) world.noise.push(noiseTile(255));
   buildSolids();
   buildBackground();
-  world.canvas.addEventListener('pointerdown', e => {
-    const r = world.canvas.getBoundingClientRect();
-    world.active = Date.now();
-    world.target = { x: world.cam.x + (e.clientX - r.left) / world.z, y: world.cam.y + (e.clientY - r.top) / world.z };
-    document.getElementById('w-emotes').classList.add('hidden');
-    worldTick();
-  });
-  document.getElementById('w-act').addEventListener('click', worldAct);
+  world.top.addEventListener('pointerdown', worldPointer);
+  world.top.addEventListener('pointermove', worldHover);
   document.getElementById('w-emote-btn').addEventListener('click', () => document.getElementById('w-emotes').classList.toggle('hidden'));
   document.getElementById('w-emotes').addEventListener('click', e => {
     const k = e.target.closest('button')?.dataset.emote;
@@ -936,13 +1277,27 @@ function setupWorld() {
     worldSend({ emote: k }, true);
     document.getElementById('w-emotes').classList.add('hidden');
   });
+  document.getElementById('w-who').addEventListener('click', e => {
+    const box = document.getElementById('w-who'), act = e.target.closest('[data-who]')?.dataset.who;
+    if (!act) return;
+    box.classList.add('hidden');
+    if (act === 'dm') window.dmOpen?.(box.dataset.u, box.dataset.d);
+    if (act === 'wave') { const me = world.cats.get(world.me); if (me) me.emote = { k: 'wave', at: performance.now() / 1000 }; worldSend({ emote: 'wave' }, true); }
+    if (act === 'mention') { const i = document.getElementById('chat-input'); i.value = `${i.value}${i.value && !i.value.endsWith(' ') ? ' ' : ''}~${box.dataset.u} `; i.focus(); }
+  });
   document.getElementById('w-shop').addEventListener('click', e => {
     const b = e.target.closest('button');
+    if (e.target.id === 'w-shop') return closePanels();
     if (!b) return;
-    if (b.id === 'w-shop-close' || e.target.id === 'w-shop') return closePanels();
+    if (b.id === 'w-shop-close') return closePanels();
     if (b.dataset.buy) worldSend({ buy: b.dataset.buy, shopinfo: 1 }, true);
     if (b.dataset.wear) { world.wear[b.dataset.slot] = b.dataset.wear; worldSend({ wear: { [b.dataset.slot]: b.dataset.wear }, shopinfo: 1 }, true); renderShop(); }
     if (b.dataset.off) { delete world.wear[b.dataset.off]; worldSend({ wear: { [b.dataset.off]: null }, shopinfo: 1 }, true); renderShop(); }
+  });
+  document.getElementById('w-capsule').addEventListener('click', e => {
+    const id = e.target.id;
+    if (id === 'w-capsule' || id === 'w-cap-close') closePanels();
+    if (id === 'w-cap-turn') { e.target.disabled = true; worldSend({ capsule: 1, shopinfo: 1 }, true); }
   });
   document.getElementById('w-screen').addEventListener('click', e => {
     const id = e.target.id;
