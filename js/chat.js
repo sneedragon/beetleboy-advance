@@ -498,7 +498,11 @@ function appendChatPosts(posts, isInit, prepend = false) {
       if (document.hidden) notify(`${p.user?.displayname || uname} replied to you`);
       else showInAppNotif(`${p.user?.displayname || uname} replied to you!`);
     }
+    if (p.id < 0) el.dataset.opt = p.body || '';
+    // my own message came back from the server: it takes the placeholder's place
+    if (p.id > 0 && uname === myUser) for (const [id, o] of renderedPostEls) if (id < 0 && o.dataset.opt === (p.body || '')) { o.replaceWith(el); renderedPostEls.delete(id); break; }
     renderedPostEls.set(p.id, el);
+    if (el.parentNode) continue;
     if (older) older.appendChild(el); else box.appendChild(el);
   }
   if (older) {                                   // keep the view where it was
@@ -603,23 +607,26 @@ async function postToChat(text, replyTo = null, mediaIds = []) {
   return chatAction({ action: 'submit', text: bodyToPlainText(text), ...(replyTo ? { replyTo } : {}), ...(mediaIds.length ? { mediaIds } : {}) });
 }
 
+let chatSending = false;
 async function sendChatMsg() {
   const input = document.getElementById('chat-input');
   document.getElementById('chat-suggest').classList.remove('open');
   let msg = resolveItemLinks((input.value || '').trim());
   const attach = pendingAttachment;
   if (!msg && !attach) return;
-  if (!getTokens().access) return;
+  if (!getTokens().access || chatSending) return;
+  chatSending = true;
   const rt = replyTarget;
   setReplyTarget(null);
+  // the field stays focused, so the next message can be typed right away
   input.value = '';
-  input.disabled = true;
+  input.focus();
 
   let media = null;
   if (attach) {
     clearPendingAttachment();
     media = await uploadChatImage(attach.file);
-    if (!media && !msg) { input.disabled = false; input.focus(); return; }
+    if (!media && !msg) { chatSending = false; return; }
   }
 
   // Optimistic: show it right away with a negative placeholder id
@@ -633,17 +640,14 @@ async function sendChatMsg() {
 
   sfx('send');
   const res = await postToChat(msg, rt?.id, media ? [media.mediaId] : []);
-  const optEl = renderedPostEls.get(optId);
-  if (optEl) optEl.remove();
+  chatSending = false;
+  // on success the real message takes the placeholder's place when it arrives,
+  // so it never blinks out (appendChatPosts)
+  if (res.ok) return fetchChat();
+  renderedPostEls.get(optId)?.remove();
   renderedPostEls.delete(optId);
-  if (!res.ok) {
-    input.value = bodyToPlainText(msg);
-    showInAppNotif(res.error || 'Message failed.');
-  } else {
-    await fetchChat();
-  }
-  input.disabled = false;
-  input.focus();
+  if (!input.value) input.value = bodyToPlainText(msg);
+  showInAppNotif(res.error || 'Message failed.');
 }
 
 

@@ -1823,9 +1823,16 @@ function drawBag(d) {
 }
 
 // ── dark mode: the night street from the first version ──────────────────────
-function setDark(on) {
+// it follows the system until you flip the switch yourself
+const LS_DARK = 'bb_world_dark';    // '1' night, '0' day, unset: like the system
+const sysDark = matchMedia('(prefers-color-scheme: dark)');
+function darkPref() {
+  let s = null; try { s = localStorage.getItem(LS_DARK); } catch {}
+  return s === '1' ? true : s === '0' ? false : sysDark.matches;
+}
+function setDark(on, save = true) {
   world.dark = on;
-  try { localStorage.setItem('bb_world_dark', on ? '1' : ''); } catch {}
+  if (save) try { localStorage.setItem(LS_DARK, on ? '1' : '0'); } catch {}
   document.body.classList.toggle('w-dark', on);
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content', on ? '#050407' : '#4d88e3');
   const b = document.getElementById('w-dark-btn');
@@ -1968,8 +1975,8 @@ function setupWorld() {
   for (const k of BUG_KINDS.flat()) { const i = new Image(); i.src = `icons/beetles/${k}.png`; world.bugImg[k] = i; }
   for (let i = 0; i < 4; i++) world.noise.push(noiseTile(255));
   buildSolids();
-  try { world.dark = !!localStorage.getItem('bb_world_dark'); } catch {}
-  setDark(world.dark);
+  setDark(darkPref(), false);
+  sysDark.addEventListener('change', () => { if (darkPref() !== world.dark) setDark(darkPref(), false); });
   buildBackground();
   world.top.addEventListener('pointerdown', worldPointer);
   world.top.addEventListener('pointermove', worldHover);
