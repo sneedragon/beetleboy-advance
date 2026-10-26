@@ -132,7 +132,7 @@ function kitchenResult(d) {
     KIT.hand = null;
     worldToast(`${DISH_ICON[dish]} ${DISH_NAME[dish]} served: +★ ${pay}`);
     const me = world.cats.get(world.me);
-    if (me) world.splashes.push({ x: me.x, y: me.y - 28, t: performance.now() / 1000, text: `+★ ${pay}`, col: '#2fae7a' });
+    if (me) world.splashes.push({ x: me.x, y: me.y - 56, t: performance.now() / 1000, text: `+★ ${pay}`, col: '#2fae7a' });
     sfx('claim');
   } else if (d.serve === 'late') worldToast('Just missed it: that order is gone.');
   else if (d.serve === 'taken') worldToast('Someone else served that one first.');
@@ -161,7 +161,7 @@ function drawOrders(clock) {
 const CROPS = { lettuce: [1, 120, 2], carrot: [1, 150, 2], tomato: [1, 180, 3], potato: [1, 240, 3], corn: [2, 300, 5], strawberry: [2, 420, 7], pumpkin: [3, 600, 9] };
 const CROP_ICON = { lettuce: '🥬', carrot: '🥕', tomato: '🍅', potato: '🥔', corn: '🌽', strawberry: '🍓', pumpkin: '🎃' };
 window.CROP_ICON = CROP_ICON;
-const PLOTS = [0, 1, 2, 3, 4, 5, 6, 7].map(i => ({ x: 1880 + (i % 4) * 120, y: 850 + Math.floor(i / 4) * 140, w: 100, h: 70 }));
+const PLOTS = [0, 1, 2, 3, 4, 5, 6, 7].map(i => ({ x: 3080 + (i % 4) * 120, y: 1270 + Math.floor(i / 4) * 140, w: 100, h: 70 }));
 const FARM = { plots: null, pick: -1, asked: 0 };
 const mmss = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 function plotState(i) {
@@ -196,7 +196,7 @@ function farmResult(d) {
   if (d.harvest) {
     worldToast(`${CROP_ICON[d.harvest]} ${itemName('c:' + d.harvest)} is in your bag. The stall buys it, and the Jade Arches pantry cooks with it.`, 4500);
     const me = world.cats.get(world.me);
-    if (me) world.splashes.push({ x: me.x, y: me.y - 28, t: performance.now() / 1000, text: `+1 ${CROP_ICON[d.harvest]}`, col: '#c9a13b' });
+    if (me) world.splashes.push({ x: me.x, y: me.y - 56, t: performance.now() / 1000, text: `+1 ${CROP_ICON[d.harvest]}`, col: '#c9a13b' });
     sfx('claim');
   }
 }
@@ -305,20 +305,20 @@ function scoreResult(d) {
 }
 
 // ── the skate park: kickers send you flying, the rail lets you grind ───────
-const KICKERS = [{ x: 210, y: 1250, w: 44, h: 44 }, { x: 640, y: 1240, w: 44, h: 44 }, { x: 520, y: 1440, w: 44, h: 44 }];
-const RAIL = { x: 250, y: 1460, w: 220, h: 4 };
-const BOX = { x: 380, y: 1290, w: 140, h: 60 };
+const KICKERS = [{ x: 240, y: 2160, w: 44, h: 44 }, { x: 1000, y: 2160, w: 44, h: 44 }, { x: 640, y: 2560, w: 44, h: 44 }, { x: 160, y: 2440, w: 44, h: 44 }, { x: 820, y: 2380, w: 44, h: 44 }];
+const RAILS = [{ x: 300, y: 2660, w: 300, h: 4 }, { x: 700, y: 2240, w: 260, h: 4 }, { x: 260, y: 2560, w: 220, h: 4 }];
+const BOXES = [{ x: 480, y: 2300, w: 180, h: 70 }, { x: 980, y: 2330, w: 160, h: 60 }];
 const inR = (p, r, m = 0) => p.x >= r.x - m && p.x <= r.x + r.w + m && p.y >= r.y - m && p.y <= r.y + r.h + m;
 
 // ── the hooks world.js calls ────────────────────────────────────────────────
 const STATION = {
-  pantry: { r: { x: 1846, y: 58, w: 64, h: 44 }, icon: '🧊', text: () => KIT.hand ? 'Fridge' : '🧊 Fridge' },
-  board: { r: { x: 1932, y: 62, w: 56, h: 36 }, text: () => KIT.st.board ? (KIT.st.board.st === 'raw' ? '🔪 Chopping…' : '✋ Take it') : '🔪 Chop' },
-  grill: { r: { x: 2006, y: 62, w: 56, h: 36 }, text: () => KIT.st.grill ? `✋ Take the patty${KIT.st.grill.st === 'raw' ? ' (raw)' : ''}` : '🔥 Grill' },
-  fryer: { r: { x: 2080, y: 62, w: 56, h: 36 }, text: () => KIT.st.fryer ? `✋ Take them${KIT.st.fryer.st === 'cut' ? ' (raw)' : ''}` : '🍟 Fry' },
-  plate: { r: { x: 2154, y: 62, w: 56, h: 36 }, text: () => KIT.hand ? (KIT.hand.plate ? '🍽 Put the plate down' : '🍽 Put it on the plate') : KIT.st.plate.length ? '🍽 Pick up the plate' : '🍽 Plate' },
-  bin: { r: { x: 2228, y: 66, w: 34, h: 32 }, text: () => '🗑 Throw away' },
-  serve: { r: { x: 2368, y: 150, w: 36, h: 150 }, at: { x: 2340, y: 225 }, text: () => '🛎 Serve an order' },
+  pantry: { r: { x: 3046, y: 438, w: 64, h: 44 }, icon: '🧊', text: () => KIT.hand ? 'Fridge' : '🧊 Fridge' },
+  board: { r: { x: 3132, y: 442, w: 56, h: 36 }, text: () => KIT.st.board ? (KIT.st.board.st === 'raw' ? '🔪 Chopping…' : '✋ Take it') : '🔪 Chop' },
+  grill: { r: { x: 3206, y: 442, w: 56, h: 36 }, text: () => KIT.st.grill ? `✋ Take the patty${KIT.st.grill.st === 'raw' ? ' (raw)' : ''}` : '🔥 Grill' },
+  fryer: { r: { x: 3280, y: 442, w: 56, h: 36 }, text: () => KIT.st.fryer ? `✋ Take them${KIT.st.fryer.st === 'cut' ? ' (raw)' : ''}` : '🍟 Fry' },
+  plate: { r: { x: 3354, y: 442, w: 56, h: 36 }, text: () => KIT.hand ? (KIT.hand.plate ? '🍽 Put the plate down' : '🍽 Put it on the plate') : KIT.st.plate.length ? '🍽 Pick up the plate' : '🍽 Plate' },
+  bin: { r: { x: 3428, y: 446, w: 34, h: 32 }, text: () => '🗑 Throw away' },
+  serve: { r: { x: 3568, y: 530, w: 36, h: 150 }, at: { x: 3540, y: 605 }, text: () => '🛎 Serve an order' },
 };
 for (const [id, s] of Object.entries(STATION)) {
   s.at ??= { x: s.r.x + s.r.w / 2, y: s.r.y + s.r.h + 18 };
@@ -326,22 +326,22 @@ for (const [id, s] of Object.entries(STATION)) {
 }
 PLOTS.forEach((r, i) => SPOTS.push({ id: 'plot' + i, r, at: { x: r.x + r.w / 2, y: r.y + r.h + 14 }, near: 36, col: '#c9a13b', text: () => plotText(i), act: () => usePlot(i) }));
 SPOTS.push(
-  { id: 'bible', r: { x: 3386, y: 360, w: 28, h: 24 }, at: { x: 3400, y: 404 }, near: 34, col: '#b8962e', text: () => '📖 Read the Bible', act: () => openBible() },
-  { id: 'shelf_c', r: { x: 2530, y: 58, w: 250, h: 46 }, at: { x: 2655, y: 128 }, near: 60, col: '#b07a42', text: () => '📚 Charlemagne Fang', act: () => openShelf('charlemagne') },
-  { id: 'shelf_p', r: { x: 2820, y: 58, w: 250, h: 46 }, at: { x: 2945, y: 128 }, near: 60, col: '#b07a42', text: () => '📚 Ray Peat', act: () => openShelf('peat') },
+  { id: 'bible', r: { x: 4586, y: 760, w: 28, h: 24 }, at: { x: 4600, y: 804 }, near: 34, col: '#b8962e', text: () => '📖 Read the Bible', act: () => openBible() },
+  { id: 'shelf_c', r: { x: 3730, y: 438, w: 250, h: 46 }, at: { x: 3855, y: 508 }, near: 60, col: '#b07a42', text: () => '📚 Charlemagne Fang', act: () => openShelf('charlemagne') },
+  { id: 'shelf_p', r: { x: 4020, y: 438, w: 250, h: 46 }, at: { x: 4145, y: 508 }, near: 60, col: '#b07a42', text: () => '📚 Ray Peat', act: () => openShelf('peat') },
 );
 const PEWS = [];
-for (const y of [450, 500, 690, 740, 790, 840]) PEWS.push({ x: 3236, y, w: 124, h: 18 }, { x: 3440, y, w: 124, h: 18 });
-const TABLES = [{ x: 1900, y: 250, w: 60, h: 40 }, { x: 2040, y: 300, w: 60, h: 40 }, { x: 2220, y: 250, w: 60, h: 40 }];
-const DESKS = [{ x: 2600, y: 230, w: 110, h: 46 }, { x: 2890, y: 230, w: 110, h: 46 }];
-const BARN = { x: 2720, y: 830, w: 220, h: 120 };
+for (const y of [850, 900, 1090, 1140, 1190, 1240]) PEWS.push({ x: 4436, y, w: 124, h: 18 }, { x: 4640, y, w: 124, h: 18 });
+const TABLES = [{ x: 3100, y: 630, w: 60, h: 40 }, { x: 3240, y: 680, w: 60, h: 40 }, { x: 3420, y: 630, w: 60, h: 40 }];
+const DESKS = [{ x: 3800, y: 610, w: 110, h: 46 }, { x: 4090, y: 610, w: 110, h: 46 }];
+const BARN = { x: 3920, y: 1250, w: 220, h: 120 };
 
 window.placeSolids = s => {
   for (const { r } of Object.values(STATION)) s.push([r.x, r.y, r.w, r.h, 'prop']);
   for (const r of [...TABLES, ...DESKS, ...PEWS, BARN]) s.push([r.x, r.y, r.w, r.h, 'prop']);
-  s.push([2530, 58, 250, 46, 'prop'], [2820, 58, 250, 46, 'prop']);                  // the shelves
-  s.push([3330, 272, 140, 40, 'prop'], [3386, 360, 28, 24, 'prop']);                 // the altar and the lectern
-  s.push([2620, 1070, 70, 30, 'prop'], [2970, 1060, 90, 28, 'prop']);                // hay and the trough
+  s.push([3730, 438, 250, 46, 'prop'], [4020, 438, 250, 46, 'prop']);                  // the shelves
+  s.push([4530, 672, 140, 40, 'prop'], [4586, 760, 28, 24, 'prop']);                 // the altar and the lectern
+  s.push([3820, 1490, 70, 30, 'prop'], [4170, 1480, 90, 28, 'prop']);                // hay and the trough
 };
 
 window.placeFloors = (g, floor, grass, rnd, D) => {
@@ -359,9 +359,9 @@ window.placeFloors = (g, floor, grass, rnd, D) => {
     for (let x = z.x; x < z.x + z.w; x += 80) { g.beginPath(); g.moveTo(x + 0.5, z.y); g.lineTo(x + 0.5, z.y + z.h); g.stroke(); }
     for (let y = z.y; y < z.y + z.h; y += 80) { g.beginPath(); g.moveTo(z.x, y + 0.5); g.lineTo(z.x + z.w, y + 0.5); g.stroke(); }
     // a bowl painted in the corner, and some paint
-    g.fillStyle = D ? '#121119' : '#c6c4cf'; g.beginPath(); g.ellipse(780, 1440, 80, 60, 0, 0, Math.PI * 2); g.fill();
+    g.fillStyle = D ? '#121119' : '#c6c4cf'; g.beginPath(); g.ellipse(1060, 2600, 130, 96, 0, 0, Math.PI * 2); g.fill();
     g.strokeStyle = D ? '#3a3648' : '#f2f2f6'; g.lineWidth = 3; g.stroke();
-    for (let i = 0; i < 6; i++) { g.fillStyle = `hsla(${rnd(0, 360)},70%,60%,${D ? 0.12 : 0.25})`; g.beginPath(); g.ellipse(rnd(100, 860), rnd(1200, 1530), rnd(10, 26), rnd(6, 14), rnd(0, 3), 0, Math.PI * 2); g.fill(); }
+    for (let i = 0; i < 12; i++) { g.fillStyle = `hsla(${rnd(0, 360)},70%,60%,${D ? 0.12 : 0.25})`; g.beginPath(); g.ellipse(rnd(100, 1220), rnd(2070, 2770), rnd(10, 26), rnd(6, 14), rnd(0, 3), 0, Math.PI * 2); g.fill(); }
   });
   // the farm: dark earth, tilled plots
   floor(z0('farm'), z => {
@@ -372,7 +372,7 @@ window.placeFloors = (g, floor, grass, rnd, D) => {
       for (let y = p.y + 8; y < p.y + p.h - 4; y += 14) g.fillRect(p.x + 6, y, p.w - 12, 4);
     }
     g.fillStyle = D ? 'rgba(160,140,100,0.12)' : 'rgba(200,170,120,0.55)';
-    g.fillRect(2380, 796, 160, 360); g.fillRect(1850, 1100, 1220, 40);              // the path from the gate
+    g.fillRect(3580, 1216, 160, 360); g.fillRect(3050, 1520, 1220, 40);              // the path from the gate
   });
   // the Jade Arches: green and white tiles, the kitchen behind the counter
   floor(z0('jade'), z => {
@@ -389,8 +389,8 @@ window.placeFloors = (g, floor, grass, rnd, D) => {
       g.fillStyle = D ? 'rgba(0,0,0,0.3)' : 'rgba(120,80,40,0.25)';
       for (let x = z.x + ((y / 16) % 3) * 40; x < z.x + z.w; x += 120) g.fillRect(x, y, 2, 16);
     }
-    g.fillStyle = D ? '#3a1a22' : '#a8384a'; roundRect(g, 2650, 170, 300, 160, 10); g.fill();
-    g.strokeStyle = D ? '#6a4a30' : '#e8c070'; g.lineWidth = 3; roundRect(g, 2660, 180, 280, 140, 8); g.stroke();
+    g.fillStyle = D ? '#3a1a22' : '#a8384a'; roundRect(g, 3850, 550, 300, 160, 10); g.fill();
+    g.strokeStyle = D ? '#6a4a30' : '#e8c070'; g.lineWidth = 3; roundRect(g, 3860, 560, 280, 140, 8); g.stroke();
   });
   // the church: stone, and a red carpet from the door to the altar
   floor(z0('church'), z => {
@@ -398,8 +398,8 @@ window.placeFloors = (g, floor, grass, rnd, D) => {
       g.fillStyle = ((x + y) / 32) % 2 ? (D ? '#15141a' : '#ece6d4') : (D ? '#1b1a21' : '#ddd5bd'); g.fillRect(x, y, 32, 32);
     }
     g.fillStyle = D ? '#3a1218' : '#a8283a';
-    g.fillRect(3380, 320, 40, 620); g.fillRect(3180, 570, 220, 60);
-    g.fillStyle = D ? '#6a5a2a' : '#e8c070'; g.fillRect(3380, 320, 2, 620); g.fillRect(3418, 320, 2, 620);
+    g.fillRect(4580, 720, 40, 620); g.fillRect(4380, 970, 220, 60);
+    g.fillStyle = D ? '#6a5a2a' : '#e8c070'; g.fillRect(4580, 720, 2, 620); g.fillRect(4618, 720, 2, 620);
   });
 };
 
@@ -429,12 +429,16 @@ window.placeProps = (g, D, rnd) => {
     g.fillStyle = grd; g.fillRect(k.x, k.y, k.w, k.h);
     g.fillStyle = D ? '#ffd34d' : '#e8a33d'; g.fillRect(k.x + k.w - 4, k.y, 4, k.h);
   }
-  g.fillStyle = 'rgba(40,40,70,0.2)'; g.fillRect(BOX.x + 4, BOX.y + BOX.h, BOX.w, 8);
-  g.fillStyle = D ? '#34304a' : '#b9b6c8'; g.fillRect(BOX.x, BOX.y, BOX.w, BOX.h);
-  g.fillStyle = D ? '#4a4660' : '#e4e3ec'; g.fillRect(BOX.x + 30, BOX.y + 6, BOX.w - 60, BOX.h - 12);
-  g.fillStyle = 'rgba(40,40,70,0.25)'; g.fillRect(RAIL.x, RAIL.y + 8, RAIL.w, 3);
-  g.fillStyle = D ? '#8a86a8' : '#5d606c'; g.fillRect(RAIL.x, RAIL.y, RAIL.w, RAIL.h);
-  for (let x = RAIL.x + 10; x < RAIL.x + RAIL.w; x += 50) g.fillRect(x, RAIL.y, 3, 10);
+  for (const BOX of BOXES) {
+    g.fillStyle = 'rgba(40,40,70,0.2)'; g.fillRect(BOX.x + 4, BOX.y + BOX.h, BOX.w, 8);
+    g.fillStyle = D ? '#34304a' : '#b9b6c8'; g.fillRect(BOX.x, BOX.y, BOX.w, BOX.h);
+    g.fillStyle = D ? '#4a4660' : '#e4e3ec'; g.fillRect(BOX.x + 30, BOX.y + 6, BOX.w - 60, BOX.h - 12);
+  }
+  for (const RAIL of RAILS) {
+    g.fillStyle = 'rgba(40,40,70,0.25)'; g.fillRect(RAIL.x, RAIL.y + 8, RAIL.w, 3);
+    g.fillStyle = D ? '#8a86a8' : '#5d606c'; g.fillRect(RAIL.x, RAIL.y, RAIL.w, RAIL.h);
+    for (let x = RAIL.x + 10; x < RAIL.x + RAIL.w; x += 50) g.fillRect(x, RAIL.y, 3, 10);
+  }
   // the kitchen: the fridge, the board, the grill, the fryer, the plate, the bin, the counter
   const steel = D ? '#2a2c34' : '#d3d6de', steel2 = D ? '#1a1b20' : '#a9adb9';
   for (const [id, s] of Object.entries(STATION)) {
@@ -454,11 +458,11 @@ window.placeProps = (g, D, rnd) => {
   }
   // two jade arches on the floor by the door
   g.strokeStyle = D ? 'rgba(47,174,122,0.35)' : 'rgba(47,174,122,0.8)'; g.lineWidth = 6;
-  for (const ax of [2100, 2140]) { g.beginPath(); g.moveTo(ax - 20, 392); g.quadraticCurveTo(ax - 20, 340, ax, 340); g.quadraticCurveTo(ax + 20, 340, ax + 20, 392); g.stroke(); }
+  for (const ax of [3300, 3340]) { g.beginPath(); g.moveTo(ax - 20, 772); g.quadraticCurveTo(ax - 20, 720, ax, 720); g.quadraticCurveTo(ax + 20, 720, ax + 20, 772); g.stroke(); }
   g.lineWidth = 1;
   // the library: shelves full of books, desks with lamps
-  for (const x of [2530, 2820]) {
-    const r = { x, y: 58, w: 250, h: 46 };
+  for (const x of [3730, 4020]) {
+    const r = { x, y: 438, w: 250, h: 46 };
     box3(g, r, D ? '#2a1a10' : '#7a4a26', D ? '#1a0f08' : '#5a341a', D);
     for (let row = 0; row < 2; row++) for (let bx = x + 6; bx < x + r.w - 8;) {
       const w = 5 + Math.floor(rnd(0, 5)), h = 12 + Math.floor(rnd(0, 5));
@@ -472,15 +476,15 @@ window.placeProps = (g, D, rnd) => {
   }
   // the church: pews, the altar with a cross, the lectern, windows in the walls
   for (const p of PEWS) box3(g, p, D ? '#3a2616' : '#8a5a30', D ? '#24170c' : '#5a3a1c', D);
-  box3(g, { x: 3330, y: 272, w: 140, h: 40 }, D ? '#d8d0b8' : '#ffffff', D ? '#8a8270' : '#d9cfae', D);
-  g.fillStyle = D ? '#8a7a3a' : '#d4a531'; g.fillRect(3397, 262, 6, 30); g.fillRect(3388, 270, 24, 5);
-  box3(g, { x: 3386, y: 360, w: 28, h: 24 }, D ? '#5a3a1c' : '#9a6a3a', D ? '#3a2410' : '#6a4422', D);
-  g.fillStyle = D ? '#c9b07a' : '#f4ecd8'; g.fillRect(3390, 362, 9, 10); g.fillRect(3401, 362, 9, 10);
+  box3(g, { x: 4530, y: 672, w: 140, h: 40 }, D ? '#d8d0b8' : '#ffffff', D ? '#8a8270' : '#d9cfae', D);
+  g.fillStyle = D ? '#8a7a3a' : '#d4a531'; g.fillRect(4597, 662, 6, 30); g.fillRect(4588, 670, 24, 5);
+  box3(g, { x: 4586, y: 760, w: 28, h: 24 }, D ? '#5a3a1c' : '#9a6a3a', D ? '#3a2410' : '#6a4422', D);
+  g.fillStyle = D ? '#c9b07a' : '#f4ecd8'; g.fillRect(4590, 762, 9, 10); g.fillRect(4601, 762, 9, 10);
   const glass = ['#e8404a', '#4a7ae8', '#e8c040', '#40b870', '#a858d8'];
-  for (const [wx, wy] of [[3604, 320], [3604, 470], [3604, 720], [3604, 860], [3180, 320], [3180, 440], [3180, 760], [3180, 860]]) {
+  for (const [wx, wy] of [[4804, 720], [4804, 870], [4804, 1120], [4804, 1260], [4380, 720], [4380, 840], [4380, 1160], [4380, 1260]]) {
     for (let i = 0; i < 4; i++) { g.fillStyle = D ? glass[(wy / 10 + i) % 5] + '66' : glass[(wy / 10 + i) % 5]; g.fillRect(wx + 3, wy + i * 14, 10, 13); }
   }
-  for (let i = 0; i < 3; i++) { g.fillStyle = D ? glass[i + 1] + '66' : glass[i + 1]; g.fillRect(3360 + i * 30, 243, 26, 10); }
+  for (let i = 0; i < 3; i++) { g.fillStyle = D ? glass[i + 1] + '66' : glass[i + 1]; g.fillRect(4560 + i * 30, 643, 26, 10); }
   // the farm: a barn, hay, a trough, a scarecrow
   const bn = BARN;
   box3(g, bn, D ? '#4a1a18' : '#b8403a', D ? '#2a0e0c' : '#7a2420', D);
@@ -488,17 +492,17 @@ window.placeProps = (g, D, rnd) => {
   g.fillStyle = D ? '#c9c6dc' : '#ffffff'; g.fillRect(bn.x + 80, bn.y + 50, 60, 62);
   g.fillStyle = D ? '#4a1a18' : '#b8403a'; g.fillRect(bn.x + 84, bn.y + 54, 52, 58);
   g.strokeStyle = D ? '#c9c6dc' : '#ffffff'; g.lineWidth = 3; g.beginPath(); g.moveTo(bn.x + 84, bn.y + 54); g.lineTo(bn.x + 136, bn.y + 112); g.moveTo(bn.x + 136, bn.y + 54); g.lineTo(bn.x + 84, bn.y + 112); g.stroke(); g.lineWidth = 1;
-  box3(g, { x: 2620, y: 1070, w: 70, h: 30 }, D ? '#6a5a2a' : '#e8c86a', D ? '#4a3a18' : '#c9a13b', D);
-  box3(g, { x: 2970, y: 1060, w: 90, h: 28 }, D ? '#24304a' : '#6a9ad8', D ? '#3a3648' : '#8a8fa3', D);
-  g.fillStyle = D ? '#3a2616' : '#7a4a26'; g.fillRect(2598, 880, 4, 40); g.fillRect(2584, 892, 32, 4);
-  emo(g, '👒', 2600, 876, 16);
+  box3(g, { x: 3820, y: 1490, w: 70, h: 30 }, D ? '#6a5a2a' : '#e8c86a', D ? '#4a3a18' : '#c9a13b', D);
+  box3(g, { x: 4170, y: 1480, w: 90, h: 28 }, D ? '#24304a' : '#6a9ad8', D ? '#3a3648' : '#8a8fa3', D);
+  g.fillStyle = D ? '#3a2616' : '#7a4a26'; g.fillRect(3798, 1300, 4, 40); g.fillRect(3784, 1312, 32, 4);
+  emo(g, '👒', 3800, 1296, 16);
 };
 
 window.placesLive = (g, clock, layer) => {
   const me = world.cats.get(world.me), D = world.dark;
   if (layer === 'over') {
     // what I carry floats over my head
-    if (me && KIT.hand) small(g, me.x, me.y, () => emo(g, foodIcon(KIT.hand), me.x, me.y - 46 + Math.sin(clock * 4) * 1.5, KIT.hand.plate ? 16 : 20));
+    if (me && KIT.hand) emo(g, foodIcon(KIT.hand), me.x, me.y - 92 + Math.sin(clock * 4) * 3, KIT.hand.plate ? 16 : 20);
     return;
   }
   stationTick(clock, me);
@@ -556,11 +560,11 @@ window.placesLive = (g, clock, layer) => {
     g.fillStyle = '#ffd34d'; g.fillText(`${SCORE.s[0]} : ${SCORE.s[1]}`, x, y + 1);
   }
   // candles on the altar
-  for (const cx of [3342, 3458]) {
-    g.fillStyle = D ? '#d8d0b8' : '#fffaf0'; g.fillRect(cx - 2, 268, 4, 12);
+  for (const cx of [4542, 4658]) {
+    g.fillStyle = D ? '#d8d0b8' : '#fffaf0'; g.fillRect(cx - 2, 668, 4, 12);
     const f = 1 + Math.sin(clock * 9 + cx) * 0.2;
-    g.fillStyle = '#ffd34d'; g.beginPath(); g.ellipse(cx, 264, 2 * f, 4 * f, 0, 0, Math.PI * 2); g.fill();
-    if (D) { const r = g.createRadialGradient(cx, 264, 0, cx, 264, 40); r.addColorStop(0, 'rgba(255,210,120,0.25)'); r.addColorStop(1, 'rgba(255,210,120,0)'); g.fillStyle = r; g.fillRect(cx - 40, 224, 80, 80); }
+    g.fillStyle = '#ffd34d'; g.beginPath(); g.ellipse(cx, 664, 2 * f, 4 * f, 0, 0, Math.PI * 2); g.fill();
+    if (D) { const r = g.createRadialGradient(cx, 664, 0, cx, 664, 40); r.addColorStop(0, 'rgba(255,210,120,0.25)'); r.addColorStop(1, 'rgba(255,210,120,0)'); g.fillStyle = r; g.fillRect(cx - 40, 624, 80, 80); }
   }
 };
 
@@ -576,19 +580,19 @@ window.placesTick = (d, extra) => {
 };
 
 window.skateRamp = (me, b, t) => {
-  if (!b.z && b.vz <= 0 && b.v > 60 && t - (b.kicked || 0) > 0.5 && (KICKERS.some(k => inR(me, k)) || (inR(me, BOX) && !inR(me, BOX, -20)))) {
+  if (!b.z && b.vz <= 0 && b.v > 60 && t - (b.kicked || 0) > 0.5 && (KICKERS.some(k => inR(me, k)) || BOXES.some(x => inR(me, x) && !inR(me, x, -20)))) {
     b.vz = SK.pop * (0.75 + 0.6 * b.v / SK.max); b.z = 0.1; b.kicked = t; b.trick = ''; b.spin = 0;
-    world.splashes.push({ x: me.x, y: me.y - 30, t, text: 'Air!', col: '#5b63e6' });
+    world.splashes.push({ x: me.x, y: me.y - 60, t, text: 'Air!', col: '#5b63e6' });
     sfx('click');
   }
   // over the rail on the way down, going along it: grind
-  const onRail = inR(me, RAIL, 5) && Math.abs(Math.cos(b.h)) > 0.85;
+  const onRail = RAILS.some(r => inR(me, r, 5)) && Math.abs(Math.cos(b.h)) > 0.85;
   if (onRail && b.z > 2 && b.vz <= 0) {
-    if (!b.grind) { b.grind = t; world.splashes.push({ x: me.x, y: me.y - 30, t, text: '50-50', col: '#ff3d6e' }); sfx('click'); }
+    if (!b.grind) { b.grind = t; world.splashes.push({ x: me.x, y: me.y - 60, t, text: '50-50', col: '#ff3d6e' }); sfx('click'); }
     b.z = 6; b.vz = 0;
   } else if (b.grind && !onRail) {
     const s = t - b.grind; b.grind = 0;
-    if (s > 0.4) { world.splashes.push({ x: me.x, y: me.y - 34, t, text: `Grind ${s.toFixed(1)}s`, col: '#ff3d6e' }); sfx('claim'); }
+    if (s > 0.4) { world.splashes.push({ x: me.x, y: me.y - 68, t, text: `Grind ${s.toFixed(1)}s`, col: '#ff3d6e' }); sfx('claim'); }
   }
 };
 

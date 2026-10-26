@@ -7,12 +7,12 @@
 
 require __DIR__ . '/world_lib.php';
 
-const W = 3680, H = 1600;          // the map in world units
+const W = 4880, H = 2840;          // the map in world units
 const STALE = 20;                  // seconds without a word and you have left
 const WALK = 260;                  // a little faster than a cat walks (W_SPEED in js/world.js)
 // shared ball: it rolls inside the park and slows down on its own
-const PEN = [130, 850, 830, 1120]; // x0, y0, x1, y1
-const GOAL = [945, 1025];          // the goal mouths at both ends, as in js/world.js
+const PEN = [160, 1320, 1160, 1880]; // x0, y0, x1, y1
+const GOAL = [1550, 1650];          // the goal mouths at both ends, as in js/world.js
 const BALL_K = 1.4;
 // coins
 const DAILY = 25;                  // first visit of the day
@@ -22,13 +22,13 @@ const CAPSULE = 30;                // the capsule machine
 const WISH = 1;                    // a coin into the well
 const FIREWORK = 2;                // a rocket over the plaza
 const GIFT_CAP = 200;              // coins you can give away a day
-const POND = [460, 610];           // the pond on the plaza, as in js/world.js
-const STALL = [1300, 560];         // where you sell what you caught, as in js/world.js
-const BIN = [1624, 740];           // the lost and found box
+const POND = [660, 1000];           // the pond on the plaza, as in js/world.js
+const STALL = [2050, 990];         // where you sell what you caught, as in js/world.js
+const BIN = [2424, 1132];           // the lost and found box
 const RUMMAGE = 90;                // seconds between two digs in the box
 const CONFETTI = 2;                // seconds between free toys (confetti, bubbles)
 // the Jade Arches kitchen: what the pantry sells, and what a plate pays (KITCHEN in js/places.js)
-const JADE = [1820, 40, 2420, 420];
+const JADE = [3020, 420, 3620, 800];
 const PANTRY = ['patty' => 3, 'bun' => 2, 'cheese' => 2, 'lettuce' => 2, 'tomato' => 2, 'potato' => 2];
 const DISHES = ['burger' => [['bun', 'patty'], 6], 'cheeseburger' => [['bun', 'patty', 'cheese'], 9],
     'deluxe' => [['bun', 'patty', 'cheese', 'lettuce', 'tomato'], 14], 'fries' => [['potato'], 3], 'salad' => [['lettuce', 'tomato'], 5]];
@@ -39,7 +39,7 @@ function orderAt(int $i, float $t): array {
     return ['id' => "$i:$g", 'd' => $k[(int)floor(hrand($g * 17 + $i * 5) * count($k))]];
 }
 // the farm: seed price, seconds to grow, what one sells for (CROPS in js/places.js)
-const FARM = [1820, 780, 3100, 1160];
+const FARM = [3020, 1200, 4300, 1580];
 const PLOTS = 8;
 const CROPS = ['lettuce' => [1, 120, 2], 'carrot' => [1, 150, 2], 'tomato' => [1, 180, 3], 'potato' => [1, 240, 3],
     'corn' => [2, 300, 5], 'strawberry' => [2, 420, 7], 'pumpkin' => [3, 600, 9]];
@@ -287,7 +287,7 @@ function fold(float $p, float $a, float $b): float {
 // more people online, more beetles: two for each, at least four and at most twelve
 const BUG_N = 12, BUG_LIFE = 90;
 function bugCount(int $people): int { return max(4, min(BUG_N, 2 + 2 * $people)); }
-const BUG_AREAS = [[940, 820, 1700, 1130], [940, 1200, 1700, 1530], [150, 880, 810, 1100], [720, 480, 1080, 720], [1860, 830, 3060, 1120], [120, 440, 640, 540], [940, 820, 1700, 1130], [1900, 460, 3100, 760]];
+const BUG_AREAS = [[1800, 1260, 2880, 1900], [1800, 2100, 2880, 2740], [180, 1340, 1140, 1860], [1100, 840, 1900, 1160], [3060, 1240, 4260, 1540], [100, 840, 1200, 1180], [1800, 1260, 2880, 1900], [2960, 840, 4300, 1180]];
 function hrand(float $n): float { $v = sin($n * 12.9898) * 43758.5453; return $v - floor($v); }
 function bugAt(int $k, float $t): array {
     $g = (int)floor(($t + $k * 13) / BUG_LIFE);
@@ -323,7 +323,9 @@ if (!$fp) fail(500, 'world unavailable');
 flock($fp, LOCK_EX);
 $world = json_decode(stream_get_contents($fp) ?: '{}', true);
 if (!is_array($world)) $world = [];
-$world += ['people' => [], 'ball' => ['x' => 480, 'y' => 985, 'vx' => 0, 'vy' => 0, 't' => 0], 'score' => [0, 0, 0, '', null], 'served' => [], 'tv' => null, 'tvq' => [], 'caught' => [], 'fx' => [], 'toss' => [], 'trades' => []];
+$world += ['people' => [], 'ball' => ['x' => 660, 'y' => 1600, 'vx' => 0, 'vy' => 0, 't' => 0], 'score' => [0, 0, 0, '', null], 'served' => [], 'tv' => null, 'tvq' => [], 'caught' => [], 'fx' => [], 'toss' => [], 'trades' => []];
+// the map grew: nobody keeps a spot from the old one, and the ball goes to the new pitch
+if (($world['map'] ?? 1) < 2) { $world['map'] = 2; $world['people'] = []; $world['ball'] = ['x' => 660, 'y' => 1600, 'vx' => 0, 'vy' => 0, 't' => 0]; }
 foreach ($world['caught'] as $id => $t) if ($t < time() - BUG_LIFE * 2) unset($world['caught'][$id]);
 $now = microtime(true); $sec = time(); $day = gmdate('Y-m-d');
 foreach ($world['people'] as $u => $p) if (($p['t'] ?? 0) < $sec - STALE) unset($world['people'][$u]);
@@ -339,7 +341,7 @@ if (($g = goalOf($world['ball'])) && $now >= $g['t'] + 1.5) {
     $by = $world['ball']['by'] ?? ''; $sc[3] = $world['people'][$by]['d'] ?? $by; $sc[4] = null;
     if (max($sc[0], $sc[1]) >= 5) { $sc[4] = [$sc[0], $sc[1]]; $sc[0] = $sc[1] = 0; }
     unset($sc);
-    $world['ball'] = ['x' => 480, 'y' => 985, 'vx' => 0, 'vy' => 0, 't' => $now];
+    $world['ball'] = ['x' => 660, 'y' => 1600, 'vx' => 0, 'vy' => 0, 't' => $now];
 }
 // the screen moves on to the next video once this one has run out
 function tvNext(array &$world, float $now): void {
@@ -356,8 +358,8 @@ $dirty = false;
 
 if (!empty($in['leave'])) unset($world['people'][$U]);
 else {
-    $x = isset($in['x']) ? max(0, min(W, (int)$in['x'])) : ($prev['x'] ?? mt_rand(800, 1000));
-    $y = isset($in['y']) ? max(0, min(H, (int)$in['y'])) : ($prev['y'] ?? mt_rand(560, 680));
+    $x = isset($in['x']) ? max(0, min(W, (int)$in['x'])) : ($prev['x'] ?? mt_rand(1400, 1600));
+    $y = isset($in['y']) ? max(0, min(H, (int)$in['y'])) : ($prev['y'] ?? mt_rand(1060, 1140));
     $p = ['d' => $me['d'], 'x' => $x, 'y' => $y, 't' => $sec,
           'e' => $prev['e'] ?? null, 'w' => $prev['w'] ?? null, 'c' => $prev['c'] ?? null,
           'act' => $prev['act'] ?? 0, 'xa' => $prev['xa'] ?? 0, 'xf' => $prev['xf'] ?? 0,

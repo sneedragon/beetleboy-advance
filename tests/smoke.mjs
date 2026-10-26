@@ -336,14 +336,14 @@ async function checkWorld(label, viewport) {
     route.fulfill({ contentType: 'application/json', body: JSON.stringify(apiAnswer(path || '')) });
   });
   await page.route(/(chatroom|push)\.php/, route => route.fulfill({ contentType: 'application/json', body: '{"ok":true}' }));
-  const w = { x: 900, y: 600, coins: 100, owned: [], wear: {}, sent: [], tv: null };
+  const w = { x: 1500, y: 1000, coins: 100, owned: [], wear: {}, sent: [], tv: null };
   await page.route('**/world.php', route => {
     const b = JSON.parse(route.request().postData() || '{}');
     w.sent.push(b);
     if (b.x != null) { w.x = b.x; w.y = b.y; }
     const out = { me: 'tester', now: Date.now() / 1000, coins: w.coins, wear: w.wear,
-      ball: { x: 360, y: 980, vx: 0, vy: 0, age: 5 }, tv: w.tv,
-      people: [{ u: 'tester', d: 'Tester', x: w.x, y: w.y, w: w.wear }, { u: 'guest', d: 'Guest Cat', x: 960, y: 640, w: { hat: 'crown' }, e: ['wave', 1], st: 'gm everyone' }] };
+      ball: { x: 660, y: 1600, vx: 0, vy: 0, age: 5 }, tv: w.tv,
+      people: [{ u: 'tester', d: 'Tester', x: w.x, y: w.y, w: w.wear }, { u: 'guest', d: 'Guest Cat', x: 1560, y: 1040, w: { hat: 'crown' }, e: ['wave', 1], st: 'gm everyone' }] };
     if (b.status != null) out.status = b.status;
     if (b.buy === 'antenna' && w.coins >= 40) { w.coins -= 40; w.owned.push('antenna'); w.wear.hat = 'antenna'; out.shop = 'bought'; out.coins = w.coins; }
     if (b.tv) w.tv = out.tv = { v: 'dQw4w9WgXcQ', age: 0, by: 'Tester' };
@@ -389,14 +389,14 @@ async function checkWorld(label, viewport) {
   const box = await page.$eval('#w-top', c => { const r = c.getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height }; });
   await page.mouse.click(box.x + box.w * 0.75, box.y + box.h * 0.5);
   await page.waitForTimeout(500);
-  if (!(w.sent.at(-1)?.x > 900)) fail(`${label} world: clicking did not send where to walk`);
+  if (!(w.sent.at(-1)?.x > 1500)) fail(`${label} world: clicking did not send where to walk`);
   await page.click('#w-emote-btn');
   await page.click('#w-emotes [data-emote="heart"]');
   await page.waitForTimeout(300);
   if (!w.sent.some(b => b.emote === 'heart')) fail(`${label} world: emote not sent`);
   const goTo = (x, y) => page.evaluate(([x, y]) => { const me = world.cats.get(world.me); me.x = me.tx = x; me.y = me.ty = y; world.target = null; world.pending = null; }, [x, y]);
   // walk up to the counter in the terminal: a prompt floats over it, E opens the wardrobe
-  await goTo(1440, 330);
+  await goTo(2340, 404);
   await page.waitForTimeout(300);
   if (await page.evaluate(() => world.near?.id) !== 'shop') fail(`${label} world: no prompt at the counter`);
   await page.keyboard.press('e');
@@ -407,7 +407,7 @@ async function checkWorld(label, viewport) {
   await page.screenshot({ path: `${ROOT}tests/out/${label}-world-shop.png` });
   await page.keyboard.press('Escape');
   // the capsule machine
-  await goTo(1640, 350);
+  await goTo(2690, 436);
   await page.waitForTimeout(300);
   await page.keyboard.press('e');
   await page.click('#w-cap-turn');
@@ -415,13 +415,13 @@ async function checkWorld(label, viewport) {
   if (!await page.isVisible('#w-cap-got')) fail(`${label} world: the capsule machine gave nothing`);
   await page.keyboard.press('Escape');
   // the well
-  await goTo(900, 660);
+  await goTo(1500, 1060);
   await page.waitForTimeout(300);
   await page.keyboard.press('e');
   await page.waitForTimeout(500);
   if (!w.sent.some(b => b.wish)) fail(`${label} world: the well took no wish`);
   // the club screen: tapping it walks there and opens it on arrival
-  await goTo(360, 330);
+  await goTo(660, 380);
   await page.waitForTimeout(300);
   await page.evaluate(() => { world.pending = SPOTS.find(s => s.id === 'screen'); world.target = { ...world.pending.at }; });
   await page.waitForTimeout(800);
@@ -437,7 +437,7 @@ async function checkWorld(label, viewport) {
   await page.waitForTimeout(700);
   if (!w.sent.some(b => b.catch)) fail(`${label} world: walking into a beetle caught nothing`);
   // the workbench opens the game for a password login
-  await goTo(1440, 950);
+  await goTo(2320, 1480);
   await page.waitForTimeout(300);
   await page.keyboard.press('e');
   if (!await page.$('#w-lab iframe')) fail(`${label} world: the workbench did not open the game`);
@@ -445,7 +445,7 @@ async function checkWorld(label, viewport) {
   await page.waitForTimeout(300);
   if (!w.sent.some(b => b.xp)) fail(`${label} world: closing the game asked for no coins`);
   // the pond: cast, wait for the bite, reel in
-  await goTo(460, 680);
+  await goTo(660, 1080);
   await page.waitForTimeout(300);
   if (await page.evaluate(() => world.near?.id) !== 'pond') fail(`${label} world: no prompt at the pond`);
   await page.keyboard.press('e');
@@ -469,7 +469,7 @@ async function checkWorld(label, viewport) {
   // the skateboard: faster, and everyone sees it
   await page.click('#w-toy-btn');
   await page.click('#w-toys [data-toy="skate"]');
-  await goTo(1000, 700);
+  await goTo(1600, 1100);
   await page.waitForTimeout(1200);
   if (!w.sent.some(b => b.sk)) fail(`${label} world: riding the board was not sent`);
   await page.screenshot({ path: `${ROOT}tests/out/${label}-world-skate.png` });
@@ -492,7 +492,7 @@ async function checkWorld(label, viewport) {
   if (!w.sent.some(b => b.show === 'b:green')) fail(`${label} world: holding up a beetle sent nothing`);
   await page.screenshot({ path: `${ROOT}tests/out/${label}-world-show.png` });
   // the stall buys what is in the bag
-  await goTo(1300, 560);
+  await goTo(2050, 990);
   await page.waitForTimeout(300);
   if (await page.evaluate(() => world.near?.id) !== 'stall') fail(`${label} world: no prompt at the stall`);
   await page.keyboard.press('e');
@@ -500,11 +500,11 @@ async function checkWorld(label, viewport) {
   await page.screenshot({ path: `${ROOT}tests/out/${label}-world-sell.png` });
   await page.click('[data-sell="b:green"]');
   await page.waitForTimeout(500);
-  if (!w.sent.some(b => b.sell?.k === 'b:green' && b.x === 1300)) fail(`${label} world: selling sent nothing from the stall`);
+  if (!w.sent.some(b => b.sell?.k === 'b:green' && b.x === 2050)) fail(`${label} world: selling sent nothing from the stall`);
   if (await page.$('[data-sell="b:green"]')) fail(`${label} world: the sold beetles are still in the bag`);
   await page.keyboard.press('Escape');
   // the lost and found box, and the quest list
-  await goTo(1624, 740);
+  await goTo(2424, 1132);
   await page.waitForTimeout(300);
   await page.keyboard.press('e');
   await page.waitForTimeout(400);
@@ -577,10 +577,10 @@ async function checkWorld(label, viewport) {
   await page.waitForTimeout(300);
   if (await page.evaluate(() => document.body.classList.contains('cp-side-open'))) fail(`${label} world: the people list does not close`);
   // the remilia sign-in finds the garden gate shut
-  if (await page.evaluate(() => { localStorage.setItem('bb_chat_rn', '1'); const r = blocked(1440, 784); localStorage.removeItem('bb_chat_rn'); return r; }) !== 'lab') fail(`${label} world: the garden gate is open for the remilia sign-in`);
+  if (await page.evaluate(() => { localStorage.setItem('bb_chat_rn', '1'); const r = [blocked(2315, 1204), blocked(1744, 1560), blocked(2340, 1964)].every(v => v === 'lab') ? 'lab' : 'open'; localStorage.removeItem('bb_chat_rn'); return r; }) !== 'lab') fail(`${label} world: the garden gate is open for the remilia sign-in`);
   await page.screenshot({ path: `${ROOT}tests/out/${label}-world-garden.png` });
   // the mailbox opens the messages
-  await goTo(1191, 712);
+  await goTo(1791, 1110);
   await page.waitForTimeout(300);
   if (await page.evaluate(() => world.near?.id) !== 'mail') fail(`${label} world: no prompt at the mailbox`);
   await page.keyboard.press('e');
