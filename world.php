@@ -7,11 +7,12 @@
 
 require __DIR__ . '/world_lib.php';
 
-const W = 1800, H = 1200;          // the map in world units
+const W = 3680, H = 1600;          // the map in world units
 const STALE = 20;                  // seconds without a word and you have left
 const WALK = 260;                  // a little faster than a cat walks (W_SPEED in js/world.js)
 // shared ball: it rolls inside the park and slows down on its own
-const PEN = [120, 860, 600, 1100]; // x0, y0, x1, y1
+const PEN = [130, 850, 830, 1120]; // x0, y0, x1, y1
+const GOAL = [945, 1025];          // the goal mouths at both ends, as in js/world.js
 const BALL_K = 1.4;
 // coins
 const DAILY = 25;                  // first visit of the day
@@ -26,6 +27,22 @@ const STALL = [1300, 560];         // where you sell what you caught, as in js/w
 const BIN = [1624, 740];           // the lost and found box
 const RUMMAGE = 90;                // seconds between two digs in the box
 const CONFETTI = 2;                // seconds between free toys (confetti, bubbles)
+// the Jade Arches kitchen: what the pantry sells, and what a plate pays (KITCHEN in js/places.js)
+const JADE = [1820, 40, 2420, 420];
+const PANTRY = ['patty' => 3, 'bun' => 2, 'cheese' => 2, 'lettuce' => 2, 'tomato' => 2, 'potato' => 2];
+const DISHES = ['burger' => [['bun', 'patty'], 6], 'cheeseburger' => [['bun', 'patty', 'cheese'], 9],
+    'deluxe' => [['bun', 'patty', 'cheese', 'lettuce', 'tomato'], 14], 'fries' => [['potato'], 3], 'salad' => [['lettuce', 'tomato'], 5]];
+const ORDER_LEN = 75, ORDER_N = 3;
+// the order on board slot i: everyone sees the same ones (orderAt() in js/places.js)
+function orderAt(int $i, float $t): array {
+    $g = (int)floor(($t + $i * 25) / ORDER_LEN); $k = array_keys(DISHES);
+    return ['id' => "$i:$g", 'd' => $k[(int)floor(hrand($g * 17 + $i * 5) * count($k))]];
+}
+// the farm: seed price, seconds to grow, what one sells for (CROPS in js/places.js)
+const FARM = [1820, 780, 3100, 1160];
+const PLOTS = 8;
+const CROPS = ['lettuce' => [1, 120, 2], 'carrot' => [1, 150, 2], 'tomato' => [1, 180, 3], 'potato' => [1, 240, 3],
+    'corn' => [2, 300, 5], 'strawberry' => [2, 420, 7], 'pumpkin' => [3, 600, 9]];
 
 // id => [slot, name, price]; price 0 = only from the capsule machine
 const SHOP = [
@@ -134,6 +151,7 @@ function price(string $k): int {
     if ($t === 'f') return FISH[$id][2] ?? 0;
     if ($t === 'j') return in_array($id, JUNK, true) ? (crc32($id) % 3) + 1 : 0;
     if ($t === 't') return TRINKETS[$id] ?? 0;
+    if ($t === 'c') return CROPS[$id][2] ?? 0;
     if ($t === 'b') foreach (BUGS as $i => $ks) if (in_array($id, $ks, true)) return BUG_PRICE[$i];
     if ($t === 'w' && isCos($k)) return isset(CAP_TIER[$id]) ? COS_PRICE[CAP_TIER[$id]] : max(1, intdiv(SHOP[$id][2], 3));
     return 0;
@@ -269,7 +287,7 @@ function fold(float $p, float $a, float $b): float {
 // more people online, more beetles: two for each, at least four and at most twelve
 const BUG_N = 12, BUG_LIFE = 90;
 function bugCount(int $people): int { return max(4, min(BUG_N, 2 + 2 * $people)); }
-const BUG_AREAS = [[1180, 830, 1700, 1130], [1180, 830, 1700, 1130], [140, 820, 620, 1120], [720, 480, 1080, 720], [140, 820, 620, 1120], [120, 440, 640, 540]];
+const BUG_AREAS = [[940, 820, 1700, 1130], [940, 1200, 1700, 1530], [150, 880, 810, 1100], [720, 480, 1080, 720], [1860, 830, 3060, 1120], [120, 440, 640, 540], [940, 820, 1700, 1130], [1900, 460, 3100, 760]];
 function hrand(float $n): float { $v = sin($n * 12.9898) * 43758.5453; return $v - floor($v); }
 function bugAt(int $k, float $t): array {
     $g = (int)floor(($t + $k * 13) / BUG_LIFE);
@@ -284,6 +302,19 @@ function ballAt(array $b, float $t): array {
     $d = (1 - exp(-BALL_K * max(0, $t - $b['t']))) / BALL_K;
     return [fold($b['x'] + $b['vx'] * $d, PEN[0], PEN[2]), fold($b['y'] + $b['vy'] * $d, PEN[1], PEN[3])];
 }
+// when and where the ball first rolls into a goal, or null (ballGoal() in js/world.js)
+function goalOf(array $b): ?array {
+    if (!$b['vx']) return null;
+    $L = PEN[2] - PEN[0];
+    for ($n = 0; $n < 12; $n++) {
+        $d = (($b['vx'] > 0 ? PEN[2] + $n * $L : PEN[0] - $n * $L) - $b['x']) / $b['vx'];
+        if ($d < 0) continue;
+        if (BALL_K * $d >= 0.97) break;
+        $y = fold($b['y'] + $b['vy'] * $d, PEN[1], PEN[3]);
+        if ($y > GOAL[0] + 4 && $y < GOAL[1] - 4) return ['t' => $b['t'] - log(1 - BALL_K * $d) / BALL_K, 'side' => ($b['vx'] > 0) === ($n % 2 === 0) ? 'r' : 'l'];
+    }
+    return null;
+}
 
 // ── read, update and write the world under a lock ──
 $file = tmpd() . '/' . ($test ? 'bbworld_test.json' : 'bbworld_v1.json');
@@ -292,7 +323,7 @@ if (!$fp) fail(500, 'world unavailable');
 flock($fp, LOCK_EX);
 $world = json_decode(stream_get_contents($fp) ?: '{}', true);
 if (!is_array($world)) $world = [];
-$world += ['people' => [], 'ball' => ['x' => 360, 'y' => 980, 'vx' => 0, 'vy' => 0, 't' => 0], 'tv' => null, 'tvq' => [], 'caught' => [], 'fx' => [], 'toss' => [], 'trades' => []];
+$world += ['people' => [], 'ball' => ['x' => 480, 'y' => 985, 'vx' => 0, 'vy' => 0, 't' => 0], 'score' => [0, 0, 0, '', null], 'served' => [], 'tv' => null, 'tvq' => [], 'caught' => [], 'fx' => [], 'toss' => [], 'trades' => []];
 foreach ($world['caught'] as $id => $t) if ($t < time() - BUG_LIFE * 2) unset($world['caught'][$id]);
 $now = microtime(true); $sec = time(); $day = gmdate('Y-m-d');
 foreach ($world['people'] as $u => $p) if (($p['t'] ?? 0) < $sec - STALE) unset($world['people'][$u]);
@@ -300,6 +331,16 @@ foreach ($world['people'] as $u => $p) if (($p['t'] ?? 0) < $sec - STALE) unset(
 $world['trades'] = array_values(array_filter($world['trades'], fn($o) => $o['t'] > $sec - 120 && isset($world['people'][$o['a']], $world['people'][$o['b']])));
 $world['fx'] = array_values(array_filter($world['fx'], fn($f) => $f[2] > $now - 6));
 $world['toss'] = array_values(array_filter($world['toss'], fn($f) => $f[4] > $now - 4));
+$world['served'] = array_filter($world['served'], fn($t) => $t > $sec - ORDER_LEN * 3);
+// a goal: a moment in the net, then the score goes up and the ball back to the middle; five wins
+if (($g = goalOf($world['ball'])) && $now >= $g['t'] + 1.5) {
+    $sc = &$world['score'];
+    $sc[$g['side'] === 'r' ? 0 : 1]++; $sc[2]++;
+    $by = $world['ball']['by'] ?? ''; $sc[3] = $world['people'][$by]['d'] ?? $by; $sc[4] = null;
+    if (max($sc[0], $sc[1]) >= 5) { $sc[4] = [$sc[0], $sc[1]]; $sc[0] = $sc[1] = 0; }
+    unset($sc);
+    $world['ball'] = ['x' => 480, 'y' => 985, 'vx' => 0, 'vy' => 0, 't' => $now];
+}
 // the screen moves on to the next video once this one has run out
 function tvNext(array &$world, float $now): void {
     $n = array_shift($world['tvq']);
@@ -481,7 +522,7 @@ else {
             $keys = [];
             if (isset($in['sell']['k']) && is_string($in['sell']['k']) && !empty($have[$in['sell']['k']]))
                 $keys[$in['sell']['k']] = max(1, min($have[$in['sell']['k']], (int)($in['sell']['n'] ?? 1)));
-            elseif (isset($in['sell']['all']) && in_array($in['sell']['all'], ['b', 'f', 'j'], true))
+            elseif (isset($in['sell']['all']) && in_array($in['sell']['all'], ['b', 'f', 'j', 'c'], true))
                 foreach ($have as $k => $n) if (str_starts_with($k, $in['sell']['all'] . ':')) $keys[$k] = $n;
             $got = 0; $cnt = 0;
             foreach ($keys as $k => $n) {
@@ -648,10 +689,58 @@ else {
     }
     if (isset($in['emote']) && in_array($in['emote'], EMOTES, true)) $p['e'] = [$in['emote'], $now];
     // holding something up for everyone to see; it stays yours
-    if (isset($in['show']) && is_string($in['show']) && preg_match('/^[bfjtw]:[a-z0-9_]{1,40}$/', $in['show'])) {
+    if (isset($in['show']) && is_string($in['show']) && preg_match('/^[bcfjtw]:[a-z0-9_]{1,40}$/', $in['show'])) {
         $getUser();
         $k = $in['show'];
         if ($user && (($user['inv']['have'][$k] ?? 0) > 0 || (str_starts_with($k, 'w:') && in_array(substr($k, 2), $user['owned'], true)))) $p['e'] = ["show:$k", $now];
+    }
+    // the kitchen: buy from the pantry (crops from your bag go in first), throw away, serve a plate
+    $inJade = $rx >= JADE[0] && $rx <= JADE[2] && $ry >= JADE[1] && $ry <= JADE[3];
+    if (isset($in['kbuy']) || isset($in['ktrash']) || isset($in['serve']) || !empty($in['klook'])) {
+        $getUser(); $r = &$user; $kit = $r['inv']['kit'] ?? [];
+        if (isset($in['kbuy']) && is_string($in['kbuy']) && isset(PANTRY[$in['kbuy']])) {
+            $k = $in['kbuy'];
+            if (!$inJade) $out['kbuy'] = 'far';
+            elseif (array_sum($kit) >= 12) $out['kbuy'] = 'full';
+            elseif (!empty($r['inv']['have']["c:$k"])) { takeItem($r, "c:$k"); $kit[$k] = ($kit[$k] ?? 0) + 1; $out['kbuy'] = [$k, 0]; }
+            elseif ($r['coins'] < PANTRY[$k]) $out['kbuy'] = 'poor';
+            else { $r['coins'] -= PANTRY[$k]; $kit[$k] = ($kit[$k] ?? 0) + 1; $out['kbuy'] = [$k, PANTRY[$k]]; }
+        }
+        if (isset($in['ktrash']) && is_array($in['ktrash'])) foreach (array_slice($in['ktrash'], 0, 8) as $k)
+            if (is_string($k) && !empty($kit[$k])) { if (--$kit[$k] <= 0) unset($kit[$k]); }
+        if (isset($in['serve']) && is_array($in['serve'])) {
+            $o = (string)($in['serve']['o'] ?? ''); $dish = (string)($in['serve']['d'] ?? '');
+            [$i] = explode(':', $o) + ['']; $i = (int)$i;
+            $ord = $i >= 0 && $i < ORDER_N ? orderAt($i, $now) : null;
+            $need = array_count_values(DISHES[$dish][0] ?? []);
+            if (!$inJade) $out['serve'] = 'far';
+            elseif (!$ord || $ord['id'] !== $o || $ord['d'] !== $dish) $out['serve'] = 'late';
+            elseif (isset($world['served'][$o])) $out['serve'] = 'taken';
+            elseif (array_filter($need, fn($n, $k) => ($kit[$k] ?? 0) < $n, ARRAY_FILTER_USE_BOTH)) $out['serve'] = 'missing';
+            else {
+                foreach ($need as $k => $n) { $kit[$k] -= $n; if ($kit[$k] <= 0) unset($kit[$k]); }
+                $pay = DISHES[$dish][1]; $r['coins'] += $pay; $world['served'][$o] = $sec;
+                $out['serve'] = [$dish, $pay];
+            }
+        }
+        $r['inv']['kit'] = $kit; $dirty = true;
+        $out['kit'] = (object)$kit; $p['c'] = $r['coins'];
+    }
+    // the farm: eight plots of your own; plant a seed, come back when it has grown
+    if (isset($in['farm']) && is_array($in['farm'])) {
+        $getUser(); $r = &$user;
+        $f = array_pad(array_slice($r['inv']['farm'] ?? [], 0, PLOTS), PLOTS, null);
+        $i = (int)($in['farm']['p'] ?? -1); $c = $in['farm']['c'] ?? null;
+        $inFarm = $rx >= FARM[0] && $rx <= FARM[2] && $ry >= FARM[1] && $ry <= FARM[3];
+        if ($i >= 0 && $i < PLOTS && !$inFarm) $out['farmerr'] = 'Walk into the farm first.';
+        elseif ($i >= 0 && $i < PLOTS && is_string($c) && isset(CROPS[$c]) && !$f[$i]) {
+            if ($r['coins'] < CROPS[$c][0]) $out['farmerr'] = 'Not enough stars for that seed.';
+            else { $r['coins'] -= CROPS[$c][0]; $f[$i] = [$c, $sec]; }
+        } elseif ($i >= 0 && $i < PLOTS && !empty($in['farm']['h']) && $f[$i] && $sec - $f[$i][1] >= CROPS[$f[$i][0]][1]) {
+            gain($r, 'c:' . $f[$i][0]); $out['harvest'] = $f[$i][0]; $f[$i] = null;
+        }
+        $r['inv']['farm'] = $f; $dirty = true;
+        $out['farm'] = $f; $p['c'] = $r['coins'];
     }
     $p['sk'] = !empty($in['sk']) ? 1 : 0;         // on the skateboard
     $mine = array_filter($p['in'], fn($i) => $i[2] > $now - 8);
@@ -663,7 +752,8 @@ else {
         $vx = (float)($in['kick']['vx'] ?? 0); $vy = (float)($in['kick']['vy'] ?? 0);
         $v = hypot($vx, $vy);
         if ($v > 900) { $vx *= 900 / $v; $vy *= 900 / $v; }
-        if (hypot($bx - $rx, $by - $ry) < 110 && $v > 0 && $now - ($world['ball']['t'] ?? 0) > 0.25) {
+        $g = goalOf($world['ball']);
+        if (hypot($bx - $rx, $by - $ry) < 110 && $v > 0 && $now - ($world['ball']['t'] ?? 0) > 0.25 && !($g && $now >= $g['t'])) {
             $world['ball'] = ['x' => $bx, 'y' => $by, 'vx' => $vx, 'vy' => $vy, 't' => $now, 'by' => $U];
             $getUser(); $r = &$user; $dirty = true; quest($r, $day, 'kick', 1, $out);
             $p['c'] = $r['coins'];
@@ -732,6 +822,8 @@ $out['coins'] = $world['people'][$U]['c'] ?? ($user['coins'] ?? 0);
 $out['wear'] = (object)($world['people'][$U]['w'] ?? []);
 $b = $world['ball'];
 $out['ball'] = ['x' => $b['x'], 'y' => $b['y'], 'vx' => $b['vx'], 'vy' => $b['vy'], 'age' => round(min($now - $b['t'], 86400), 3)];
+$out['score'] = $world['score'];
+$out['served'] = array_keys($world['served']);
 if ($world['tv']) $out['tv'] = ['v' => $world['tv']['v'], 'age' => round($now - $world['tv']['s'], 2), 'by' => $world['tv']['by'], 'k' => (int)($world['tv']['s'] * 10)];
 if ($world['tvq']) $out['tvq'] = array_map(fn($q) => ['v' => $q['v'], 'by' => $q['by']], $world['tvq']);
 if ($world['fx']) $out['fx'] = array_map(fn($f) => [$f[0], $f[1], round($now - $f[2], 2), $f[3], $f[5] ?? 'fw'], $world['fx']);

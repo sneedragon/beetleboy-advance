@@ -81,7 +81,7 @@ function renderCard() {
   const cv = el.querySelector('.wc-cat'), g = cv.getContext('2d');
   g.imageSmoothingEnabled = false;
   const c = world.cats.get(u);
-  const z = world.z; world.z = 1;
+  const z = world.z; world.z = MAP_K;
   drawCatPreview(g, { u, d: name, w: (me ? world.wear : c?.w || pr?.wear) || {} });
   world.z = z;
 }

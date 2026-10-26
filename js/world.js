@@ -7,29 +7,42 @@
 // the remilia sign-in cannot craft). Beetles wander about to be caught.
 // world.php keeps positions, emotes, the ball, the screen, beetles and coins.
 
-const WORLD_W = 1800, WORLD_H = 1200;
-const W_SPEED = 170;                 // world units a second
-const W_SKATE = 255;                 // others on a board (world.php lets nobody go faster than 260)
+const WORLD_W = 3680, WORLD_H = 1600;
+const MAP_K = 2;                     // the cats are drawn half size, so the places look twice as big
+const W_SPEED = 100;                 // world units a second
+const W_SKATE = 128;                 // others on a board (world.php lets nobody go faster than 260)
 // my board rolls on its own: push, coast, carve, ollie (units a second, radians a second)
 const SK = { max: 250, push: 260, drag: 0.35, brake: 620, turn: 5.5, pop: 240, grav: 950, flip: 2.6 };
 const W_POLL = 1000;
 const W_ACTIVE = 180_000;            // input this recent counts as "here" for coins
-const PEN = [120, 860, 600, 1100];   // the park's ball pen, as in world.php
+const PEN = [130, 850, 830, 1120];   // the park's ball pitch, as in world.php
+const GOAL = [945, 1025];            // the goal mouths at both ends of the pitch
 const BALL_K = 1.4, BALL_R = 10;
 
+// walls with doorways: gaps per side as [from, to]; door: 'top' means one in the middle
 const ZONES = [
   { id: 'club', name: 'CYBERIA', x: 60, y: 40, w: 600, h: 380, door: 'bottom', col: '#ff3d6e', dark: true },
   { id: 'shop', name: 'TERMINAL', x: 1140, y: 40, w: 600, h: 380, door: 'bottom', col: '#5b63e6' },
-  { id: 'park', name: 'PARK', x: 60, y: 780, w: 600, h: 380, door: 'top', col: '#4f9d58' },
-  { id: 'garden', name: 'BEETLE GARDEN', x: 1140, y: 780, w: 600, h: 380, door: 'top', col: '#2f9a5e' },
+  { id: 'jade', name: 'JADE ARCHES', x: 1820, y: 40, w: 600, h: 380, door: 'bottom', col: '#2fae7a' },
+  { id: 'library', name: 'LIBRARY', x: 2500, y: 40, w: 600, h: 380, door: 'bottom', col: '#b07a42' },
+  { id: 'garden', name: 'BEETLE GARDEN', x: 900, y: 780, w: 840, h: 390, walls: ['left', 'bottom'], hedge: true, gaps: { left: [[930, 1030]], bottom: [[1270, 1370]] }, col: '#2f9a5e', inner: true },
+  { id: 'skate', name: 'SKATE PARK', x: 60, y: 1170, w: 840, h: 390, walls: [], gaps: {}, col: '#8c86a3', inner: true },
+  { id: 'park', name: 'PARK', x: 60, y: 780, w: 1680, h: 780, gaps: { top: [[285, 435], [715, 865], [1370, 1510]] }, col: '#4f9d58' },
+  { id: 'farm', name: 'FARM', x: 1820, y: 780, w: 1280, h: 380, door: 'top', col: '#c9a13b' },
+  { id: 'church', name: 'CHURCH', x: 3180, y: 240, w: 440, h: 720, gaps: { left: [[525, 675]] }, col: '#d9cfae' },
 ];
+for (const z of ZONES) if (!z.gaps) {
+  const c = z.x + z.w / 2;
+  z.gaps = { [z.door]: [[c - 75, c + 75]] };
+}
 const PLAZA = { id: 'plaza', name: 'PLAZA' };
 const CLUB_SCREEN = { x: 200, y: 52, w: 320, h: 180 };          // the club screen, 16:9
 const DANCE = { x: 90, y: 270, w: 540, h: 120 };                 // the floor that sings
 const GARDEN_GATE = { x: 1370, y: 772, w: 140, h: 24 };
+const GARDEN_GATES = [GARDEN_GATE, { x: 892, y: 930, w: 24, h: 100 }, { x: 1270, y: 1146, w: 100, h: 24 }];   // the gate and the gaps in the hedge
 const WELL = { x: 900, y: 600 };
 const TREES = [[1250, 892], [1650, 892]];
-const POLES = [[700, 450], [1100, 450], [700, 750], [1100, 750], [300, 600], [1500, 600]];
+const POLES = [[700, 450], [1100, 450], [700, 750], [1100, 750], [300, 600], [1500, 600], [2460, 450], [2460, 750], [3140, 600]];
 const POND = { x: 460, y: 610, rx: 100, ry: 46 };               // fishing, as in world.php
 // the bit of shore nearest to me: you can fish from all round the pond
 function pondShore() {
@@ -45,7 +58,7 @@ const BIN = { x: 1600, y: 668, w: 48, h: 40, at: { x: 1624, y: 740 } };      // 
 const MAILBOX = { x: 1178, y: 612, w: 26, h: 64, at: { x: 1191, y: 712 } };  // walk up to it for your messages
 const STALL_SOLID = [STALL.x, STALL.y + 14, STALL.w, 32], BIN_SOLID = [BIN.x + 2, BIN.y + 8, BIN.w - 4, BIN.h - 10];
 // the place floats in the sky: you can walk on these and nowhere else
-const PLATFORMS = [[30, 400, 1740, 400], [680, 10, 440, 1180], ...[[60, 40], [1140, 40], [60, 780], [1140, 780]].map(([x, y]) => [x, y, 600, 380])]
+const PLATFORMS = [[30, 400, 3190, 400], [680, 10, 440, 790], ...ZONES.filter(z => !z.inner).map(z => [z.x, z.y, z.w, z.h])]
   .map(([x, y, w, h]) => ({ x, y, w, h }));
 const GLITCH_LINES = ['PRESENT DAY', 'PRESENT TIME', 'you are connected', 'layer 777', 'who is here?', 'the network remembers', 'no carrier'];
 const FORTUNES = [
@@ -74,7 +87,7 @@ const SPOTS = [
 
 // beetles: every browser works out the same ones from the clock (bugAt() in world.php)
 const BUG_LIFE = 90;     // how many fly about comes from world.php: more when more people are here
-const BUG_AREAS = [[1180, 830, 1700, 1130], [1180, 830, 1700, 1130], [140, 820, 620, 1120], [720, 480, 1080, 720], [140, 820, 620, 1120], [120, 440, 640, 540]];
+const BUG_AREAS = [[940, 820, 1700, 1130], [940, 1200, 1700, 1530], [150, 880, 810, 1100], [720, 480, 1080, 720], [1860, 830, 3060, 1120], [120, 440, 640, 540], [940, 820, 1700, 1130], [1900, 460, 3100, 760]];
 // tin, bronze, mithril, adamantite, diamond (BUGS in world.php); diamond is one in 500
 const BUG_KINDS = [['green'], ['purple', 'ladybug', 'cucumber'],
   ['monarch', 'pond', 'giraffe_weevil', 'pillbug', 'imperial_tortoise', 'christmas', 'skull', 'bumblebee', 'golden_tiger', 'blue_longicorn'],
@@ -98,7 +111,7 @@ const world = {
   cam: { x: 0, y: 0 }, sprite: null, tinted: new Map(), timer: null, raf: 0, last: 0,
   target: null, pending: null, near: null, prompt: null, keys: new Set(), failing: 0, busy: false, err: '',
   coins: null, wear: {}, owned: [], catalog: null, zone: null, active: Date.now(),
-  ball: { x: 360, y: 980, vx: 0, vy: 0, t0: 0 }, kickAt: 0, tv: null, tvAt: 0,
+  ball: { x: 480, y: 985, vx: 0, vy: 0, t0: 0 }, kickAt: 0, tv: null, tvAt: 0,
   out: {}, bg: null, noise: [], scan: null, haze: null, glitch: null, nextGlitch: 0, solids: [],
   skew: 0, gone: new Set(), catching: new Set(), bugImg: {}, splashes: [], tile: '', dm: 0,
   tvq: [], lastSeen: new Map(), looked: false, fx: new Map(), toss: new Map(), seenIn: new Set(), aim: null, fishing: null, sky: null,
@@ -107,13 +120,17 @@ const world = {
 // ── the map: walls with a doorway toward the plaza, a few solid things ──────
 function buildSolids() {
   const s = [], T = 16;
-  for (const z of ZONES) {
-    const gap = 150, gx = z.x + (z.w - gap) / 2;
-    const top = z.door === 'top', bottom = z.door === 'bottom';
-    const hz = (y, open) => open ? [[z.x, y, gx - z.x, T], [gx + gap, y, z.x + z.w - gx - gap, T]] : [[z.x, y, z.w, T]];
-    s.push(...hz(z.y, top), ...hz(z.y + z.h - T, bottom));
-    s.push([z.x, z.y, T, z.h], [z.x + z.w - T, z.y, T, z.h]);
-  }
+  // a wall along one side, with its doorways left open
+  const side = (z, k) => {
+    const v = k === 'top' || k === 'bottom', a = v ? z.x : z.y, len = v ? z.w : z.h;
+    const at = { top: z.y, bottom: z.y + z.h - T, left: z.x, right: z.x + z.w - T }[k];
+    let p = a;
+    for (const [g0, g1] of [...(z.gaps[k] || []), [a + len, a + len]]) {
+      if (g0 > p) s.push(v ? [p, at, g0 - p, T, z.hedge && 'hedge'] : [at, p, T, g0 - p, z.hedge && 'hedge']);
+      p = g1;
+    }
+  };
+  for (const z of ZONES) for (const k of z.walls || ['top', 'bottom', 'left', 'right']) side(z, k);
   s.push([CLUB_SCREEN.x - 10, z0('club').y, CLUB_SCREEN.w + 20, CLUB_SCREEN.h + 20]);        // the screen stands against the club wall
   s.push([1220, 90, 260, 90], [1540, 90, 92, 120]);                            // terminal monitors
   s.push([1300, 236, 280, 40], [1650, 214, 56, 92]);                           // the counter, the capsule machine
@@ -123,7 +140,8 @@ function buildSolids() {
   s.push([1380, 990, 120, 40]);                                                // the workbench
   s.push(STALL_SOLID, BIN_SOLID, [MAILBOX.x + 8, MAILBOX.y + 50, 10, 14]);
   for (const [x, y] of POLES) s.push([x - 8, y - 8, 16, 16]);
-  world.solids = s.map(([x, y, w, h]) => ({ x, y, w, h }));
+  window.placeSolids?.(s);                                                     // the new places (places.js)
+  world.solids = s.map(([x, y, w, h, k]) => ({ x, y, w, h, k }));
 }
 const z0 = id => ZONES.find(z => z.id === id);
 const labLocked = () => rnAuth();
@@ -133,11 +151,11 @@ const netNow = () => Date.now() / 1000 + world.skew;
 
 // the cat's feet are a small box; bump it against walls one axis at a time
 function blocked(x, y, skip) {
-  if (x < 20 || x > WORLD_W - 20 || y < 30 || y > WORLD_H - 8) return true;
-  const box = { x: x - 13, y: y - 8, w: 26, h: 10 };
+  if (x < 10 || x > WORLD_W - 10 || y < 15 || y > WORLD_H - 4) return true;
+  const box = { x: x - 7, y: y - 4, w: 14, h: 5 };
   const hit = r => box.x < r.x + r.w && box.x + box.w > r.x && box.y < r.y + r.h && box.y + box.h > r.y;
-  if (labLocked() && hit(GARDEN_GATE)) return 'lab';
-  if (!PLATFORMS.some(p => x > p.x + 12 && x < p.x + p.w - 12 && y > p.y + 14 && y < p.y + p.h - 4)) return true;    // the edge, and the sky below
+  if (labLocked() && GARDEN_GATES.some(hit)) return 'lab';
+  if (!PLATFORMS.some(p => x > p.x + 7 && x < p.x + p.w - 7 && y > p.y + 8 && y < p.y + p.h - 2)) return true;    // the edge, and the sky below
   return world.solids.some(r => r !== skip && hit(r));
 }
 
@@ -291,12 +309,13 @@ async function worldTickNow() {
       world.gone.add(extra.catch);
       worldToast(`Caught ${aName(itemName('b:' + d.bug))}! It is in your bag.`);
       const me = world.cats.get(world.me);
-      if (me) world.splashes.push({ x: me.x, y: me.y - 56, t: clock, text: '+1 🪲', col: '#2f9a5e' });
+      if (me) world.splashes.push({ x: me.x, y: me.y - 28, t: clock, text: '+1 🪲', col: '#2f9a5e' });
       sfx('claim');
     } else if (d.caught === 'gone') { world.gone.add(extra.catch); worldToast('Someone was quicker.'); }
     else if (d.caught === 'far') world.catchWait = performance.now() + 600;
   }
   if (d.dm != null && d.dm !== world.dm) { world.dm = d.dm; window.dmPoke?.(d.dm); }
+  window.placesTick?.(d, extra, clock);                // the farm, the kitchen, the goals (places.js)
 
   // the ball: my own kick stays as I predicted it until the server agrees
   if (performance.now() - world.kickAt > 1500 && d.ball) syncBall(d.ball, clock);
@@ -361,7 +380,7 @@ function worldStep(dt, clock) {
     const k = world.keys;
     const vx = (k.has('right') ? 1 : 0) - (k.has('left') ? 1 : 0);
     const vy = (k.has('down') ? 1 : 0) - (k.has('up') ? 1 : 0);
-    if (vx || vy) { world.target = { x: me.x + vx * 40, y: me.y + vy * 40 }; world.pending = null; }
+    if (vx || vy) { world.target = { x: me.x + vx * 20, y: me.y + vy * 20 }; world.pending = null; }
   }
   for (const c of world.cats.values()) {
     const mine = c === me;
@@ -383,7 +402,7 @@ function worldStep(dt, clock) {
       if ([bx, by, bb].includes('lab')) labDenied();
     } else { c.x += mx; c.y += my; }          // someone else, or me stuck inside something: let them out
     if (Math.abs(dx) > Math.abs(dy)) { c.dir = 'side'; c.flip = dx < 0; } else c.dir = dy < 0 ? 'up' : 'down';
-    if (c.w?.trail && Math.random() < dt * trailOf(c)[0]) c.trail.push({ x: c.x + (Math.random() - 0.5) * 16, y: c.y - 6 - Math.random() * 18, t: clock, r: Math.random() });
+    if (c.w?.trail && Math.random() < dt * trailOf(c)[0]) c.trail.push({ x: c.x + (Math.random() - 0.5) * 8, y: c.y - 3 - Math.random() * 9, t: clock, r: Math.random() });
   }
   if (!me) return;
   const z = zoneAt(me.x, me.y);
@@ -393,11 +412,11 @@ function worldStep(dt, clock) {
   danceCheck(me);
   fishCheck(me, clock);
   // the nearest thing to use, and walking up to the one I tapped
-  world.near = SPOTS.filter(s => !s.hide?.()).map(s => ({ s, d: Math.hypot(s.at.x - me.x, s.at.y - me.y) })).filter(o => o.d < 110).sort((a, b) => a.d - b.d)[0]?.s || null;
+  world.near = SPOTS.filter(s => !s.hide?.()).map(s => ({ s, d: Math.hypot(s.at.x - me.x, s.at.y - me.y) })).filter(o => o.d < (o.s.near || 70)).sort((a, b) => a.d - b.d)[0]?.s || null;
   const p = world.pending;
   if (p) {
     const d = Math.hypot(p.at.x - me.x, p.at.y - me.y);
-    if (d < 30 || (!me.moving && d < 110)) { world.pending = null; p.act(); }
+    if (d < 18 || (!me.moving && d < (p.near || 70))) { world.pending = null; p.act(); }
     else if (!me.moving) world.pending = null;
   }
 }
@@ -416,8 +435,8 @@ function skateStep(me, dt, t) {
   if (kx || ky) { want = Math.atan2(ky, kx); gas = true; world.target = null; world.pending = null; }
   else if (world.target) {
     const dx = world.target.x - me.x, dy = world.target.y - me.y, d = Math.hypot(dx, dy);
-    if (d < 22 || (d < 70 && b.v < 30)) { world.target = null; b.v = Math.min(b.v, 40); }
-    else { want = Math.atan2(dy, dx); gas = d > b.v * b.v / (2 * SK.brake) + 40; if (!gas && !b.z) b.v = Math.max(0, b.v - SK.brake * dt); }
+    if (d < 11 || (d < 35 && b.v < 30)) { world.target = null; b.v = Math.min(b.v, 40); }
+    else { want = Math.atan2(dy, dx); gas = d > b.v * b.v / (4 * SK.brake) + 20; if (!gas && !b.z) b.v = Math.max(0, b.v - SK.brake * dt); }
   }
   if (b.z > 0 || b.vz > 0) {
     // in the air: no steering, the trick turns
@@ -436,7 +455,7 @@ function skateStep(me, dt, t) {
     }
   }
   if (!b.z) { b.v -= b.v * SK.drag * dt; if (b.v < 6 && !gas) b.v = 0; }
-  const mx = Math.cos(b.h) * b.v * dt, my = Math.sin(b.h) * b.v * dt;
+  const mx = Math.cos(b.h) * b.v * dt / MAP_K, my = Math.sin(b.h) * b.v * dt / MAP_K;     // the board is half size too
   // high enough in the air, you clear the pond
   const skip = b.z > 10 ? world.solids.find(r => r.x === POND.x - POND.rx + 6 && r.y === POND.y - POND.ry + 6) : null;
   if (mx || my) {
@@ -447,10 +466,11 @@ function skateStep(me, dt, t) {
     else { b.v = 0; world.target = null; }
     if ([blocked(me.x + mx, me.y)].includes('lab')) labDenied();
   }
+  window.skateRamp?.(me, b, t);                       // kickers and the rail in the skate park (places.js)
   me.moving = b.v > 5;
   const cs = Math.cos(b.h), sn = Math.sin(b.h);
   if (Math.abs(cs) > Math.abs(sn) * 0.8) { me.dir = 'side'; me.flip = cs < 0; } else me.dir = sn < 0 ? 'up' : 'down';
-  if (me.w?.trail && me.moving && Math.random() < dt * trailOf(me)[0]) me.trail.push({ x: me.x + (Math.random() - 0.5) * 16, y: me.y - 6 - Math.random() * 18, t, r: Math.random() });
+  if (me.w?.trail && me.moving && Math.random() < dt * trailOf(me)[0]) me.trail.push({ x: me.x + (Math.random() - 0.5) * 8, y: me.y - 3 - Math.random() * 9, t, r: Math.random() });
 }
 const TRICKS = { flip: 'Kickflip', shove: 'Pop shove-it' };
 // Space / ⤴ ollies and flips, Shift / ↻ shoves it; either one pops you up from the ground
@@ -471,7 +491,7 @@ function land(me, t) {
   if (!b.trick) return;
   if (b.spin < 0.85) return bail(me, t, 'Bail!');
   b.combo = t - (b.lastTrick || 0) < 3 ? b.combo + 1 : 1; b.lastTrick = t;
-  world.splashes.push({ x: me.x, y: me.y - 64, t, text: TRICKS[b.trick] + (b.combo > 1 ? ` ×${b.combo}` : ''), col: '#ff3d6e' });
+  world.splashes.push({ x: me.x, y: me.y - 32, t, text: TRICKS[b.trick] + (b.combo > 1 ? ` ×${b.combo}` : ''), col: '#ff3d6e' });
   sfx('claim');
   b.trick = ''; b.spin = 0;
 }
@@ -479,7 +499,7 @@ function bail(me, t, text) {
   const b = world.sb;
   b.bail = t + 1.1; b.v = 0; b.z = 0; b.vz = 0; b.trick = ''; b.spin = 0; b.combo = 0;
   world.target = null; me.moving = false;
-  world.splashes.push({ x: me.x, y: me.y - 60, t, text, col: '#c23a4a' });
+  world.splashes.push({ x: me.x, y: me.y - 30, t, text, col: '#c23a4a' });
   sfx('click');
 }
 
@@ -505,7 +525,23 @@ function ballAt(clock) {
   const b = world.ball, d = (1 - Math.exp(-BALL_K * Math.max(0, clock - b.t0))) / BALL_K;
   const speed = Math.hypot(b.vx, b.vy) * Math.exp(-BALL_K * Math.max(0, clock - b.t0));
   const k = b.ox || b.oy ? Math.max(0, 1 - (clock - b.oAt) / 0.35) : 0;
+  if (b.goal === undefined) b.goal = ballGoal(b);
+  if (b.goal && clock >= b.goal.t) return { x: b.goal.side === 'r' ? PEN[2] + 14 : PEN[0] - 14, y: b.goal.y, speed: 0, inGoal: b.goal.side };
   return { x: fold(b.x + b.vx * d, PEN[0], PEN[2]) + (b.ox || 0) * k, y: fold(b.y + b.vy * d, PEN[1], PEN[3]) + (b.oy || 0) * k, speed };
+}
+// the first time the ball rolls into a goal, or null: it meets a goal line at
+// x = edge + n·L as if the pitch were unfolded, and counts if the mouth is there (goalOf() in world.php)
+function ballGoal(b) {
+  if (!b.vx) return null;
+  const L = PEN[2] - PEN[0];
+  for (let n = 0; n < 12; n++) {
+    const d = ((b.vx > 0 ? PEN[2] + n * L : PEN[0] - n * L) - b.x) / b.vx;
+    if (d < 0) continue;
+    if (BALL_K * d >= 0.97) break;                       // it stops before it gets there
+    const y = fold(b.y + b.vy * d, PEN[1], PEN[3]);
+    if (y > GOAL[0] + 4 && y < GOAL[1] - 4) return { t: b.t0 - Math.log(1 - BALL_K * d) / BALL_K, side: (b.vx > 0) === (n % 2 === 0) ? 'r' : 'l', y };
+  }
+  return null;
 }
 // a kick from the server: start from where the ball is drawn now and let the
 // difference melt away, and leave it alone when only the network jitters
@@ -524,9 +560,10 @@ function syncBall(s, clock) {
 function kickCheck(me, clock) {
   if (!me.moving || performance.now() - world.kickAt < 450) return;
   const b = ballAt(clock);
-  const dx = b.x - me.x, dy = b.y - (me.y - 6), dist = Math.hypot(dx, dy);
-  if (dist > 26) return;
-  const v = 420 + Math.random() * 160;
+  if (b.inGoal) return;
+  const dx = b.x - me.x, dy = b.y - (me.y - 3), dist = Math.hypot(dx, dy);
+  if (dist > 14) return;
+  const v = 240 + Math.random() * 90;
   const vx = dx / (dist || 1) * v, vy = dy / (dist || 1) * v;
   world.kickAt = performance.now();
   world.ball = { x: b.x, y: b.y, vx, vy, t0: clock, sx: world.ball.sx, sy: world.ball.sy, svx: world.ball.svx, svy: world.ball.svy };
@@ -546,7 +583,7 @@ function liveBugs() {
 function catchCheck(me) {
   if (world.catching.size || performance.now() < (world.catchWait || 0)) return;
   for (const b of liveBugs()) {
-    if (Math.hypot(b.x - me.x, b.y - me.y) > 30) continue;
+    if (Math.hypot(b.x - me.x, b.y - me.y) > 16) continue;
     world.catching.add(b.id);
     worldSend({ catch: b.id }, true);
     return;
@@ -630,7 +667,10 @@ function buildSky(w, h) {
 function buildBackground() {
   const c = document.createElement('canvas'); c.width = WORLD_W; c.height = WORLD_H;
   const g = c.getContext('2d');
-  const rnd = (a, b) => a + Math.random() * (b - a);
+  // the same every time (mulberry32), so the grass does not jump about on a redraw
+  let seed = 777;
+  const rand = () => { seed = (seed + 0x6D2B79F5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  const rnd = (a, b) => a + rand() * (b - a);
   const sky = buildSky(WORLD_W / 2, WORLD_H / 2);
   world.sky = sky;
   g.imageSmoothingEnabled = false;
@@ -659,8 +699,8 @@ function buildBackground() {
   for (let y = 0; y <= WORLD_H; y += 40) { g.beginPath(); g.moveTo(0, y + 0.5); g.lineTo(WORLD_W, y + 0.5); g.stroke(); }
   g.restore();
   g.fillStyle = D ? 'rgba(232,214,138,0.18)' : 'rgba(80,90,130,0.16)';
-  for (let x = 40; x < WORLD_W - 40; x += 60) if (x < 640 || x > 1160) g.fillRect(x, 598, 30, 3);
-  for (let y = 20; y < WORLD_H - 20; y += 60) if (y < 420 || y > 780) g.fillRect(898, y, 3, 30);
+  for (let x = 40; x < 3180; x += 60) if (x < 640 || x > 1160) g.fillRect(x, 598, 30, 3);
+  for (let y = 20; y < 400; y += 60) g.fillRect(898, y, 3, 30);
   // the plaza: rings around the well
   for (let r = 260; r > 60; r -= 40) {
     g.strokeStyle = D ? `rgba(120,140,255,${0.03 + (260 - r) / 3600})` : `rgba(60,100,200,${0.06 + (260 - r) / 1800})`; g.lineWidth = 2;
@@ -702,17 +742,27 @@ function buildBackground() {
       g.fillStyle = '#e8b84a'; g.fillRect(x, y, 2, 2);
     }
   };
-  floor(z0('park'), z => grass(z, D ? '#0c0f0a' : '#cfe6c6', 2600, 40));
+  floor(z0('park'), z => grass(z, D ? '#0c0f0a' : '#cfe6c6', 13000, 200));
   floor(z0('garden'), z => {
-    grass(z, D ? '#0d110b' : '#cde5c4', 3600, 70);
+    grass(z, D ? '#0d110b' : '#cde5c4', 6000, 120);
     // stepping stones to the workbench
     g.fillStyle = D ? 'rgba(120,115,140,0.35)' : 'rgba(255,255,255,0.7)';
     for (let i = 0; i < 5; i++) { g.beginPath(); g.ellipse(1440 + (i % 2 ? 10 : -10), 810 + i * 34, 16, 8, 0, 0, Math.PI * 2); g.fill(); }
   });
 
-  // walls: a lit top and a face below it; Cyberia stays dark
+  window.placeFloors?.(g, floor, grass, rnd, D);                 // the new places (places.js)
+
+  // walls: a lit top and a face below it; Cyberia stays dark, the garden has a hedge
   const club = z0('club');
   for (const s of world.solids) {
+    if (s.k === 'hedge') {
+      g.fillStyle = 'rgba(20,50,20,0.3)'; g.fillRect(s.x, s.y + s.h, s.w, 6);
+      g.fillStyle = D ? '#14261a' : '#4f9d58'; roundRect(g, s.x, s.y - 6, s.w, s.h + 6, 6); g.fill();
+      g.fillStyle = D ? '#1d3524' : '#6fbf6e';
+      for (let i = 0; i < (s.w + s.h) / 9; i++) g.fillRect(s.x + rnd(0, s.w - 4), s.y - 6 + rnd(0, s.h), 4, 3);
+      continue;
+    }
+    if (s.k === 'prop') continue;                          // drawn by places.js
     if (s.w === 16 && s.h === 16) continue;               // poles are drawn with the wires
     if (s.x === POND.x - POND.rx + 6 && s.y === POND.y - POND.ry + 6) continue;
     const dark = inRect(s.x + 1, s.y + 1, club);
@@ -741,9 +791,6 @@ function buildBackground() {
   g.fillStyle = '#b48a64'; g.fillRect(1380, 990, 120, 40);
   g.fillStyle = '#d4ab82'; g.fillRect(1380, 990, 120, 5);
   g.fillStyle = '#8a6646'; g.fillRect(1386, 1030, 6, 10); g.fillRect(1488, 1030, 6, 10);
-  // park fence posts
-  g.fillStyle = D ? '#3a3648' : '#b9b2c9';
-  for (let x = PEN[0] - 12; x <= PEN[2] + 12; x += 40) { g.fillRect(x, PEN[1] - 22, 4, 10); g.fillRect(x, PEN[3] + 12, 4, 10); }
   // Cyberia: a speaker stack either side of the screen, a bar along the right
   g.fillStyle = '#07050a';
   g.fillRect(140, 70, 44, 90); g.fillRect(536, 70, 44, 90);
@@ -780,6 +827,7 @@ function buildBackground() {
   g.fillStyle = D ? '#5c1c1b' : '#a8302a'; g.fillRect(mb.x, mb.y + 34, mb.w, 4);
   g.fillStyle = D ? '#1a1820' : '#3a2a2a'; g.fillRect(mb.x + 6, mb.y + 16, mb.w - 12, 3);
   g.fillStyle = D ? '#c9b07a' : '#ffe6a8'; g.font = wf(9, 'bold'); g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('✉', mb.x + mb.w / 2, mb.y + 27);
+  window.placeProps?.(g, D, rnd);
   world.bg = c;
 }
 const MONITORS = [[1226, 96, 58, 48], [1290, 96, 58, 48], [1354, 96, 58, 48], [1418, 96, 58, 48], [1546, 96, 40, 48], [1588, 96, 40, 48], [1546, 150, 40, 48], [1588, 150, 40, 48],
@@ -806,7 +854,7 @@ function worldDraw(now) {
   drawBugs(g, netNow());
   if (world.target && me?.moving) {
     g.strokeStyle = '#ff3d6e'; g.globalAlpha = 0.6;
-    g.beginPath(); g.ellipse(world.target.x, world.target.y, 10, 4, 0, 0, Math.PI * 2); g.stroke();
+    g.beginPath(); g.ellipse(world.target.x, world.target.y, 5, 2, 0, 0, Math.PI * 2); g.stroke();
     g.globalAlpha = 1;
   }
 
@@ -819,14 +867,19 @@ function worldDraw(now) {
   const things = [...world.cats.values()].map(c => ({ y: c.y, c }));
   things.push({ y: b.y, ball: b });
   things.sort((a, b2) => a.y - b2.y);
-  for (const t of things) t.ball ? drawBall(gt, t.ball, clock) : drawCat(gt, t.c, clock);
+  window.placesLive?.(gt, clock, 'under');
+  for (const t of things) t.ball ? small(gt, t.ball.x, t.ball.y, () => drawBall(gt, t.ball, clock)) : small(gt, Math.round(t.c.x), Math.round(t.c.y), () => drawCat(gt, t.c, clock));
+  window.placesLive?.(gt, clock, 'over');
   drawTrees(gt, me);
   drawWires(gt, clock);
   drawLights(gt, clock, cx, cy, vw, vh);
   drawSigns(gt, clock);
   drawToys(gt, clock);
   drawPrompt(gt, clock);
-  for (const c of world.cats.values()) if (c.bubble && Date.now() < c.bubble.until) drawBubble(gt, c.bubble, Math.round(c.x), Math.round(c.y) - 58, cx, vw);
+  for (const c of world.cats.values()) if (c.bubble && Date.now() < c.bubble.until) {
+    const x = Math.round(c.x), y = Math.round(c.y);
+    small(gt, x, y, () => drawBubble(gt, c.bubble, x, y - 58, x + MAP_K * (cx - x), vw * MAP_K));
+  }
   drawSplashes(gt, clock);
   drawBite(gt, clock);
 
@@ -943,9 +996,9 @@ function drawLive(g, t) {
 }
 
 function drawBugs(g, t) {
-  for (const b of liveBugs()) {
+  for (const b of liveBugs()) small(g, b.x, b.y, () => {
     const names = BUG_KINDS[b.kind], img = world.bugImg[names[Math.floor(hrand(b.s + 9) * names.length)]];
-    if (!img?.complete || !img.naturalWidth) continue;
+    if (!img?.complete || !img.naturalWidth) return;
     const n = bugAt(+b.id.split(':')[0], t + 0.2);
     const ang = Math.atan2(n.y - b.y, n.x - b.x) + Math.PI / 2;
     const size = b.kind >= 3 ? 26 + (b.kind - 3) * 4 : 22;
@@ -954,8 +1007,10 @@ function drawBugs(g, t) {
     g.imageSmoothingEnabled = true; g.drawImage(img, -size / 2, -size / 2, size, size); g.imageSmoothingEnabled = false;
     g.restore();
     if (b.kind >= 3 && Math.sin(t * 4 + b.s) > 0.6) { g.fillStyle = b.kind === 4 ? '#cfe0ff' : '#fff6c0'; g.fillRect(b.x + 8, b.y - 16, 2, 6); g.fillRect(b.x + 6, b.y - 14, 6, 2); }
-  }
+  });
 }
+// cats, beetles and the ball are half the size of the places (MAP_K)
+function small(g, x, y, fn) { g.save(); g.translate(x, y); g.scale(1 / MAP_K, 1 / MAP_K); g.translate(-x, -y); fn(); g.restore(); }
 
 function drawBall(g, b, t) {
   g.fillStyle = 'rgba(40,40,80,0.25)';
@@ -1269,7 +1324,7 @@ const TRAILS = { t_feathers: [5, 2.2], t_notes: [4, 1.6], t_bubbles: [6, 1.6], t
 const trailOf = c => TRAILS[c.w?.trail] || [14, 1.2];
 
 // text keeps at least its size on screen when the world is drawn small (phones)
-const wf = (px, weight = '') => `${weight} ${Math.round(px / Math.min(1, world.z))}px "Pixelify Sans", ui-monospace, Menlo, monospace`;
+const wf = (px, weight = '') => `${weight} ${Math.round(px / Math.min(1, world.z / MAP_K))}px "Pixelify Sans", ui-monospace, Menlo, monospace`;
 
 function label(g, c, x, y) {
   g.font = wf(10);
@@ -1339,13 +1394,13 @@ function drawWires(g, t) {
   }
   g.strokeStyle = world.dark ? 'rgba(120,112,150,0.55)' : 'rgba(54,49,74,0.7)'; g.lineWidth = 1.2;
   const sag = (x1, y1, x2, y2, d) => { g.beginPath(); g.moveTo(x1, y1); g.quadraticCurveTo((x1 + x2) / 2, (y1 + y2) / 2 + d + Math.sin(t * 0.8 + x1) * 1.5, x2, y2); g.stroke(); };
-  const links = [[0, 1], [2, 3], [0, 2], [1, 3], [4, 0], [4, 2], [1, 5], [3, 5]];
+  const links = [[0, 1], [2, 3], [0, 2], [1, 3], [4, 0], [4, 2], [1, 5], [3, 5], [5, 6], [5, 7], [6, 7], [6, 8], [7, 8]];
   for (const [a, b] of links) {
     const [x1, y1] = POLES[a], [x2, y2] = POLES[b];
     for (const [o, h] of [[-24, 140], [24, 140], [-18, 122], [18, 122]]) sag(x1 + o, y1 - h, x2 + o, y2 - h, 26);
   }
   // and off the edge of the map, to wherever the rest of the network is
-  for (const [i, ex, ey] of [[4, -60, 400], [4, -60, 720], [5, WORLD_W + 60, 380], [5, WORLD_W + 60, 760], [0, 640, -80], [1, 1160, -80], [2, 640, WORLD_H + 200], [3, 1160, WORLD_H + 200]]) {
+  for (const [i, ex, ey] of [[4, -60, 400], [4, -60, 720], [8, 3140, -80], [8, 3140, WORLD_H + 200], [0, 640, -80], [1, 1160, -80], [2, 640, WORLD_H + 200], [3, 1160, WORLD_H + 200]]) {
     const [x, y] = POLES[i];
     sag(x - 24, y - 140, ex, ey - 140, 40); sag(x + 24, y - 140, ex + 30, ey - 130, 40);
   }
@@ -1357,7 +1412,7 @@ function drawLights(g, t, cx, cy, vw, vh) {
   if (world.dark) return drawNight(g, t);
   g.save();
   g.globalCompositeOperation = 'screen';
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < 10; i++) {
     const x = 200 + i * 360 + Math.sin(t * 0.13 + i * 2) * 60;
     const gr = g.createLinearGradient(x, 0, x + 260, WORLD_H);
     gr.addColorStop(0, 'rgba(255,255,255,0)'); gr.addColorStop(0.5, `rgba(255,250,235,${0.12 + Math.sin(t * 0.4 + i) * 0.04})`); gr.addColorStop(1, 'rgba(255,255,255,0)');
@@ -1370,7 +1425,7 @@ function drawLights(g, t, cx, cy, vw, vh) {
   g.fillStyle = wl; g.fillRect(WELL.x - 26, WELL.y - 260, 52, 260);
   g.restore();
   g.save();
-  for (let i = 0; i < 46; i++) {
+  for (let i = 0; i < 90; i++) {
     const x = (hrand(i + 1) * WORLD_W + Math.sin(t * 0.3 + i) * 30) % WORLD_W;
     const y = WORLD_H - ((hrand(i + 50) * WORLD_H + t * (8 + hrand(i + 9) * 14)) % WORLD_H);
     if (x < cx - 10 || x > cx + vw + 10 || y < cy - 10 || y > cy + vh + 10) continue;
@@ -1410,7 +1465,7 @@ function drawSigns(g, t) {
   g.save();
   g.textAlign = 'center'; g.textBaseline = 'middle';
   for (const z of ZONES) {
-    const sx = z.x + z.w / 2, sy = z.door === 'bottom' ? z.y + z.h + 22 : z.y - 24;
+    const sx = z.x + z.w / 2, sy = z.gaps.bottom ? z.y + z.h + 22 : z.y - 24;
     const dim = Math.sin(t * 7 + z.x) > 0.97;
     g.font = wf(15, 'bold');
     g.shadowColor = world.dark ? z.col : '#ffffff'; g.shadowBlur = dim ? 0 : 8;
@@ -1426,12 +1481,14 @@ function drawPrompt(g, t) {
   world.prompt = null;
   if (!s) return;
   const text = s.text() + (matchMedia('(pointer: fine)').matches ? '  [E]' : '');
+  // above the thing, or below it when you stand above it, so it never hides your cat; cat sized (MAP_K)
+  const below = s.at.y < s.r.y, k = 1 / MAP_K;
+  const ax = s.r.x + s.r.w / 2, ay = (below ? s.r.y + s.r.h + 9 : s.r.y - 6) + Math.sin(t * 3);
+  g.save();
+  g.translate(ax, ay); g.scale(k, k);
   g.font = wf(12, 'bold');
   const m = g.measureText(text), w = m.width + 20, h = (m.fontBoundingBoxAscent + m.fontBoundingBoxDescent) + 12;
-  // above the thing, or below it when you stand above it, so it never hides your cat
-  const below = s.at.y < s.r.y;
-  const x = s.r.x + s.r.w / 2, y = (below ? s.r.y + s.r.h + 18 : s.r.y - 12 - h) + Math.sin(t * 3) * 2;
-  g.save();
+  const x = 0, y = below ? 0 : -h;
   g.shadowColor = s.col; g.shadowBlur = 14;
   g.fillStyle = 'rgba(255,255,255,0.95)'; roundRect(g, x - w / 2, y, w, h, h / 2); g.fill();
   g.shadowBlur = 0;
@@ -1442,7 +1499,7 @@ function drawPrompt(g, t) {
   g.fillStyle = '#211d2e'; g.textAlign = 'center'; g.textBaseline = 'middle';
   g.fillText(text, x, y + h / 2 + 1);
   g.restore();
-  world.prompt = { x: x - w / 2, y: y - 6, w, h: h + 12, s };
+  world.prompt = { x: ax - w * k / 2, y: ay + (y - 6) * k, w: w * k, h: (h + 12) * k, s };
 }
 
 // coins dropping into the well, and the like
@@ -1496,7 +1553,7 @@ function worldFit() {
   world.dpr = window.devicePixelRatio || 1;
   world.cw = cw; world.ch = ch;
   for (const c of [world.canvas, world.top]) { c.width = Math.round(cw * world.dpr); c.height = Math.round(ch * world.dpr); }
-  world.z = Math.max(0.5, Math.min(1.6, ch / 560, cw / 480));
+  world.z = MAP_K * Math.max(0.5, Math.min(1.6, ch / 560, cw / 480));
   const g = world.tctx;
   const sc = document.createElement('canvas'); sc.width = 1; sc.height = Math.max(2, Math.round(3 * world.dpr));
   const sg = sc.getContext('2d'); sg.fillStyle = 'rgba(60,50,110,0.05)'; sg.fillRect(0, 0, 1, Math.max(1, Math.round(world.dpr)));
@@ -1665,7 +1722,7 @@ function previewCat(cv, extra) {
   const me = world.cats.get(world.me);
   const g = cv.getContext('2d'); g.imageSmoothingEnabled = false;
   g.clearRect(0, 0, cv.width, cv.height);
-  const z = world.z; world.z = 1;
+  const z = world.z; world.z = MAP_K;
   drawCatPreview(g, { u: me?.u || '', d: me?.d || '', w: { ...world.wear, ...extra } });
   world.z = z;
 }
@@ -1755,7 +1812,7 @@ function catAt(x, y) {
   let best = null;
   for (const c of world.cats.values()) {
     if (c.u === world.me) continue;
-    if (Math.abs(c.x - x) < 18 && y > c.y - 46 && y < c.y + 8 && (!best || c.y > best.y)) best = c;
+    if (Math.abs(c.x - x) < 9 && y > c.y - 23 && y < c.y + 4 && (!best || c.y > best.y)) best = c;
   }
   return best;
 }
@@ -1771,7 +1828,7 @@ function gotIn([k, from, age, n], clock) {
   worldToast(t, 4500);
   sfx('claim');
   const me = world.cats.get(world.me);
-  if (me) { me.emote = { k, at: clock }; if (k === 'gift') world.splashes.push({ x: me.x, y: me.y - 60, t: clock, text: `★ +${n}` }); }
+  if (me) { me.emote = { k, at: clock }; if (k === 'gift') world.splashes.push({ x: me.x, y: me.y - 30, t: clock, text: `★ +${n}` }); }
 }
 // trade offers to me (take it or not) and mine that still wait for an answer
 let offerKey = '';
@@ -1808,12 +1865,12 @@ function touch(u, k) {
   const c = world.cats.get(u), me = world.cats.get(world.me);
   if (!c || c.ghost || !me) return worldToast('They are not in the world right now.');
   const side = me.x < c.x ? -1 : 1;
-  const at = { x: c.x + side * 30, y: c.y };
+  const at = { x: c.x + side * 16, y: c.y };
   const go = () => {
     me.emote = { k, at: performance.now() / 1000 };
     worldSend({ touch: { to: u, k }, x: Math.round(me.x), y: Math.round(me.y) }, true);
   };
-  if (Math.hypot(me.x - c.x, me.y - c.y) < 70) return go();
+  if (Math.hypot(me.x - c.x, me.y - c.y) < 40) return go();
   world.target = at; world.pending = { at, act: go };
 }
 function gift(u, n) { worldSend({ gift: { to: u, n } }, true); }
@@ -2091,7 +2148,7 @@ function drawToys(g, t) {
     if (!f.landed) {
       f.landed = true;
       for (const c of world.cats.values()) {
-        if (c.u === f.u || c.ghost || Math.hypot(c.x - f.x1, c.y - 20 - f.y1) > 30) continue;
+        if (c.u === f.u || c.ghost || Math.hypot(c.x - f.x1, c.y - 10 - f.y1) > 16) continue;
         c.splat = t;
         if (c === me) worldToast(`${world.cats.get(f.u)?.d || 'Someone'} hit you with a cloudball ☁`);
         else if (f.mine) sfx('react');
@@ -2158,9 +2215,9 @@ function drawFishing(g, t) {
   if (!f || !me) return;
   const bite = t >= f.bite, dip = bite ? Math.abs(Math.sin(t * 14)) * 3 : Math.sin(t * 2) * 1;
   g.strokeStyle = '#4a4560'; g.lineWidth = 1.5;
-  g.beginPath(); g.moveTo(me.x + 10, me.y - 30); g.lineTo(me.x + 20, me.y - 62); g.stroke();
+  g.beginPath(); g.moveTo(me.x + 5, me.y - 15); g.lineTo(me.x + 10, me.y - 31); g.stroke();
   g.strokeStyle = 'rgba(40,36,60,0.7)'; g.lineWidth = 0.8;
-  g.beginPath(); g.moveTo(me.x + 20, me.y - 62); g.quadraticCurveTo((me.x + f.x) / 2, me.y - 70, f.x, f.y + dip); g.stroke();
+  g.beginPath(); g.moveTo(me.x + 10, me.y - 31); g.quadraticCurveTo((me.x + f.x) / 2, me.y - 35, f.x, f.y + dip); g.stroke();
   g.fillStyle = '#ff3d6e'; g.beginPath(); g.arc(f.x, f.y + dip - 2, 3, Math.PI, 0); g.fill();
   g.fillStyle = '#fff'; g.beginPath(); g.arc(f.x, f.y + dip - 2, 3, 0, Math.PI); g.fill();
 }
@@ -2186,12 +2243,14 @@ function itemName(k) {
   const [t, id] = [k.slice(0, 1), k.slice(2)];
   if (t === 'f') return BAG.d?.fishnames?.[id] || pretty(id);
   if (t === 'w') return world.catalog?.find(i => i.id === id)?.name || pretty(id);
+  if (t === 'c') return pretty(id);
   return (typeof NAMES !== 'undefined' && NAMES[id]) || pretty(id);
 }
 const aName = n => `${/^[aeiou]/i.test(n) ? 'an' : 'a'} ${n}`;
 function itemIcon(k) {
   const [t, id] = [k.slice(0, 1), k.slice(2)];
   if (t === 'f') return `<i class="w-fish">${FISH_ICON[id] || '🐟'}</i>`;
+  if (t === 'c') return `<i class="w-fish">${window.CROP_ICON?.[id] || '🌱'}</i>`;
   if (t === 'w') return `<img src="${cosIcon(id)}" alt="">`;
   const src = t === 'b' ? `icons/beetles/${id}.png` : typeof IMAGES !== 'undefined' && IMAGES[id];
   return src ? `<img src="${esc(src)}" alt="">` : '<i class="w-fish">?</i>';
@@ -2203,6 +2262,7 @@ function itemPic(k) {
   if (ITEM_PIC[k]) return ITEM_PIC[k];
   const [t, id] = [k.slice(0, 1), k.slice(2)];
   if (t === 'f') return (ITEM_PIC[k] = { txt: FISH_ICON[id] || '🐟' });
+  if (t === 'c') return (ITEM_PIC[k] = { txt: window.CROP_ICON?.[id] || '🌱' });
   const src = t === 'w' ? (world.catalog ? cosIcon(id) : null) : t === 'b' ? `icons/beetles/${id}.png` : typeof IMAGES !== 'undefined' && IMAGES[id];
   if (!src) return { txt: '?' };
   const img = new Image(); img.src = src;
@@ -2277,7 +2337,7 @@ function openBag(tab) {
 window.openBag = openBag;
 window.renderBag = d => { if (d) { BAG.d = d; world.owned = d.owned || world.owned; } drawBag(BAG.d); window.cardInv?.(); renderHot(); renderHotPick(); };
 const RAR_ORDER = ['jnk', 'tin', 'brz', 'mth', 'adm', 'dia'];
-const BAG_GROUPS = [['w', 'Spare clothes'], ['b', 'Beetles'], ['f', 'Fish'], ['t', 'Trinkets'], ['j', 'Junk']];
+const BAG_GROUPS = [['w', 'Spare clothes'], ['b', 'Beetles'], ['f', 'Fish'], ['t', 'Trinkets'], ['c', 'Crops'], ['j', 'Junk']];
 const bugTierOf = k => BUG_TIER[BUG_KINDS.findIndex(ks => ks.includes(k))];
 const bugRar = k => { const r = BUG_TIER[BUG_KINDS.findIndex(ks => ks.includes(k))]; return `<small style="color:${RARITY_HEX[r]}">${esc(RARITY_NAMES[r] || '')}</small>`; };
 const nearStall = () => { const me = world.cats.get(world.me); return me && Math.hypot(me.x - STALL.at.x, me.y - STALL.at.y) < 120; };
@@ -2455,6 +2515,7 @@ function worldKey(e, down) {
 }
 function closePanels() {
   for (const id of ['w-shop', 'w-screen', 'w-capsule', 'w-emotes', 'w-toys', 'w-bag', 'w-card', 'w-quests', 'w-hotpick']) document.getElementById(id)?.classList.add('hidden');
+  window.placesClose?.();
   if (world.aim) setAim(world.aim);
   if (!document.getElementById('w-lab').classList.contains('hidden')) closeLab();
 }
