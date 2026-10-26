@@ -125,7 +125,7 @@ const rnUrl = u => !u ? '' : (u.startsWith('/') ? BASE_URL + u : u);
 
 // "Sign in with remilia.net" tokens only work on the official API (/api/v1):
 // it can read and write the chat, but has no image upload and no reactions.
-const chatV1 = () => !!localStorage.getItem(LS_CLIENT);
+const chatV1 = () => rnAuth();
 async function v1Call(method, path, body = null, _retry = true) {
   const { access } = getTokens();
   if (!access) return { ok: false, status: 0 };

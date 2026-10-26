@@ -197,7 +197,7 @@ async function check(label, viewport) {
 async function checkChatPageV1(label, viewport) {
   const page = await browser.newPage({ viewport });
   page.on('pageerror', e => fail(`${label} v1: page error: ${e.message}`));
-  await page.addInitScript(t => { localStorage.setItem('bb_access', t); localStorage.setItem('bb_refresh', 'r'); localStorage.setItem('bb_mute', '1'); localStorage.setItem('bb_client', 'tpa-beetleboysp'); }, fakeJwt);
+  await page.addInitScript(t => { localStorage.setItem('bb_rn_access', t); localStorage.setItem('bb_rn_refresh', 'r'); localStorage.setItem('bb_mute', '1'); localStorage.setItem('bb_chat_rn', '1'); }, fakeJwt);
   let posted = null, internal = 0;
   await page.route(/(proxy|chatroom|room)\.php/, route => { internal++; route.fulfill({ status: 401, contentType: 'application/json', body: '{}' }); });
   await page.route('**/api/v1/**', route => {

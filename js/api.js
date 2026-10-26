@@ -2,20 +2,29 @@
 // Classic script sharing globals with the others; load order is set in index.html.
 
 // ── AUTH ──────────────────────────────────────────────────────────────────────
-const getTokens  = ()         => ({ access: localStorage.getItem(LS_ACCESS), refresh: localStorage.getItem(LS_REFRESH) });
-const saveTokens = (a, r)     => { if (a) localStorage.setItem(LS_ACCESS, a); if (r) localStorage.setItem(LS_REFRESH, r); };
-const clearAuth  = ()         => { localStorage.removeItem(LS_ACCESS); localStorage.removeItem(LS_REFRESH); };
+// The chat page can also "Sign in with remilia.net". Those tokens belong to our
+// own login app, only work on the official API and live under their own keys:
+// sharing keys let a game tab in the same browser refresh them with the wrong
+// client and log the chat out a few seconds later.
+const LS_RN_ACCESS = 'bb_rn_access', LS_RN_REFRESH = 'bb_rn_refresh', LS_CHAT_RN = 'bb_chat_rn';
+const RN_CLIENT_ID = 'tpa-beetleboysp';
+const isChatPage = () => !!document.body?.classList.contains('chatpage');
+const rnAuth     = () => isChatPage() && localStorage.getItem(LS_CHAT_RN) === '1';
+const authKeys   = () => rnAuth() ? [LS_RN_ACCESS, LS_RN_REFRESH] : [LS_ACCESS, LS_REFRESH];
+const getTokens  = ()         => { const [a, r] = authKeys(); return { access: localStorage.getItem(a), refresh: localStorage.getItem(r) }; };
+const saveTokens = (a, r)     => { const [ka, kr] = authKeys(); if (a) localStorage.setItem(ka, a); if (r) localStorage.setItem(kr, r); };
+const clearAuth  = ()         => { const [ka, kr] = authKeys(); localStorage.removeItem(ka); localStorage.removeItem(kr); if (isChatPage()) localStorage.removeItem(LS_CHAT_RN); };
 
-// Tokens from "Sign in with remilia.net" (chat page) belong to our own login
-// app and must be refreshed with its client id; a password login uses remilia's.
-const LS_CLIENT = 'bb_client';
+// old builds kept remilia sign-in tokens in the game's slots: useless for the game, drop them
+if (localStorage.getItem('bb_client')) { localStorage.removeItem('bb_client'); localStorage.removeItem(LS_ACCESS); localStorage.removeItem(LS_REFRESH); }
+
 async function oidc(params) {
-  if (params.grant_type === 'password') localStorage.removeItem(LS_CLIENT);
+  if (params.grant_type === 'password' && isChatPage()) localStorage.removeItem(LS_CHAT_RN);
   try {
     const r = await fetch(OIDC_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({ client_id: localStorage.getItem(LS_CLIENT) || 'profile', ...params }),
+      body: new URLSearchParams({ client_id: rnAuth() ? RN_CLIENT_ID : 'profile', ...params }),
     });
     const d = await r.json();
     if (!r.ok) return { error: d.error, desc: d.error_description || '' };

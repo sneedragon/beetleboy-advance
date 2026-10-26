@@ -574,7 +574,6 @@ async function start() {
 
 // ── "Sign in with remilia.net" (their login page, Authorization Code + PKCE) ─
 // Needs the client id of our Login app from remilia.net's developer portal.
-const RN_CLIENT_ID = 'tpa-beetleboysp';
 const RN_AUTH_URL  = 'https://www.remilia.net/oidc/realms/remilia/protocol/openid-connect/auth';
 const rnRedirect   = () => location.origin + location.pathname;
 const b64url = buf => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
@@ -603,9 +602,9 @@ async function rnFinish() {
     err.textContent = q.get('error_description') || 'Sign-in was cancelled.';
     return false;
   }
-  localStorage.setItem(LS_CLIENT, RN_CLIENT_ID);
+  localStorage.setItem(LS_CHAT_RN, '1');
   const t = await oidc({ grant_type: 'authorization_code', code: q.get('code'), redirect_uri: rnRedirect(), code_verifier: saved.verifier });
-  if (!t?.access) { localStorage.removeItem(LS_CLIENT); err.textContent = 'Sign-in failed, please try again.'; return false; }
+  if (!t?.access) { localStorage.removeItem(LS_CHAT_RN); err.textContent = 'Sign-in failed, please try again.'; return false; }
   saveTokens(t.access, t.refresh);
   return true;
 }
@@ -629,7 +628,7 @@ async function runDiag() {
     catch (e) { return [false, String(e)]; }
   };
   const checks = [
-    ['client', [true, localStorage.getItem(LS_CLIENT) || 'profile (password login)']],
+    ['client', [true, rnAuth() ? RN_CLIENT_ID : 'profile (password login)']],
     ['internal whoami', await proxied('/api/profile/whoami')],
     ['internal beetle/user', await proxied('/api/beetle/user')],
     ['internal chat read', await proxied('/api/chats/1/messages?limit=1')],
