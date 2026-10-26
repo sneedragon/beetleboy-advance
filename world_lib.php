@@ -4,10 +4,20 @@
 
 const RN_HOST = 'www.remilia.net';
 
+// scratch files (rate limits, whose token is whose, the world) sit next to the
+// database instead of in a temp folder that other sites on the host might share
+function tmpd(): string {
+    static $d;
+    if ($d) return $d;
+    $p = dirname(__DIR__, str_contains(__DIR__, '/test') ? 3 : 2) . '/beetleboy-private/tmp';
+    if (!is_dir($p)) @mkdir($p, 0770);
+    return $d = is_dir($p) && is_writable($p) ? $p : sys_get_temp_dir();
+}
+
 function fail(int $code, string $msg): void { http_response_code($code); echo json_encode(['error' => $msg]); exit; }
 
 function limit(string $key, int $max): void {
-    $rk = sys_get_temp_dir() . '/bbworldrl_' . md5($key) . '_' . floor(time() / 60);
+    $rk = tmpd() . '/bbworldrl_' . md5($key) . '_' . floor(time() / 60);
     $n  = (int)@file_get_contents($rk);
     if ($n >= $max) fail(429, 'slow down');
     @file_put_contents($rk, $n + 1);
@@ -23,7 +33,7 @@ function rn(string $path, string $auth): ?array {
 
 // who is this? (asked once, then remembered for 10 minutes)
 function whoami(string $token): ?array {
-    $ck = sys_get_temp_dir() . '/bbworldid_' . hash('sha256', $token);
+    $ck = tmpd() . '/bbworldid_' . hash('sha256', $token);
     if (is_file($ck) && filemtime($ck) > time() - 600) {
         $c = json_decode((string)@file_get_contents($ck), true);
         if (is_array($c)) return $c;
@@ -39,7 +49,7 @@ function whoami(string $token): ?array {
     if (!preg_match('/^[A-Za-z0-9_.-]{1,40}$/', $handle)) return null;
     $me = ['u' => $handle, 'd' => mb_substr($name !== '' ? $name : $handle, 0, 40), 'api' => $api];
     @file_put_contents($ck, json_encode($me));
-    if (mt_rand(0, 49) === 0) foreach (glob(sys_get_temp_dir() . '/bbworldid_*') ?: [] as $f) if (filemtime($f) < time() - 900) @unlink($f);
+    if (mt_rand(0, 49) === 0) foreach (glob(tmpd() . '/bbworldid_*') ?: [] as $f) if (filemtime($f) < time() - 900) @unlink($f);
     return $me;
 }
 
@@ -52,7 +62,7 @@ function start(int $ipMax, int $tokenMax): array {
     $token = (string)($in['token'] ?? '');
     limit('ip' . ($_SERVER['REMOTE_ADDR'] ?? 'x'), $ipMax);
     limit('tk' . $token, $tokenMax);
-    if (mt_rand(0, 199) === 0) foreach (glob(sys_get_temp_dir() . '/bbworldrl_*') ?: [] as $f) if (filemtime($f) < time() - 180) @unlink($f);
+    if (mt_rand(0, 199) === 0) foreach (glob(tmpd() . '/bbworldrl_*') ?: [] as $f) if (filemtime($f) < time() - 180) @unlink($f);
     if ($token === '' || strlen($token) > 16000 || preg_match('/[\x00-\x20;]/', $token)) fail(400, 'missing token');
     $me = whoami($token);
     if (!$me) fail(401, 'login expired');

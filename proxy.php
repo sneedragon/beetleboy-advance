@@ -39,11 +39,10 @@ $input = json_decode(file_get_contents('php://input'), true);
 // to drop its cached copy so the next load gets the current app.
 if (!isset($input['v'])) header('Clear-Site-Data: "cache"');
 
-// Rate-limit unauthenticated requests only; authenticated users are throttled by remilia.net itself
+// Unauthenticated requests get little room; with a token remilia.net throttles too,
+// but any string counts as a token here, so an address still has a ceiling
 $has_token = !empty($input['token'] ?? '');
-if (!$has_token) {
-    rate_limit($ip, 50, 200);
-}
+rate_limit($has_token ? 'tk' . $ip : $ip, $has_token ? 1500 : 50, 200);
 // ─────────────────────────────────────────────────────────────────────────────
 
 $method = strtoupper($input['method'] ?? 'GET');
@@ -79,6 +78,7 @@ curl_setopt_array($ch, [
         'Content-Type: application/json',
     ],
     CURLOPT_TIMEOUT        => 15,
+    CURLOPT_PROTOCOLS      => CURLPROTO_HTTPS,
 ]);
 
 if ($body !== null) {

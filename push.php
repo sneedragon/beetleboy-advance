@@ -71,7 +71,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 }
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') out(405, ['error' => 'method not allowed']);
 
-$in = json_decode(file_get_contents('php://input'), true) ?? [];
+// a browser syncs a few times a minute at most; this keeps anyone from filling the table
+$rk = sys_get_temp_dir() . '/bbpush_' . md5($_SERVER['REMOTE_ADDR'] ?? 'x') . '_' . floor(time() / 600);
+$n  = (int)@file_get_contents($rk);
+if ($n >= 60) out(429, ['error' => 'slow down']);
+@file_put_contents($rk, $n + 1);
+if (mt_rand(0, 99) === 0) foreach (glob(sys_get_temp_dir() . '/bbpush_*') ?: [] as $f) if (filemtime($f) < time() - 1200) @unlink($f);
+
+$in = json_decode(file_get_contents('php://input', false, null, 0, 20000), true) ?? [];
 $action = $in['action'] ?? '';
 $db = push_db();
 

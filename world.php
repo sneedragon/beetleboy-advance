@@ -9,6 +9,7 @@ require __DIR__ . '/world_lib.php';
 
 const W = 1800, H = 1200;          // the map in world units
 const STALE = 20;                  // seconds without a word and you have left
+const WALK = 260;                  // a little faster than a cat walks (W_SPEED in js/world.js)
 // shared ball: it rolls inside the park and slows down on its own
 const PEN = [120, 860, 600, 1100]; // x0, y0, x1, y1
 const BALL_K = 1.4;
@@ -215,7 +216,7 @@ function ballAt(array $b, float $t): array {
 }
 
 // ── read, update and write the world under a lock ──
-$file = sys_get_temp_dir() . '/' . ($test ? 'bbworld_test.json' : 'bbworld_v1.json');
+$file = tmpd() . '/' . ($test ? 'bbworld_test.json' : 'bbworld_v1.json');
 $fp = fopen($file, 'c+');
 if (!$fp) fail(500, 'world unavailable');
 flock($fp, LOCK_EX);
@@ -249,6 +250,14 @@ else {
           'act' => $prev['act'] ?? 0, 'xa' => $prev['xa'] ?? 0, 'xf' => $prev['xf'] ?? 0,
           'in' => array_values(array_filter($prev['in'] ?? [], fn($i) => $i[2] > $now - 10))];
     foreach (['wish', 'fish', 'fw', 'tz', 'gift', 'touch', 'dig', 'party'] as $k) if (isset($prev[$k])) $p[$k] = $prev[$k];
+    // where you can really be: the page says where you walk to, but nobody walks
+    // faster than this, so catching, fishing and the rest count from here
+    if (isset($prev['rx'])) {
+        $dx = $x - $prev['rx']; $dy = $y - $prev['ry']; $dd = hypot($dx, $dy);
+        $k = min(1, (WALK * max(0, $now - $prev['rt']) + 60) / max(1, $dd));
+        $rx = $prev['rx'] + $dx * $k; $ry = $prev['ry'] + $dy * $k;
+    } else { $rx = $x; $ry = $y; }
+    $p['rx'] = round($rx, 1); $p['ry'] = round($ry, 1); $p['rt'] = $now;
 
     // just arrived: coins and clothes from the database, and the daily bonus
     if (!$prev || $p['c'] === null || $p['w'] === null) {
@@ -338,7 +347,7 @@ else {
     if (isset($in['catch']) && is_string($in['catch']) && preg_match('/^(\d):(\d+)$/', $in['catch'], $m) && (int)$m[1] < BUG_N) {
         $b = bugAt((int)$m[1], $now);
         if ($b['id'] !== $in['catch'] || isset($world['caught'][$b['id']])) $out['caught'] = 'gone';
-        elseif (hypot($b['x'] - $x, $b['y'] - $y) > 80) $out['caught'] = 'far';
+        elseif (hypot($b['x'] - $rx, $b['y'] - $ry) > 80) $out['caught'] = 'far';
         else {
             $world['caught'][$b['id']] = $sec;
             $getUser(); $r = &$user;
@@ -350,7 +359,7 @@ else {
     }
     // the pond: a cast takes a few seconds, then something bites (or not)
     if (!empty($in['fish'])) {
-        if (hypot($x - POND[0], $y - POND[1]) > 140) $out['fish'] = 'far';
+        if (hypot($rx - POND[0], $ry - POND[1]) > 140) $out['fish'] = 'far';
         elseif ($sec - ($p['fish'] ?? 0) < 8) $out['fish'] = 'wait';
         else {
             $p['fish'] = $sec; $roll = mt_rand(1, 100);
@@ -369,7 +378,7 @@ else {
     }
     // the lost and found box: mostly junk, now and then a trinket
     if (!empty($in['dig'])) {
-        if (hypot($x - BIN[0], $y - BIN[1]) > 110) $out['dig'] = 'far';
+        if (hypot($rx - BIN[0], $ry - BIN[1]) > 110) $out['dig'] = 'far';
         elseif ($sec - ($p['dig'] ?? 0) < RUMMAGE) $out['dig'] = 'wait';
         else {
             $p['dig'] = $sec; $getUser(); $r = &$user; $dirty = true;
@@ -383,7 +392,7 @@ else {
     // the stall buys what is in your bag: one kind, or all of a sort at once
     if (isset($in['sell']) && is_array($in['sell'])) {
         $getUser(); $r = &$user; $have = &$r['inv']['have'];
-        if (hypot($x - STALL[0], $y - STALL[1]) > 130) $out['sell'] = 'far';
+        if (hypot($rx - STALL[0], $ry - STALL[1]) > 130) $out['sell'] = 'far';
         else {
             $keys = [];
             if (isset($in['sell']['k']) && is_string($in['sell']['k']) && !empty($have[$in['sell']['k']]))
@@ -447,7 +456,7 @@ else {
     if (isset($in['touch']) && is_array($in['touch']) && in_array($in['touch']['k'] ?? '', TOUCH, true)) {
         $to = (string)($in['touch']['to'] ?? ''); $o = $world['people'][$to] ?? null;
         if (!$o || $to === $U) $out['touch'] = 'gone';
-        elseif (hypot($o['x'] - $x, $o['y'] - $y) > 90) $out['touch'] = 'far';
+        elseif (hypot(($o['rx'] ?? $o['x']) - $rx, ($o['ry'] ?? $o['y']) - $ry) > 90) $out['touch'] = 'far';
         elseif ($now - ($p['touch'] ?? 0) < 2) $out['touch'] = 'wait';
         else {
             $k = $in['touch']['k']; $p['touch'] = $now; $p['e'] = [$k, $now]; $out['touch'] = 'ok';
@@ -506,7 +515,7 @@ else {
         $vx = (float)($in['kick']['vx'] ?? 0); $vy = (float)($in['kick']['vy'] ?? 0);
         $v = hypot($vx, $vy);
         if ($v > 900) { $vx *= 900 / $v; $vy *= 900 / $v; }
-        if (hypot($bx - $x, $by - $y) < 110 && $v > 0 && $now - ($world['ball']['t'] ?? 0) > 0.25) {
+        if (hypot($bx - $rx, $by - $ry) < 110 && $v > 0 && $now - ($world['ball']['t'] ?? 0) > 0.25) {
             $world['ball'] = ['x' => $bx, 'y' => $by, 'vx' => $vx, 'vy' => $vy, 't' => $now, 'by' => $U];
             $getUser(); $r = &$user; $dirty = true; quest($r, $day, 'kick', 1, $out);
             $p['c'] = $r['coins'];
@@ -515,7 +524,7 @@ else {
 
     // the club screen: anyone standing in the club may put on a YouTube video
     if (isset($in['tv']) && is_string($in['tv'])) {
-        $inClub = $x >= 60 && $x <= 660 && $y >= 40 && $y <= 420;
+        $inClub = $rx >= 60 && $rx <= 660 && $ry >= 40 && $ry <= 420;
         $last = $world['tvset'][$U] ?? 0;
         if (!$inClub) $out['tv_err'] = 'Stand in the club to change the screen.';
         elseif ($sec - $last < 20) $out['tv_err'] = 'Wait a few seconds before changing it again.';
@@ -531,7 +540,7 @@ else {
         } else $out['tv_err'] = 'That does not look like a YouTube link.';
     }
     if (!empty($in['tvskip']) && $world['tv']) {
-        $inClub = $x >= 60 && $x <= 660 && $y >= 40 && $y <= 420;
+        $inClub = $rx >= 60 && $rx <= 660 && $ry >= 40 && $ry <= 420;
         if (!$inClub) $out['tv_err'] = 'Stand in the club to skip.';
         elseif ($sec - ($world['tvset'][$U] ?? 0) < 10) $out['tv_err'] = 'Wait a few seconds before skipping again.';
         else { tvNext($world, $now); $world['tvset'][$U] = $sec; }
