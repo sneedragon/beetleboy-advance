@@ -51,12 +51,12 @@ const FORTUNES = [
 // things you can walk up to and use: the prompt floats above them
 const SPOTS = [
   { id: 'screen', r: { x: 200, y: 52, w: 320, h: 180 }, at: { x: 360, y: 300 }, col: '#ff3d6e', text: () => world.tv ? '▶ Watch along' : '▶ Put on a video', act: () => openScreen() },
-  { id: 'shop', r: { x: 1300, y: 236, w: 280, h: 40 }, at: { x: 1440, y: 310 }, col: '#5b63e6', text: () => '◉ Wardrobe', act: () => openShop() },
-  { id: 'capsule', r: { x: 1650, y: 214, w: 56, h: 92 }, at: { x: 1640, y: 350 }, col: '#d65bb6', text: () => '◉ 30 Capsule', act: () => openCapsule() },
-  { id: 'well', r: { x: 862, y: 566, w: 76, h: 56 }, at: { x: 900, y: 660 }, col: '#7fb8ff', text: () => '✧ Wish (◉ 1)', act: () => makeWish() },
+  { id: 'shop', r: { x: 1300, y: 236, w: 280, h: 40 }, at: { x: 1440, y: 310 }, col: '#5b63e6', text: () => '★ Wardrobe', act: () => openShop() },
+  { id: 'capsule', r: { x: 1650, y: 214, w: 56, h: 92 }, at: { x: 1640, y: 350 }, col: '#d65bb6', text: () => '★ 30 Capsule', act: () => openCapsule() },
+  { id: 'well', r: { x: 862, y: 566, w: 76, h: 56 }, at: { x: 900, y: 660 }, col: '#7fb8ff', text: () => '✧ Wish (★ 1)', act: () => makeWish() },
   { id: 'game', r: { x: 1380, y: 984, w: 120, h: 56 }, at: { x: 1440, y: 960 }, col: '#2f9a5e', text: () => '🪲 Play the beetle game', act: () => openLab(), hide: () => labLocked() },
   { id: 'pond', r: { x: POND.x - 56, y: POND.y - 26, w: 112, h: 52 }, at: { x: POND.x, y: POND.y + 52 }, col: '#3f7fdc', text: () => world.fishing ? '🎣 Reel in' : '🎣 Fish', act: () => castLine() },
-  { id: 'stall', r: STALL, at: STALL.at, col: '#e8a33d', text: () => '◉ Sell what you found', act: () => openBag('things') },
+  { id: 'stall', r: STALL, at: STALL.at, col: '#e8a33d', text: () => '★ Sell what you found', act: () => openBag('things') },
   { id: 'bin', r: BIN, at: BIN.at, col: '#8c86a3', text: () => '📦 Lost and found', act: () => dig() },
   { id: 'gate', r: { x: 1370, y: 740, w: 140, h: 60 }, at: { x: 1440, y: 740 }, col: '#c23a4a', text: () => '🔒 Password sign-in only', act: () => labDenied(true), hide: () => !labLocked() },
 ];
@@ -84,7 +84,7 @@ const world = {
   ball: { x: 360, y: 980, vx: 0, vy: 0, t0: 0 }, kickAt: 0, tv: null, tvAt: 0,
   out: {}, bg: null, noise: [], scan: null, haze: null, glitch: null, nextGlitch: 0, solids: [],
   skew: 0, gone: new Set(), catching: new Set(), bugImg: {}, splashes: [], tile: '', dm: 0,
-  tvq: [], fx: new Map(), toss: new Map(), seenIn: new Set(), aim: null, fishing: null, sky: null,
+  tvq: [], lastSeen: new Map(), looked: false, fx: new Map(), toss: new Map(), seenIn: new Set(), aim: null, fishing: null, sky: null,
 };
 
 // ── the map: walls with a doorway toward the plaza, a few solid things ──────
@@ -209,6 +209,8 @@ async function worldTickNow() {
   if (d.now) world.skew = d.now - Date.now() / 1000;
   const clock = performance.now() / 1000;
   const here = new Set();
+  if (clock - (world.lastTick ?? -1e9) > 30) world.looked = false;     // back from a hidden tab: just look around
+  world.lastTick = clock;
   for (const p of d.people) {
     here.add(p.u);
     let c = world.cats.get(p.u);
@@ -216,20 +218,28 @@ async function worldTickNow() {
       c = { u: p.u, d: p.d, x: p.x, y: p.y, tx: p.x, ty: p.y, dir: 'down', flip: false, moving: false, t0: Math.random() * 4, bubble: c?.bubble, trail: [] };
       world.cats.set(p.u, c);
     }
-    c.d = p.d; c.w = p.w || {};
+    c.d = p.d; c.w = p.w || {}; c.st = p.st || '';
+    // someone new walked in (not on my first look, and not back from a short break)
+    if (world.looked && p.u !== world.me && clock - (world.lastSeen.get(p.u) ?? -1e9) > 300) {
+      worldToast(`👋 ${p.d || p.u} logged on${p.st ? ` · ${p.st}` : ''}`, 3500);
+      sfx('react');
+    }
+    world.lastSeen.set(p.u, clock);
     if (p.u !== world.me) { c.tx = p.x; c.ty = p.y; }
     if (p.e && (!c.emote || c.emote.k !== p.e[0] || Math.abs(c.emote.at - (clock - p.e[1])) > 1.5)) c.emote = { k: p.e[0], at: clock - p.e[1] };
   }
   for (const [u, c] of world.cats) if (!c.ghost && !here.has(u)) world.cats.delete(u);
+  world.looked = true;
   placeEchoes();
+  if (d.status != null) worldToast(d.status ? 'Status set' : 'Status cleared');
 
   setCoins(d.coins);
   world.wear = d.wear || {};
   if (d.catalog) { world.catalog = d.catalog; world.owned = d.owned || []; if (!document.getElementById('w-shop').classList.contains('hidden')) renderShop(); }
-  if (d.bonus) worldToast(`+${d.bonus} coins for showing up today`);
-  if (d.xpcoins) worldToast(`+${d.xpcoins} coins from the beetle game`);
+  if (d.bonus) worldToast(`+${d.bonus} stars for showing up today`);
+  if (d.xpcoins) worldToast(`+${d.xpcoins} stars from the beetle game`);
   if (d.shop === 'bought') { worldToast('Bought and put on'); sfx('claim'); }
-  if (d.shop === 'poor') worldToast('Not enough coins yet');
+  if (d.shop === 'poor') worldToast('Not enough stars yet');
   if (d.tv_err) worldToast(d.tv_err);
   if (d.capsule) capsuleResult(d);
   if (d.wish) wishResult(d.wish);
@@ -237,14 +247,14 @@ async function worldTickNow() {
   world.tvq = d.tvq || [];
   if (!document.getElementById('w-screen').classList.contains('hidden')) renderQueue();
   if (d.fish) fishResult(d);
-  if (d.fw === 'poor') worldToast('A firework costs 2 coins.');
+  if (d.fw === 'poor') worldToast('A firework costs 2 stars.');
   if (d.touch === 'far') worldToast('Walk up to them first.');
   if (d.touch === 'gone') worldToast('They are not here right now.');
   if (d.gift) giftResult(d.gift);
   if (d.dig) digResult(d);
   if (d.sell) sellResult(d.sell);
   if (d.quests) renderQuests(d.quests);
-  if (d.quest) d.quest.forEach(([name, n], i) => setTimeout(() => { worldToast(`📜 ${name}: +${n} coins`, 4000); sfx('claim'); }, 1200 + i * 4200));
+  if (d.quest) d.quest.forEach(([name, n], i) => setTimeout(() => { worldToast(`📜 ${name}: +${n} stars`, 4000); sfx('claim'); }, 1200 + i * 4200));
   if (d.inv || d.catalog) window.renderBag?.(d.inv);
   if (d.prof) window.cardStats?.(d.prof);
   for (const i of d.in || []) gotIn(i, clock);
@@ -265,7 +275,7 @@ async function worldTickNow() {
 
   // the ball: my own kick stays as I predicted it until the server agrees
   if (performance.now() - world.kickAt > 1500 && d.ball) syncBall(d.ball, clock);
-  tvUpdate(d.tv ? { v: d.tv.v, at: clock - d.tv.age, by: d.tv.by } : null);
+  tvUpdate(d.tv ? { v: d.tv.v, k: d.tv.k, at: clock - d.tv.age, by: d.tv.by } : null);
   worldCount();
 }
 
@@ -299,9 +309,9 @@ function setCoins(n) {
   const el = document.getElementById('w-coins');
   if (world.coins != null && n > world.coins) { el.classList.remove('up'); void el.offsetWidth; el.classList.add('up'); }
   world.coins = n;
-  el.textContent = `◉ ${n.toLocaleString()}`;
+  el.textContent = `★ ${n.toLocaleString()}`;
   const sc = document.getElementById('w-shop-coins');
-  if (sc) sc.textContent = `◉ ${n.toLocaleString()}`;
+  if (sc) sc.textContent = `★ ${n.toLocaleString()}`;
 }
 function worldNote(t) { const el = document.getElementById('w-note'); if (el) el.textContent = t; }
 let toastTimer = 0;
@@ -460,11 +470,22 @@ function noiseTile(alpha) {
 
 // the sky, as on remilia.net: blue with clouds, dithered down to a few colours
 const SKY = ['#2b62c4', '#3a74d6', '#4d88e3', '#68a0ec', '#8cbaf3', '#b6d4f8', '#dfecfc', '#ffffff'];
+const SKY_HUE = 216;                 // the hue of the sky above; the slider in the settings turns it
+const hexRgb = x => [1, 3, 5].map(i => parseInt(x.slice(i, i + 2), 16));
+function hueShift([r, g, b], dh) {
+  r /= 255; g /= 255; b /= 255;
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2, d = mx - mn;
+  if (!d) return [r, g, b].map(v => Math.round(v * 255));
+  const s = d / (1 - Math.abs(2 * l - 1));
+  const h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  return hslRgb(((h * 60 + dh) % 360 + 360) % 360, s, l);
+}
+const skyCol = () => world.dark ? '#050407' : `rgb(${hueShift(hexRgb('#4d88e3'), world.hue - SKY_HUE).join(',')})`;
 const NIGHT = ['#05040a', '#0a0918', '#111028', '#1a1838', '#26234a', '#35305c', '#4a4470', '#6a6290'];
 function buildSky(w, h) {
   const c = document.createElement('canvas'); c.width = w; c.height = h;
   const g = c.getContext('2d'), d = g.createImageData(w, h);
-  const pal = (world.dark ? NIGHT : SKY).map(x => [1, 3, 5].map(i => parseInt(x.slice(i, i + 2), 16)));
+  const pal = world.dark ? NIGHT.map(hexRgb) : SKY.map(x => hueShift(hexRgb(x), world.hue - SKY_HUE));
   const B = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
   const seed = 7.31;
   const vn = (x, y) => {          // value noise
@@ -653,7 +674,7 @@ function worldDraw(now) {
   const cx = Math.round(world.cam.x * s) / s, cy = Math.round(world.cam.y * s) / s;
   // the floor goes on the bottom canvas, under the club video
   g.setTransform(1, 0, 0, 1, 0, 0);
-  g.fillStyle = world.dark ? '#050407' : '#4d88e3'; g.fillRect(0, 0, world.canvas.width, world.canvas.height);
+  g.fillStyle = world.skyCol; g.fillRect(0, 0, world.canvas.width, world.canvas.height);
   g.setTransform(s, 0, 0, s, -cx * s, -cy * s);
   g.imageSmoothingEnabled = false;
   g.drawImage(world.bg, 0, 0);
@@ -1050,6 +1071,12 @@ function label(g, c, x, y) {
   g.fillRect(x - w / 2, y + 5, w, h);
   g.fillStyle = c.ghost ? '#8a86a0' : `hsl(${nameHue(c.d || c.u)} 60% 38%)`;
   g.fillText(name, x, y + 7);
+  if (!c.st) return;
+  g.font = wf(8);
+  const st = c.st.length > 30 ? c.st.slice(0, 29) + '…' : c.st;
+  const sw = g.measureText(st).width + 6;
+  g.fillStyle = 'rgba(255,255,255,0.6)'; g.fillRect(x - sw / 2, y + 5 + h, sw, h - 3);
+  g.fillStyle = '#4a4660'; g.fillText(st, x, y + 6 + h);
 }
 
 function drawBubble(g, b, x, y, camX, vw) {
@@ -1285,9 +1312,9 @@ function loadYt() {
 const tvOk = () => { try { return localStorage.getItem(LS_TV_OK) === '1'; } catch { return false; } };
 
 function tvUpdate(tv) {
-  const was = world.tv?.v;
+  const was = world.tv?.k;           // the same video queued twice is still a new start
   world.tv = tv;
-  if (tv?.v !== was) tvActive(true);
+  if (tv?.k !== was) tvActive(true);
 }
 
 // the player keeps running once you said yes to YouTube, so the video never
@@ -1321,16 +1348,20 @@ async function tvActive(changed = false) {
     playerVars: { autoplay: 1, start: Math.floor(Math.max(0, performance.now() / 1000 - world.tv.at)), playsinline: 1, rel: 0, modestbranding: 1, controls: 0, disablekb: 1 },
     events: {
       onReady: e => { world.tvShown = true; world.tvVol = -1; e.target.playVideo(); },
-      onStateChange: e => { if (e.data === 1) tvReportLength(); },
+      onStateChange: e => { if (e.data === 1) tvReportLength(); if (e.data === 0) tvEnded(); },
     },
   });
 }
 // the server moves to the next video when this one ends, so tell it how long it is
 function tvReportLength() {
-  const d = world.player?.getDuration?.(), v = world.tv?.v;
-  if (!d || !v || world.tvLen === v) return;
-  world.tvLen = v;
-  worldSend({ tvdur: { v, d: Math.round(d) } });
+  const d = world.player?.getDuration?.(), k = world.tv?.k;
+  if (!d || !k || world.tvLen === k) return;
+  world.tvLen = k;
+  worldSend({ tvdur: { v: world.tv.v, d: Math.round(d) } });
+}
+// and when it has ended, so the next one starts even if the length never arrived
+function tvEnded() {
+  if (world.tv && world.tvEnd !== world.tv.k) { world.tvEnd = world.tv.k; worldSend({ tvend: world.tv.v }, true); }
 }
 
 // keep the video on the screen in the world, and in step with everyone else
@@ -1353,7 +1384,10 @@ function placeTv(cx, cy) {
     const should = performance.now() / 1000 - world.tv.at, is = p.getCurrentTime();
     const dur = p.getDuration?.() || 0;
     if (Math.abs(should - is) > 3 && (!dur || should < dur)) p.seekTo(should, true);
-    if (p.getPlayerState?.() === 2) p.playVideo();
+    const st = p.getPlayerState?.();
+    if (st === 2) p.playVideo();
+    if (st === 1) tvReportLength();
+    if (st === 0) tvEnded();
   }
 }
 
@@ -1408,7 +1442,7 @@ function renderShop() {
     const btn = on ? `<button type="button" data-off="${slot}">Take off</button>`
       : own ? `<button type="button" data-wear="${it.id}" data-slot="${slot}">Wear</button>`
       : !it.price ? '<span class="w-dim">from a capsule</span>'
-      : `<button type="button" data-buy="${it.id}" ${world.coins < it.price ? 'disabled' : ''}>◉ ${it.price}</button>`;
+      : `<button type="button" data-buy="${it.id}" ${world.coins < it.price ? 'disabled' : ''}>★ ${it.price}</button>`;
     return `<div class="w-item${on ? ' on' : ''}${!own && !it.price ? ' locked' : ''}"><canvas width="64" height="64" data-prev="${it.id}" data-slot="${slot}"></canvas><span>${esc(it.name)}</span>${btn}</div>`;
   }).join('')}</div>`).join('');
   list.querySelectorAll('canvas[data-prev]').forEach(cv => previewCat(cv, { [cv.dataset.slot]: cv.dataset.prev }));
@@ -1450,7 +1484,7 @@ const CAP_COL = ['#ffd34d', '#7fd1ff', '#ff8fb8', '#a9f0b0', '#c7a6ff'];
 function capsuleResult(d) {
   const btn = document.getElementById('w-cap-turn');
   btn.disabled = false;
-  if (d.capsule === 'poor') { cap.t0 = 0; return worldToast('The capsule machine takes 30 coins.'); }
+  if (d.capsule === 'poor') { cap.t0 = 0; return worldToast('The capsule machine takes 30 stars.'); }
   if (d.capsule === 'all') { cap.t0 = 0; return worldToast('You have everything the capsule machine has. More soon.'); }
   cap.res = { col: CAP_COL[(d.capsule.length + d.capsule.charCodeAt(0)) % CAP_COL.length] };
   // the prize shows once the capsule has popped open
@@ -1466,14 +1500,14 @@ function capsuleResult(d) {
 
 // ── the well ─────────────────────────────────────────────────────────────────
 function makeWish() {
-  if (world.coins != null && world.coins < 1) return worldToast('The well takes a coin. Come back with one.');
+  if (world.coins != null && world.coins < 1) return worldToast('The well takes a star. Come back with one.');
   worldSend({ wish: 1 }, true);
 }
 function wishResult(r) {
-  if (r === 'poor') return worldToast('The well takes a coin. Come back with one.');
+  if (r === 'poor') return worldToast('The well takes a star. Come back with one.');
   if (r !== 'ok') return;
   const t = performance.now() / 1000;
-  world.splashes.push({ x: WELL.x, y: WELL.y - 20, t, text: '◉ -1' });
+  world.splashes.push({ x: WELL.x, y: WELL.y - 20, t, text: '★ -1' });
   const me = world.cats.get(world.me);
   if (me) me.emote = { k: 'spark', at: t };
   worldSend({ emote: 'spark' });
@@ -1509,15 +1543,15 @@ function gotIn([k, from, age, n], clock) {
   const key = `${k}|${from}|${Math.round(netNow() - age)}`;
   if (world.seenIn.has(key)) return;
   world.seenIn.add(key);
-  const t = { hug: `${from} hugged you 🤗`, high5: `${from} gave you a high five 🙌`, gift: `${from} gave you ◉ ${n} 🎁` }[k];
+  const t = { hug: `${from} hugged you 🤗`, high5: `${from} gave you a high five 🙌`, gift: `${from} gave you ★ ${n} 🎁` }[k];
   if (!t) return;
   worldToast(t, 4500);
   sfx('claim');
   const me = world.cats.get(world.me);
-  if (me) { me.emote = { k, at: clock }; if (k === 'gift') world.splashes.push({ x: me.x, y: me.y - 60, t: clock, text: `◉ +${n}` }); }
+  if (me) { me.emote = { k, at: clock }; if (k === 'gift') world.splashes.push({ x: me.x, y: me.y - 60, t: clock, text: `★ +${n}` }); }
 }
 function giftResult(r) {
-  const t = { ok: 'Sent 🎁', poor: 'You do not have that many coins.', cap: 'That is all you can give away today.', wait: 'Wait a moment before the next gift.', gone: 'They are not here right now.', bad: 'Between 1 and 100 coins.' }[r];
+  const t = { ok: 'Sent 🎁', poor: 'You do not have that many stars.', cap: 'That is all you can give away today.', wait: 'Wait a moment before the next gift.', gone: 'They are not here right now.', bad: 'Between 1 and 100 coins.' }[r];
   if (t) worldToast(t);
   if (r === 'ok') sfx('claim');
 }
@@ -1537,7 +1571,7 @@ function touch(u, k) {
 function gift(u, n) { worldSend({ gift: { to: u, n } }, true); }
 
 // ── toys: cloudballs to throw, fireworks for everyone ───────────────────────
-const TOYS = { toss: 'Tap where to throw the cloudball', fw: 'Tap the sky for a firework (◉ 2)', confetti: 'Tap where the confetti goes', bubbles: 'Tap where to blow bubbles' };
+const TOYS = { toss: 'Tap where to throw the cloudball', fw: 'Tap the sky for a firework (★ 2)', confetti: 'Tap where the confetti goes', bubbles: 'Tap where to blow bubbles' };
 function setAim(k) {
   world.aim = world.aim === k ? null : k;
   document.querySelectorAll('#w-toys [data-toy]').forEach(b => b.classList.toggle('on', b.dataset.toy === world.aim));
@@ -1555,7 +1589,7 @@ function useToy(x, y) {
     me.flip = x < me.x; me.dir = 'side';
     worldSend({ toss: { x: Math.round(tx), y: Math.round(ty) } }, true);
   } else if (world.aim === 'fw') {
-    if (world.coins != null && world.coins < 2) return worldToast('A firework costs 2 coins.');
+    if (world.coins != null && world.coins < 2) return worldToast('A firework costs 2 stars.');
     worldSend({ fw: { x: Math.round(x), y: Math.round(y) } }, true);
   } else if (world.aim === 'confetti' || world.aim === 'bubbles') {
     worldSend({ party: { k: world.aim, x: Math.round(x), y: Math.round(y) } }, true);
@@ -1749,7 +1783,7 @@ function digResult(d) {
 function sellResult(r) {
   if (r === 'far') return worldToast('Walk up to the stall to sell.');
   if (r === 'none') return worldToast('Nothing to sell there.');
-  worldToast(`Sold ${r.n} for ◉ ${r.coins}`);
+  worldToast(`Sold ${r.n} for ★ ${r.coins}`);
   sfx('claim');
 }
 
@@ -1764,7 +1798,7 @@ function renderQuests(q) {
   world.quests = q;
   const box = document.getElementById('w-quests-list');
   if (!box) return;
-  const row = (name, coins, done, n, of) => `<li class="${done ? 'done' : ''}"><span>${done ? '✓' : of > 1 ? `${n}/${of}` : '·'}</span><b>${esc(name)}</b><em>◉ ${coins}</em></li>`;
+  const row = (name, coins, done, n, of) => `<li class="${done ? 'done' : ''}"><span>${done ? '✓' : of > 1 ? `${n}/${of}` : '·'}</span><b>${esc(name)}</b><em>★ ${coins}</em></li>`;
   box.innerHTML = `<h3>Today</h3><ul class="w-quest">${q.daily.map(x => row(x.name, x.coins, x.done, x.n, x.of)).join('')}</ul>
     <h3>Once</h3><ul class="w-quest">${q.once.map(x => row(x.name, x.coins, x.done, 0, 1)).join('')}</ul>
     <p class="w-dim">New ones for today every morning.</p>`;
@@ -1802,7 +1836,7 @@ function drawBag(d) {
     keys.sort((a, b) => order[a[0]] - order[b[0]] || itemName(a).localeCompare(itemName(b)));
     const all = [['b', 'beetles'], ['f', 'fish'], ['j', 'junk']].filter(([t]) => keys.some(k => k[0] === t));
     box.innerHTML = keys.length ? `<div class="w-items">${keys.map(k => `<div class="w-item">${itemIcon(k)}<span>${esc(itemName(k))}</span><b>× ${d.have[k]}</b>
-      ${near ? `<button type="button" data-sell="${esc(k)}">Sell ◉ ${(d.prices[k] || 0) * d.have[k]}</button>` : `<small class="w-dim">◉ ${d.prices[k] || 0} each</small>`}</div>`).join('')}</div>
+      ${near ? `<button type="button" data-sell="${esc(k)}">Sell ★ ${(d.prices[k] || 0) * d.have[k]}</button>` : `<small class="w-dim">★ ${d.prices[k] || 0} each</small>`}</div>`).join('')}</div>
       ${near && all.length ? `<div class="w-row w-end">${all.map(([t, n]) => `<button type="button" data-sellall="${t}">Sell all ${n}</button>`).join('')}</div>` : ''}
       ${near ? '' : '<p class="w-dim">The stall east of the well buys all of it.</p>'}`
       : '<p class="w-dim">Nothing yet. Catch beetles in the park and the garden, fish at the pond, look in the lost and found box.</p>';
@@ -1834,11 +1868,44 @@ function setDark(on, save = true) {
   world.dark = on;
   if (save) try { localStorage.setItem(LS_DARK, on ? '1' : '0'); } catch {}
   document.body.classList.toggle('w-dark', on);
-  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', on ? '#050407' : '#4d88e3');
   const b = document.getElementById('w-dark-btn');
-  if (b) b.textContent = on ? '☀' : '☾';
-  if (world.bg) buildBackground();
+  if (b) { b.classList.toggle('off', on); b.title = on ? 'Turn the lights on' : 'Turn the lights off'; }
+  document.getElementById('w-hue')?.classList.toggle('hidden', on);
+  paintSky();
   worldFit();
+}
+function paintSky() {
+  world.skyCol = skyCol();
+  document.body.style.setProperty('--sky-col', world.skyCol);
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', world.skyCol);
+  if (world.bg) buildBackground();
+}
+
+// the sky colour, as on remilia.net: a rainbow and a round knob
+const LS_HUE = 'bb_world_hue';
+function setupHue() {
+  const track = document.querySelector('#w-hue .hue-track'), knob = track.querySelector('.hue-selector');
+  const show = () => {
+    knob.style.left = `clamp(22px, ${(world.hue / 360 * 100).toFixed(2)}%, 100% - 22px)`;
+    knob.style.backgroundColor = `rgb(${hslRgb(world.hue, 0.8, 0.5).join(', ')})`;
+    knob.setAttribute('aria-valuenow', Math.round(world.hue));
+  };
+  let t = 0;
+  const set = h => {
+    world.hue = Math.max(0, Math.min(359, Math.round(h)));
+    show();
+    try { localStorage.setItem(LS_HUE, world.hue); } catch {}
+    clearTimeout(t); t = setTimeout(paintSky, 120);        // the sky takes a moment to redraw
+  };
+  const at = e => { const r = track.getBoundingClientRect(); set((e.clientX - r.left - 22) / Math.max(1, r.width - 44) * 360); };
+  track.addEventListener('pointerdown', e => { track.setPointerCapture(e.pointerId); at(e); });
+  track.addEventListener('pointermove', e => { if (track.hasPointerCapture(e.pointerId)) at(e); });
+  knob.addEventListener('keydown', e => {
+    const d = { ArrowLeft: -5, ArrowDown: -5, ArrowRight: 5, ArrowUp: 5 }[e.key];
+    if (d) { e.preventDefault(); set(world.hue + d); }
+  });
+  track.addEventListener('dblclick', () => set(SKY_HUE));
+  show();
 }
 
 // ── the capsule machine: the handle turns, a capsule drops, wobbles and pops ─
@@ -1975,6 +2042,8 @@ function setupWorld() {
   for (const k of BUG_KINDS.flat()) { const i = new Image(); i.src = `icons/beetles/${k}.png`; world.bugImg[k] = i; }
   for (let i = 0; i < 4; i++) world.noise.push(noiseTile(255));
   buildSolids();
+  try { const h = localStorage.getItem(LS_HUE); world.hue = h ? +h : SKY_HUE; } catch { world.hue = SKY_HUE; }
+  setupHue();
   setDark(darkPref(), false);
   sysDark.addEventListener('change', () => { if (darkPref() !== world.dark) setDark(darkPref(), false); });
   buildBackground();

@@ -343,7 +343,8 @@ async function checkWorld(label, viewport) {
     if (b.x != null) { w.x = b.x; w.y = b.y; }
     const out = { me: 'tester', now: Date.now() / 1000, coins: w.coins, wear: w.wear,
       ball: { x: 360, y: 980, vx: 0, vy: 0, age: 5 }, tv: w.tv,
-      people: [{ u: 'tester', d: 'Tester', x: w.x, y: w.y, w: w.wear }, { u: 'guest', d: 'Guest Cat', x: 960, y: 640, w: { hat: 'crown' }, e: ['wave', 1] }] };
+      people: [{ u: 'tester', d: 'Tester', x: w.x, y: w.y, w: w.wear }, { u: 'guest', d: 'Guest Cat', x: 960, y: 640, w: { hat: 'crown' }, e: ['wave', 1], st: 'gm everyone' }] };
+    if (b.status != null) out.status = b.status;
     if (b.buy === 'antenna' && w.coins >= 40) { w.coins -= 40; w.owned.push('antenna'); w.wear.hat = 'antenna'; out.shop = 'bought'; out.coins = w.coins; }
     if (b.tv) w.tv = out.tv = { v: 'dQw4w9WgXcQ', age: 0, by: 'Tester' };
     if (b.capsule) { w.wear.back = 'wings'; out.capsule = 'wings'; out.capsule_name = 'Wings'; }
@@ -509,6 +510,24 @@ async function checkWorld(label, viewport) {
   if (!w.sent.some(b => b.gift?.to === 'guest')) fail(`${label} world: the gift was not sent`);
   await page.screenshot({ path: `${ROOT}tests/out/${label}-world-card.png` });
   await page.keyboard.press('Escape');
+  // my own card sets a status
+  await page.evaluate(() => openProfile('tester'));
+  await page.waitForTimeout(400);
+  await page.fill('#w-card .wc-status-set input', 'fishing all day');
+  await page.press('#w-card .wc-status-set input', 'Enter');
+  await page.waitForTimeout(400);
+  if (!w.sent.some(b => b.status === 'fishing all day')) fail(`${label} world: the status was not sent`);
+  await page.keyboard.press('Escape');
+  await page.click('#w-card header button').catch(() => {});
+  // the sky colour slider turns the sky
+  await page.click('#cp-settings-btn');
+  const hb = await page.$eval('#w-hue .hue-track', t => { const r = t.getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height }; });
+  await page.mouse.click(hb.x + hb.w * 0.92, hb.y + hb.h / 2);
+  await page.waitForTimeout(500);
+  if (await page.evaluate(() => world.hue) < 300) fail(`${label} world: the sky colour slider did nothing`);
+  await page.screenshot({ path: `${ROOT}tests/out/${label}-world-hue.png` });
+  await page.click('#cp-settings-btn');
+  await page.evaluate(() => { localStorage.removeItem('bb_world_hue'); world.hue = SKY_HUE; paintSky(); });
   // the people list slides in and back out
   await page.click('#cp-people-btn');
   await page.waitForTimeout(300);

@@ -120,7 +120,7 @@ const DAILY_Q = [
 const ONCE_Q = [
     'first_bug'  => ['Catch your first beetle', 10], 'first_fish' => ['Catch your first fish', 10], 'golden' => ['Catch a golden beetle', 40],
     'all_bugs'   => ['Catch every kind of beetle', 80], 'all_fish' => ['Catch every kind of fish', 120], 'trinket' => ['Find a trinket', 20],
-    'seller'     => ['Earn 200 coins at the stall', 30], 'hugger' => ['Hug or high five 10 times', 25], 'dressed' => ['Wear something in every slot', 50],
+    'seller'     => ['Earn 200 stars at the stall', 30], 'hugger' => ['Hug or high five 10 times', 25], 'dressed' => ['Wear something in every slot', 50],
     'whale'      => ['Catch the tiny whale', 50],
 ];
 function questDay(array &$r, string $day): void {
@@ -249,7 +249,7 @@ else {
           'e' => $prev['e'] ?? null, 'w' => $prev['w'] ?? null, 'c' => $prev['c'] ?? null,
           'act' => $prev['act'] ?? 0, 'xa' => $prev['xa'] ?? 0, 'xf' => $prev['xf'] ?? 0,
           'in' => array_values(array_filter($prev['in'] ?? [], fn($i) => $i[2] > $now - 10))];
-    foreach (['wish', 'fish', 'fw', 'tz', 'gift', 'touch', 'dig', 'party'] as $k) if (isset($prev[$k])) $p[$k] = $prev[$k];
+    foreach (['wish', 'fish', 'fw', 'tz', 'gift', 'touch', 'dig', 'party', 'st', 'stt'] as $k) if (isset($prev[$k])) $p[$k] = $prev[$k];
     // where you can really be: the page says where you walk to, but nobody walks
     // faster than this, so catching, fishing and the rest count from here
     if (isset($prev['rx'])) {
@@ -266,7 +266,7 @@ else {
             $r['day'] = $day; $r['act_coins'] = 0; $r['xp_coins'] = 0; $r['bug_coins'] = 0;
             $r['coins'] += DAILY; $out['bonus'] = DAILY; $dirty = true;
         }
-        $p['c'] = $r['coins']; $p['w'] = $r['wear'];
+        $p['c'] = $r['coins']; $p['w'] = $r['wear']; $p['st'] = (string)($r['status'] ?? '');
     }
 
     // a coin for each minute spent here while doing something (the tab tells us)
@@ -493,7 +493,7 @@ else {
             $inv = json_decode($o['inv'] ?? '{}', true) ?: [];
             $out['prof'] = ['u' => $in['prof'], 'coins' => (int)$o['coins'], 'items' => count(json_decode($o['owned'], true) ?: []),
                 'wear' => (object)(json_decode($o['wear'], true) ?: []), 'bugs' => array_sum($inv['bugs'] ?? []),
-                'fish' => array_sum($inv['fish'] ?? []), 'quests' => count($inv['qd'] ?? []), 'since' => (int)$o['since'], 'here' => isset($world['people'][$in['prof']])];
+                'fish' => array_sum($inv['fish'] ?? []), 'quests' => count($inv['qd'] ?? []), 'since' => (int)$o['since'], 'status' => (string)($o['status'] ?? ''), 'here' => isset($world['people'][$in['prof']])];
         } else $out['prof'] = ['u' => $in['prof'], 'none' => true, 'here' => false];
     }
     // your bag
@@ -505,6 +505,13 @@ else {
     }
     if ($user) { $p['c'] = $user['coins']; $p['w'] = $user['wear']; }
 
+    // a short status line everyone sees on your card and under your name
+    if (isset($in['status']) && is_string($in['status']) && $sec - ($p['stt'] ?? 0) >= 3) {
+        $st = trim(preg_replace('/[\p{C}\s]+/u', ' ', $in['status']) ?? '');
+        $st = mb_substr($st, 0, 60);
+        $p['st'] = $st; $p['stt'] = $sec; $out['status'] = $st;
+        db($test)->prepare('UPDATE users SET status = ? WHERE u = ?')->execute([$st, $U]);
+    }
     if (isset($in['emote']) && in_array($in['emote'], EMOTES, true)) $p['e'] = [$in['emote'], $now];
     $mine = array_filter($p['in'], fn($i) => $i[2] > $now - 8);
     if ($mine) $out['in'] = array_values(array_map(fn($i) => [$i[0], $i[1], round($now - $i[2], 2), $i[4] ?? 0], $mine));
@@ -550,6 +557,8 @@ else {
         $d = (float)($in['tvdur']['d'] ?? 0);
         if ($d > 1 && $d < 36000) $world['tv']['d'] = $d;
     }
+    // a player saw the video end: move on, unless it has only just started
+    if (isset($in['tvend']) && $world['tv'] && $in['tvend'] === $world['tv']['v'] && $now - $world['tv']['s'] > ($world['tv']['d'] ?? 20) - 8) tvNext($world, $now);
     $world['people'][$U] = $p;
 }
 if (count($world['people']) > 80) { uasort($world['people'], fn($a, $b) => $b['t'] <=> $a['t']); $world['people'] = array_slice($world['people'], 0, 80, true); }
@@ -566,6 +575,7 @@ $out['people'] = [];
 foreach ($world['people'] as $u => $p) {
     $o = ['u' => (string)$u, 'd' => $p['d'], 'x' => $p['x'], 'y' => $p['y']];
     if ($p['w']) $o['w'] = (object)$p['w'];
+    if (!empty($p['st'])) $o['st'] = $p['st'];
     if ($p['e'] && $p['e'][1] > $now - 4) $o['e'] = [$p['e'][0], round($now - $p['e'][1], 2)];
     $out['people'][] = $o;
 }
@@ -576,7 +586,7 @@ $out['coins'] = $world['people'][$U]['c'] ?? ($user['coins'] ?? 0);
 $out['wear'] = (object)($world['people'][$U]['w'] ?? []);
 $b = $world['ball'];
 $out['ball'] = ['x' => $b['x'], 'y' => $b['y'], 'vx' => $b['vx'], 'vy' => $b['vy'], 'age' => round(min($now - $b['t'], 86400), 3)];
-if ($world['tv']) $out['tv'] = ['v' => $world['tv']['v'], 'age' => round($now - $world['tv']['s'], 2), 'by' => $world['tv']['by']];
+if ($world['tv']) $out['tv'] = ['v' => $world['tv']['v'], 'age' => round($now - $world['tv']['s'], 2), 'by' => $world['tv']['by'], 'k' => (int)($world['tv']['s'] * 10)];
 if ($world['tvq']) $out['tvq'] = array_map(fn($q) => ['v' => $q['v'], 'by' => $q['by']], $world['tvq']);
 if ($world['fx']) $out['fx'] = array_map(fn($f) => [$f[0], $f[1], round($now - $f[2], 2), $f[3], $f[5] ?? 'fw'], $world['fx']);
 if ($world['toss']) $out['toss'] = array_map(fn($f) => [$f[0], $f[1], $f[2], $f[3], round($now - $f[4], 2), $f[5]], $world['toss']);

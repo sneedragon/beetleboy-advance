@@ -29,6 +29,7 @@ function renderCard() {
   const n = v => (v ?? 0).toLocaleString();
   const name = user?.displayName || card.d;
   const stat = (v, l) => `<div><b>${v}</b><span>${l}</span></div>`;
+  const st = world.cats.get(u)?.st || pr?.status || '';
   let friend = '';
   if (!me && user && !rnAuth()) {
     friend = vc.areFriends ? '<span class="w-pill">✓ Friends</span>'
@@ -36,6 +37,7 @@ function renderCard() {
       : vc.pendingRequestTo ? '<button type="button" data-c="cancel">Request sent ✕</button>'
       : '<button type="button" data-c="request">Add friend</button>';
   }
+  const was = el.querySelector('.wc-status-set input'), typing = was && document.activeElement === was ? was.value : null;
   el.querySelector('.w-box').innerHTML = `
     <header><h2>~${esc(u)}</h2><button type="button" data-c="close">✕</button></header>
     <div class="wc-top">
@@ -49,6 +51,8 @@ function renderCard() {
         ${user?.location ? `<span class="w-dim">📍 ${esc(user.location)}</span>` : ''}
       </div>
     </div>
+    ${me ? `<form class="wc-status-set"><input type="text" maxlength="60" placeholder="Set a status…" value="${esc(st)}" autocomplete="off"><button type="submit">Set</button></form>`
+      : st ? `<p class="wc-status">${esc(st)}</p>` : ''}
     ${user?.bio ? `<p class="wc-bio">${esc(user.bio)}</p>` : card.p ? '' : '<p class="w-dim">Loading the profile…</p>'}
     <div class="wc-lcd">
       ${user ? stat(n(user.friendCount), 'friends') + stat(n(user.achievementsCount), 'achievements') : ''}
@@ -64,12 +68,13 @@ function renderCard() {
       ${user && (rnAuth() || vc.canPoke !== false) ? '<button type="button" data-c="poke">👉 Poke</button>' : ''}
       ${friend}
     </div>
-    <div class="wc-gift"><span>Give coins</span>${[5, 10, 25].map(v => `<button type="button" data-gift="${v}">◉ ${v}</button>`).join('')}</div>
+    <div class="wc-gift"><span>Give stars</span>${[5, 10, 25].map(v => `<button type="button" data-gift="${v}">★ ${v}</button>`).join('')}</div>
     <div class="wc-acts wc-small">
       <button type="button" data-c="mention">~ Mention in chat</button>
       <a href="${BASE_URL}/~${encodeURIComponent(u)}" target="_blank" rel="noopener">remilia.net ↗</a>
     </div>`}
     <p class="wc-msg w-dim" aria-live="polite"></p>`;
+  if (typing != null) { const i = el.querySelector('.wc-status-set input'); i.value = typing; i.focus(); }
   const cv = el.querySelector('.wc-cat'), g = cv.getContext('2d');
   g.imageSmoothingEnabled = false;
   const c = world.cats.get(u);
@@ -127,6 +132,15 @@ async function cardAction(act, btn) {
   msg({ request: 'Friend request sent.', accept: `You and ~${u} are friends now.`, cancel: 'Request taken back.' }[act]);
 }
 
+document.getElementById('w-card').addEventListener('submit', e => {
+  e.preventDefault();
+  const i = e.target.querySelector('input');
+  if (!i) return;
+  const me = world.cats.get(world.me);
+  if (me) me.st = i.value.trim();
+  worldSend({ status: i.value }, true);
+  i.blur();
+});
 document.getElementById('w-card').addEventListener('click', e => {
   if (e.target.id === 'w-card') return e.target.classList.add('hidden');
   const g = e.target.closest('[data-gift]');

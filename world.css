@@ -22,7 +22,7 @@ body.world, body.world[data-theme], body.world[data-scheme="dark"] {
   --bevel: inset 0 1px 0 #fff, inset 0 -1px 0 #a9a9a9, 0 1px 0 rgba(255,255,255,0.5);
   --lift: 0 2px 0 #8c8c8c, 0 10px 28px rgba(10,30,90,0.32);
   color-scheme: light;
-  background: #4d88e3 var(--sky, none) center / cover;
+  background: var(--sky-col, #4d88e3) var(--sky, none) center / cover;
   image-rendering: pixelated;
   color: var(--text);
   font-family: var(--serif);
@@ -64,7 +64,7 @@ body.world #cp-main { position: relative; gap: 10px; }
 #world {
   flex: 1; min-width: 0; position: relative; overflow: hidden; touch-action: none; user-select: none;
   border: 1px solid #2f4f8f; border-radius: 12px; box-shadow: 0 0 0 4px #e6e6e6, 0 0 0 5px var(--border2), var(--lift);
-  background: #4d88e3;
+  background: var(--sky-col, #4d88e3);
 }
 #w-canvas, #w-top { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 body.world #cp-main #mode-chat {
@@ -124,7 +124,20 @@ body.world #cp-side-close { display: block; position: sticky; top: 0; margin-lef
 #w-toy-btn { background: linear-gradient(#fff8d6, #f1dc84) !important; }
 #w-bag-btn { background: linear-gradient(#e2fbe8, #a9dfb9) !important; }
 #w-quest-btn { background: linear-gradient(#fff0dc, #f0c48a) !important; }
-#w-dark-btn { background: linear-gradient(#e6e2ff, #b4abe6) !important; }
+/* a wall light switch: the rocker is up while the lights are on */
+#w-dark-btn { background: linear-gradient(#fbf8ee, #e2dccb) !important; width: 34px; padding: 4px 0 !important; display: flex; justify-content: center; }
+#w-dark-btn i { display: block; width: 12px; height: 22px; border-radius: 3px; background: linear-gradient(#d9d3c2 0 50%, #fffdf6 50%); box-shadow: inset 0 0 0 1px #9c9582, 0 1px 0 #fff; }
+#w-dark-btn.off i { background: linear-gradient(#fffdf6 0 50%, #bdb6a2 50%); }
+#w-hue { display: flex; flex-direction: column; gap: 6px; }
+#w-hue .hue-track {
+  position: relative; height: 30px; border-radius: 15px; cursor: pointer; touch-action: none;
+  background: linear-gradient(90deg, #e61a1a, #e6e61a, #1ae61a, #1ae6e6, #1a1ae6, #e61ae6, #e61a1d);
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.35);
+}
+#w-hue .hue-selector {
+  position: absolute; top: 50%; width: 36px; height: 36px; border-radius: 50%; transform: translate(-50%, -50%);
+  border: 3px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,0.45); outline-offset: 2px;
+}
 #w-bar button.on { background: linear-gradient(#c9d4ff, #8fa3f0) !important; }
 #w-emotes, #w-toys {
   position: absolute; bottom: 70px; left: 12px; display: flex; gap: 4px; flex-wrap: wrap; max-width: calc(100% - 24px); padding: 6px;
@@ -206,6 +219,9 @@ body.world #cp-side-close { display: block; position: sticky; top: 0; margin-lef
 .wc-names strong { font-family: var(--serif); font-size: 22px; font-weight: normal; color: var(--navy2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wc-names .w-dim { margin: 1px 0; font-family: var(--pixel); font-size: 13px; }
 .wc-bio { margin: 12px 0 0; white-space: pre-line; }
+.wc-status { margin: 10px 0 0; font-style: italic; color: var(--dim); }
+.wc-status-set { display: flex; gap: 6px; margin: 10px 0 0; }
+.wc-status-set input { flex: 1; min-width: 0; font-family: var(--pixel); background: var(--lcd); color: var(--lcd-ink); border: 1px solid #7d8473; border-radius: 4px; padding: 5px 8px; }
 .wc-lcd { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 12px 0; padding: 8px 10px; background: var(--lcd); color: var(--lcd-ink); border: 1px solid #7d8473; border-radius: 5px; box-shadow: inset 0 2px 3px rgba(0,0,0,0.22); font-family: var(--pixel); }
 .wc-lcd:empty { display: none; }
 .wc-lcd div { display: flex; gap: 5px; align-items: baseline; }
