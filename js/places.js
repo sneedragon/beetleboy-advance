@@ -433,6 +433,8 @@ window.placeFloors = (g, floor, grass, rnd, D) => {
     g.strokeStyle = D ? 'rgba(255,255,255,0.04)' : 'rgba(80,80,110,0.18)'; g.lineWidth = 1;
     for (let x = z.x; x < z.x + z.w; x += 80) { g.beginPath(); g.moveTo(x + 0.5, z.y); g.lineTo(x + 0.5, z.y + z.h); g.stroke(); }
     for (let y = z.y; y < z.y + z.h; y += 80) { g.beginPath(); g.moveTo(z.x, y + 0.5); g.lineTo(z.x + z.w, y + 0.5); g.stroke(); }
+    // some paint
+    for (let i = 0; i < 12; i++) { g.fillStyle = `hsla(${rnd(0, 360)},70%,60%,${D ? 0.12 : 0.25})`; g.beginPath(); g.ellipse(rnd(1430, 1840), rnd(1220, 1760), rnd(10, 26), rnd(6, 14), rnd(0, 3), 0, Math.PI * 2); g.fill(); }
   });
   // the farm: dark earth, tilled plots
   floor(z0('farm'), z => {

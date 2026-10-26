@@ -16,7 +16,7 @@ const GOAL = [1310, 1390];          // the goal mouths at both ends, as in js/wo
 const BALL_K = 1.4;
 // coins
 const DAILY = 25;                  // first visit of the day
-const ACT_CAP = 60;                // one every five minutes online, at most this many a day
+const ACT_FAST = 30;               // the first this many a day come one a minute, then each takes a minute longer, up to ten
 const XP_PER_COIN = 200, XP_CAP = 150;
 const CAPSULE = 30;                // the capsule machine
 const WISH = 1;                    // a coin into the well
@@ -405,14 +405,16 @@ else {
         $p['c'] = $r['coins']; $p['l'] = $r['lxp']; $p['w'] = $r['wear']; $p['st'] = (string)($r['status'] ?? '');
     }
 
-    // a coin for every five minutes spent here
+    // a coin for each minute spent here; past the first 30 of the day each takes a minute longer, ten at most
     if ($prev) {
         $p['act'] += min(5, $sec - ($prev['t'] ?? $sec));
-        if ($p['act'] >= 300) {
-            $p['act'] -= 300;
+        $need = 60 * min(10, 1 + max(0, ($p['actn'] ?? 0) - ACT_FAST + 1));
+        if (($p['actd'] ?? '') !== $day) { $p['actd'] = $day; $p['actn'] = 0; $need = 60; }
+        if ($p['act'] >= $need) {
+            $p['act'] -= $need;
             $getUser(); $r = &$user;
             if ($r['day'] !== $day) { $r['day'] = $day; $r['act_coins'] = 0; $r['xp_coins'] = 0; $r['bug_coins'] = 0; }
-            if ($r['act_coins'] < ACT_CAP) { $r['act_coins']++; earn($r, 1); $dirty = true; }
+            $r['act_coins']++; $p['actn'] = $r['act_coins']; earn($r, 1); $dirty = true;
         }
     }
 

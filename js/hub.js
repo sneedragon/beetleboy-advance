@@ -27,7 +27,7 @@ function setLevel(xp) {
 
 // ── the notice board by the plaza ───────────────────────────────────────────
 const PATCH = [
-  ['26 Oct', 'A whiteboard in the library where everyone draws together, with colours, an eraser and a wipe. You also get a star for every five minutes you spend here now.'],
+  ['26 Oct', 'A whiteboard in the library where everyone draws together, with colours, an eraser and a wipe. Being here pays a star a minute even when you just hang out; after the first 30 of the day each star takes a minute longer, ten at most.'],
   ['26 Oct', 'The pond is smaller, so you can walk round it and jump it on the board. Kickers only throw you the way their arrows point, the rails are easier to land on, and the garden fence shows at night.'],
   ['26 Oct', 'The slots and the capsule machine sound like it now: a lever, ticking reels, coins and a fanfare for big wins. A pumpkin you harvest is sometimes hollow, with a pumpkin hat inside.'],
   ['26 Oct', 'Sit down on any chair, stool, bench, sofa or pew. On the board you can now kickflip over tables, benches and the park hedges, but not over the garden fence.'],
