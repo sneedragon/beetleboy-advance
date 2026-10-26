@@ -67,7 +67,7 @@ function renderCard() {
       <button type="button" data-c="hug" ${here ? '' : 'disabled'}>🤗 Hug</button>
       <button type="button" data-c="high5" ${here ? '' : 'disabled'}>🙌 High five</button>
       <button type="button" data-c="ball" ${here ? '' : 'disabled'}>☁ Cloudball</button>
-      <button type="button" data-c="trade" ${here ? '' : 'disabled'}>🔁 Trade beetles</button>
+      <button type="button" data-c="trade" ${here ? '' : 'disabled'}>🔁 Trade</button>
       ${user && (rnAuth() || vc.canPoke !== false) ? '<button type="button" data-c="poke">👉 Poke</button>' : ''}
       ${friend}
     </div>
@@ -88,14 +88,15 @@ function renderCard() {
 
 // trading: pick one of your beetles, one of theirs, or one of each
 function renderTrade(el, name, here) {
-  const t = card.trade, mine = BAG.d?.have, theirs = card.prof?.beetles;
+  const t = card.trade, mine = BAG.d?.trade, theirs = card.prof?.beetles;
   const grid = (have, side) => {
-    const ks = Object.keys(have || {}).filter(k => k.startsWith('b:') && have[k] > 0)
-      .sort((a, b) => BUG_KINDS.findIndex(x => x.includes(b.slice(2))) - BUG_KINDS.findIndex(x => x.includes(a.slice(2))) || itemName(a).localeCompare(itemName(b)));
+    const rank = k => k.startsWith('w:') ? 99 : BUG_KINDS.findIndex(x => x.includes(k.slice(2)));
+    const ks = Object.keys(have || {}).filter(k => /^[bw]:/.test(k) && have[k] > 0)
+      .sort((a, b) => rank(b) - rank(a) || itemName(a).localeCompare(itemName(b)));
     if (!have) return '<p class="w-dim">Looking…</p>';
-    if (!ks.length) return `<p class="w-dim">${side === 'give' ? 'You have no beetles yet.' : 'They have no beetles yet.'}</p>`;
+    if (!ks.length) return `<p class="w-dim">${side === 'give' ? 'You have nothing to trade yet.' : 'They have nothing to trade yet.'}</p>`;
     return `<div class="wc-trade">${ks.map(k => `<button type="button" data-pick="${side}" data-k="${esc(k)}" class="${t[side] === k ? 'on' : ''}" title="${esc(itemName(k))}">
-      ${itemIcon(k)}<span>${esc(itemName(k))}</span>${bugRar(k.slice(2))}${have[k] > 1 ? `<b>× ${have[k]}</b>` : ''}</button>`).join('')}</div>`;
+      ${itemIcon(k)}<span>${esc(itemName(k))}</span>${itemRar(k)}${have[k] > 1 ? `<b>× ${have[k]}</b>` : ''}</button>`).join('')}</div>`;
   };
   el.querySelector('.w-box').innerHTML = `
     <header><h2>Trade with ${esc(name)}</h2><button type="button" data-c="close">✕</button></header>
@@ -113,7 +114,7 @@ async function cardAction(act, btn) {
   const shut = () => document.getElementById('w-card').classList.add('hidden');
   if (act === 'close') return shut();
   if (act === 'bag') return openBag();
-  if (act === 'trade') { card.trade = { give: null, want: null }; worldSend({ inv: 1, prof: u }, true); return renderCard(); }
+  if (act === 'trade') { card.trade = { give: null, want: null }; worldSend(world.catalog ? { inv: 1, prof: u } : { inv: 1, prof: u, shopinfo: 1 }, true); return renderCard(); }
   if (act === 'untrade') { card.trade = null; return renderCard(); }
   if (act === 'offer') { worldSend({ trade: { to: u, ...card.trade } }, true); return shut(); }
   if (act === 'dm') { shut(); return window.dmOpen?.(u, card.d); }

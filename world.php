@@ -92,7 +92,6 @@ const CAP_TIER = ['star' => 0, 'feather' => 0, 'c_sky' => 0, 'lantern' => 0, 'pa
     'wings' => 2, 'jetpack' => 2, 'c_night' => 2, 't_sparks' => 2, 'ufo' => 2,
     'c_rainbow' => 3, 't_flames' => 3];
 const CAP_ODDS = [70, 24, 5.5, 0.5];    // percent for each tier
-const CAP_DUP = 10;                     // stars back for one you already have
 const WISH_ODDS = 1000;
 const SLOTS = ['hat', 'back', 'col', 'hold', 'trail'];
 const EMOTES = ['wave', 'heart', 'laugh', 'spark', 'sleep', 'dance', 'what'];
@@ -136,7 +135,33 @@ function price(string $k): int {
     if ($t === 'j') return in_array($id, JUNK, true) ? (crc32($id) % 3) + 1 : 0;
     if ($t === 't') return TRINKETS[$id] ?? 0;
     if ($t === 'b') foreach (BUGS as $i => $ks) if (in_array($id, $ks, true)) return BUG_PRICE[$i];
+    if ($t === 'w' && isCos($k)) return isset(CAP_TIER[$id]) ? COS_PRICE[CAP_TIER[$id]] : max(1, intdiv(SHOP[$id][2], 3));
     return 0;
+}
+// w:<id> is something to wear as a thing you can sell or trade; the well's halo and toys are not
+const COS_PRICE = [6, 15, 45, 250];
+function isCos($k): bool {
+    if (!is_string($k) || !str_starts_with($k, 'w:')) return false;
+    $id = substr($k, 2);
+    return isset(SHOP[$id]) && SHOP[$id][2] >= 0 && SHOP[$id][0] !== 'toy';
+}
+// what someone could trade away: beetles and spare clothes in the bag, and what is in their wardrobe
+function tradeable(array $owned, array $have): array {
+    $t = array_filter($have, fn($n, $k) => $n > 0 && (str_starts_with((string)$k, 'b:') || isCos((string)$k)), ARRAY_FILTER_USE_BOTH);
+    foreach ($owned as $id) if (isCos("w:$id")) $t["w:$id"] = ($t["w:$id"] ?? 0) + 1;
+    return $t;
+}
+// hand a thing over: spares go first, the one in the wardrobe last
+function takeItem(array &$x, string $k): void {
+    if (($x['inv']['have'][$k] ?? 0) > 0) { if (--$x['inv']['have'][$k] <= 0) unset($x['inv']['have'][$k]); return; }
+    $id = substr($k, 2);
+    $x['owned'] = array_values(array_filter($x['owned'], fn($o) => $o !== $id));
+    foreach ($x['wear'] as $slot => $w) if ($w === $id) unset($x['wear'][$slot]);
+}
+function giveItem(array &$x, string $k): void {
+    $id = substr($k, 2);
+    if (str_starts_with($k, 'w:') && !in_array($id, $x['owned'], true)) { $x['owned'][] = $id; $x['inv']['seen'][$k] = 1; }
+    else gain($x, $k);
 }
 
 // quests: three a day out of these, and some that you only do once
@@ -356,7 +381,7 @@ else {
     }
     if (!empty($in['shopinfo'])) {
         $getUser(); $r = &$user;
-        $out['catalog'] = array_map(fn($id, $s) => ['id' => $id, 'slot' => $s[0], 'name' => $s[1], 'price' => $s[2]], array_keys(SHOP), SHOP);
+        $out['catalog'] = array_map(fn($id, $s) => ['id' => $id, 'slot' => $s[0], 'name' => $s[1], 'price' => $s[2], 'tier' => CAP_TIER[$id] ?? null], array_keys(SHOP), SHOP);
         $out['capsule_price'] = CAPSULE;
         $out['owned'] = $r['owned'];
     }
@@ -371,7 +396,7 @@ else {
             $pool = array_keys(array_filter(CAP_TIER, fn($v) => $v === $tier));
             $id = $pool[mt_rand(0, count($pool) - 1)];
             $r['coins'] -= CAPSULE; $dirty = true;
-            if (in_array($id, $r['owned'], true)) { $r['coins'] += CAP_DUP; $out['capsule_dup'] = CAP_DUP; }
+            if (in_array($id, $r['owned'], true)) { gain($r, "w:$id"); $out['capsule_dup'] = price("w:$id"); }
             else { $r['owned'][] = $id; $r['wear'][SHOP[$id][0]] = $id; }
             $out['capsule'] = $id; $out['capsule_name'] = SHOP[$id][1]; $out['capsule_tier'] = $tier;
         }
@@ -542,17 +567,17 @@ else {
             $out['prof'] = ['u' => $in['prof'], 'coins' => (int)$o['coins'], 'items' => count(json_decode($o['owned'], true) ?: []),
                 'wear' => (object)(json_decode($o['wear'], true) ?: []), 'bugs' => array_sum($inv['bugs'] ?? []),
                 'fish' => array_sum($inv['fish'] ?? []), 'quests' => count($inv['qd'] ?? []), 'since' => (int)$o['since'], 'status' => (string)($o['status'] ?? ''), 'here' => isset($world['people'][$in['prof']]),
-                'beetles' => (object)array_filter($inv['have'] ?? [], fn($n, $k) => str_starts_with((string)$k, 'b:') && $n > 0, ARRAY_FILTER_USE_BOTH)];
+                'beetles' => (object)tradeable(json_decode($o['owned'], true) ?: [], $inv['have'] ?? [])];
         } else $out['prof'] = ['u' => $in['prof'], 'none' => true, 'here' => false];
     }
     // trading beetles: an offer to someone who is here, and they take it or not
-    $isBug = fn($k) => $k === null || (is_string($k) && str_starts_with($k, 'b:') && in_array(substr($k, 2), array_merge(...BUGS), true));
+    $isBug = fn($k) => $k === null || isCos($k) || (is_string($k) && str_starts_with($k, 'b:') && in_array(substr($k, 2), array_merge(...BUGS), true));
     if (isset($in['trade']) && is_array($in['trade'])) {
         $to = (string)($in['trade']['to'] ?? ''); $give = $in['trade']['give'] ?? null; $want = $in['trade']['want'] ?? null;
         $getUser();
         if (!$isBug($give) || !$isBug($want) || (!$give && !$want)) $out['trade'] = 'bad';
         elseif ($to === $U || !isset($world['people'][$to])) $out['trade'] = 'gone';
-        elseif ($give && ($user['inv']['have'][$give] ?? 0) < 1) $out['trade'] = 'nohave';
+        elseif ($give && (tradeable($user['owned'], $user['inv']['have'])[$give] ?? 0) < 1) $out['trade'] = 'nohave';
         else {
             $world['trades'] = array_values(array_filter($world['trades'], fn($o) => !($o['a'] === $U && $o['b'] === $to)));
             if (count(array_filter($world['trades'], fn($o) => $o['a'] === $U)) >= 3) $out['trade'] = 'many';
@@ -576,14 +601,13 @@ else {
             else {
                 // both still have what they offered: swap, and save them both while the world is locked
                 $getUser(); $r = &$user; $a = loadUser($test, $o['a']);
-                $has = fn(array $x, ?string $k) => !$k || ($x['inv']['have'][$k] ?? 0) > 0;
+                $has = fn(array $x, ?string $k) => !$k || (tradeable($x['owned'], $x['inv']['have'])[$k] ?? 0) > 0;
                 if (!$has($a, $o['give']) || !$has($r, $o['want'])) { $tell('tradeno'); $out['trade'] = 'nohave'; }
                 else {
-                    if ($o['give']) { $a['inv']['have'][$o['give']]--; gain($r, $o['give']); }
-                    if ($o['want']) { $r['inv']['have'][$o['want']]--; gain($a, $o['want']); }
-                    $a['inv']['have'] = array_filter($a['inv']['have'], fn($n) => $n > 0);
-                    $r['inv']['have'] = array_filter($r['inv']['have'], fn($n) => $n > 0);
+                    if ($o['give']) { takeItem($a, $o['give']); giveItem($r, $o['give']); }
+                    if ($o['want']) { takeItem($r, $o['want']); giveItem($a, $o['want']); }
                     saveUser($test, $a); $dirty = true;
+                    if (isset($world['people'][$o['a']])) $world['people'][$o['a']]['w'] = $a['wear'];
                     $tell('tradeok'); $out['trade'] = 'done';
                 }
             }
@@ -594,6 +618,7 @@ else {
         $getUser(); $r = &$user;
         $out['inv'] = ['owned' => $r['owned'], 'bugs' => $r['inv']['bugs'], 'fish' => (object)$r['inv']['fish'],
             'fishnames' => array_map(fn($f) => $f[0], FISH), 'have' => (object)$r['inv']['have'], 'seen' => array_keys($r['inv']['seen']),
+            'trade' => (object)tradeable($r['owned'], $r['inv']['have']),
             'prices' => (object)array_combine(array_keys($r['inv']['have']), array_map('price', array_map('strval', array_keys($r['inv']['have']))))];
     }
     if ($user) { $p['c'] = $user['coins']; $p['w'] = $user['wear']; }

@@ -1698,7 +1698,7 @@ function capsuleResult(d) {
   setTimeout(() => {
     const got = document.getElementById('w-cap-got');
     got.classList.remove('hidden');
-    got.querySelector('span').innerHTML = `<small style="color:${CAP_COL[tier]}">${CAP_TIER_NAME[tier]}</small><b>${esc(d.capsule_name)}</b>${d.capsule_dup ? `You have this one already, so you get ★ ${d.capsule_dup} back.` : 'You are wearing it now.'}`;
+    got.querySelector('span').innerHTML = `<small style="color:${CAP_COL[tier]}">${CAP_TIER_NAME[tier]}</small><b>${esc(d.capsule_name)}</b>${d.capsule_dup ? 'You have this one already, so the spare is in your bag. Sell it at the stall or trade it.' : 'You are wearing it now.'}`;
     if (tier >= 2 && !d.capsule_dup) { sfx('claim'); const m = world.cats.get(world.me); if (m) world.fx.set(`cap${performance.now()}`, { x: m.x, y: m.y - 30, hue: tier === 3 ? 45 : 270, kind: 'confetti', t0: performance.now() / 1000 }); }
     const slot = world.catalog?.find(i => i.id === d.capsule)?.slot || 'hat';
     previewCat(got.querySelector('canvas'), { [slot]: d.capsule });
@@ -1786,7 +1786,7 @@ function renderOffers(list) {
 }
 function tradeResult(r) {
   const t = { sent: 'Offer sent. It stays open for two minutes.', done: 'Traded 🔁 It is in your bag.', declined: 'Turned down.', withdrawn: 'Offer taken back.',
-    nohave: 'One of you does not have that beetle any more.', gone: 'That offer is gone.', many: 'You have three offers open already.', bad: 'Pick a beetle first.' }[r];
+    nohave: 'One of you does not have that any more.', gone: 'That offer is gone.', many: 'You have three offers open already.', bad: 'Pick something first.' }[r];
   if (t) worldToast(t);
   if (r === 'done') sfx('claim');
 }
@@ -2095,15 +2095,35 @@ const pretty = k => k.replace(/_/g, ' ').replace(/^./, c => c.toUpperCase());
 function itemName(k) {
   const [t, id] = [k.slice(0, 1), k.slice(2)];
   if (t === 'f') return BAG.d?.fishnames?.[id] || pretty(id);
+  if (t === 'w') return world.catalog?.find(i => i.id === id)?.name || pretty(id);
   return (typeof NAMES !== 'undefined' && NAMES[id]) || pretty(id);
 }
 const aName = n => `${/^[aeiou]/i.test(n) ? 'an' : 'a'} ${n}`;
 function itemIcon(k) {
   const [t, id] = [k.slice(0, 1), k.slice(2)];
   if (t === 'f') return `<i class="w-fish">${FISH_ICON[id] || '🐟'}</i>`;
+  if (t === 'w') return `<img src="${cosIcon(id)}" alt="">`;
   const src = t === 'b' ? `icons/beetles/${id}.png` : typeof IMAGES !== 'undefined' && IMAGES[id];
   return src ? `<img src="${esc(src)}" alt="">` : '<i class="w-fish">?</i>';
 }
+
+// something to wear, drawn on your cat, kept once the cat sprite is there
+const COS_ICON = {};
+function cosIcon(id) {
+  if (COS_ICON[id]) return COS_ICON[id];
+  const slot = world.catalog?.find(i => i.id === id)?.slot, cv = document.createElement('canvas');
+  cv.width = cv.height = 64;
+  if (slot) previewCat(cv, { hat: null, back: null, hold: null, trail: null, [slot]: id });
+  const url = cv.toDataURL();
+  if (slot && world.cats.get(world.me)) COS_ICON[id] = url;
+  return url;
+}
+const COS_TIER = ['common', 'rare', 'epic', 'legendary'];
+const itemRar = k => {
+  if (k.startsWith('b:')) return bugRar(k.slice(2));
+  const t = world.catalog?.find(i => i.id === k.slice(2))?.tier;
+  return t != null ? `<small style="color:${CAP_COL[t]}">${esc(COS_TIER[t])}</small>` : '';
+};
 
 // the lost and found box: once every while there is something in it
 function dig() {
@@ -2170,7 +2190,7 @@ function drawBag(d) {
     box.querySelectorAll('canvas[data-prev]').forEach(cv => previewCat(cv, { [cv.dataset.slot]: cv.dataset.prev }));
   } else if (BAG.tab === 'things') {
     const near = nearStall(), keys = Object.keys(d.have).filter(k => d.have[k] > 0);
-    const order = { b: 0, f: 1, t: 2, j: 3 };
+    const order = { w: 0, b: 1, f: 2, t: 3, j: 4 };
     keys.sort((a, b) => order[a[0]] - order[b[0]] || itemName(a).localeCompare(itemName(b)));
     const all = [['b', 'beetles'], ['f', 'fish'], ['j', 'junk']].filter(([t]) => keys.some(k => k[0] === t));
     box.innerHTML = keys.length ? `<div class="w-items">${keys.map(k => `<div class="w-item">${itemIcon(k)}<span>${esc(itemName(k))}</span><b>× ${d.have[k]}</b>
