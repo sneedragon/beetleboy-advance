@@ -24,7 +24,7 @@ const FIREWORK = 2;                // a rocket over the plaza
 const GIFT_CAP = 200;              // coins you can give away a day
 const POND = [1185, 620];           // the pond on the plaza, as in js/world.js
 const STALL = [1500, 806];         // the buy counter in the terminal, as in js/world.js
-const BIN = [1364, 1334];           // the lost and found box
+const BIN = [118, 296];             // the dumpster in the back alley
 const RUMMAGE = 90;                // seconds between two digs in the box
 const CONFETTI = 2;                // seconds between free toys (confetti, bubbles)
 // the Jade Arches kitchen: what the pantry sells, and what a plate pays (KITCHEN in js/places.js)
@@ -44,7 +44,10 @@ function orderAt(int $i, float $t): array {
 const FARM = [510, 1490, 960, 1780];
 // the slot parlour: what comes up how often, and what three of a kind pay (times the bet)
 const SLOT_SYMS = ['green' => 30, 'ladybug' => 25, 'pillbug' => 20, 'stag' => 14, 'goliath' => 8, 'golden' => 3];
-const SLOT_PAY = ['green' => 5, 'ladybug' => 8, 'pillbug' => 12, 'stag' => 20, 'goliath' => 50, 'golden' => 200];
+// four reels, three rows, seven lines; the golden beetle stands in for any other. Pays in fifths of the bet
+// for three and four in a line from the left; worked out to give back about 95 in every 100 stars
+const SLOT_PAY = ['green' => [3, 12], 'ladybug' => [4, 16], 'pillbug' => [7, 30], 'stag' => [12, 60], 'goliath' => [25, 150], 'golden' => [60, 750]];
+const SLOT_LINES = [[1, 1, 1, 1], [0, 0, 0, 0], [2, 2, 2, 2], [0, 1, 1, 0], [2, 1, 1, 2], [1, 0, 0, 1], [1, 2, 2, 1]];
 const SLOT_BETS = [1, 5, 10];
 const PLOTS = 8;
 const CROPS = ['lettuce' => [1, 120, 2], 'carrot' => [1, 150, 2], 'tomato' => [1, 180, 3], 'potato' => [1, 240, 3],
@@ -102,6 +105,7 @@ const SHOP = [
     't_flames'  => ['trail', 'Flame trail',     0],
     // price -1: only the well gives it, one wish in a thousand
     'wishhalo'  => ['hat',   'Wish halo',      -1],
+    'mccap'     => ['hat',   'Crew cap',       -1],   // one order in a hundred at the Jade Arches
     // toys to unlock: you buy them once and keep them
     'k_hearts'  => ['toy',   'Heart burst',    60],
     'k_snow'    => ['toy',   'Snow cloud',     80],
@@ -135,7 +139,7 @@ const BUGS = [['green'], ['purple', 'ladybug', 'cucumber'],
 const BUG_PRICE = [2, 4, 10, 30, 150];
 // how often each tier turns up: diamond is one beetle in 500
 function bugTier(float $r): int { return $r < 0.002 ? 4 : ($r < 0.02 ? 3 : ($r < 0.12 ? 2 : ($r < 0.42 ? 1 : 0))); }
-// junk from the beetle game: the pond and the lost and found box turn it up
+// junk from the beetle game: the pond and the dumpster turn it up
 const JUNK = ['ballpoint_pen', 'bendy_straw', 'bike_reflector', 'bottle_cap', 'broken_firework', 'burger_wrapper', 'button', 'chewed_eraser',
     'chip_bag', 'chocolate_bar', 'chocolate_wrapper', 'coffee_can', 'cracker_wrapper', 'deodorant_can', 'empty_noodle_cup', 'event_band',
     'glue_stick', 'green_army_man', 'guitar_pick', 'gum_wrapper', 'headphones_90s', 'jack_adapter', 'juicebox', 'marble', 'matchbook',
@@ -204,7 +208,7 @@ function giveItem(array &$x, string $k): void {
 // id => [what, how many, coins]
 const DAILY_Q = [
     'catch'   => ['Catch beetles', 3, 15], 'fish' => ['Catch something in the pond', 3, 15], 'sell' => ['Sell things at the stall', 5, 10],
-    'touch'   => ['Hug someone or give a high five', 1, 10], 'fw' => ['Set off a firework', 1, 8], 'dig' => ['Dig through the lost and found', 2, 10],
+    'touch'   => ['Hug someone or give a high five', 1, 10], 'fw' => ['Set off a firework', 1, 8], 'dig' => ['Dig through the dumpster', 2, 10],
     'wish'    => ['Make a wish at the well', 1, 5], 'kick' => ['Kick the ball', 5, 8], 'toss' => ['Throw cloudballs', 5, 6],
     'party'   => ['Throw confetti or blow bubbles', 3, 5],
 ];
@@ -515,7 +519,7 @@ else {
             }
         }
     }
-    // the lost and found box: mostly junk, now and then a trinket
+    // the dumpster in the back alley: mostly junk, now and then a trinket
     if (!empty($in['dig'])) {
         if (hypot($rx - BIN[0], $ry - BIN[1]) > 110) $out['dig'] = 'far';
         elseif ($sec - ($p['dig'] ?? 0) < RUMMAGE) $out['dig'] = 'wait';
@@ -554,7 +558,7 @@ else {
         }
         unset($have);
     }
-    // the slot machines: three reels of beetles; a pair gives the bet back, three of a kind pay out
+    // the slot machines: four reels of beetles, three rows, seven lines
     if (isset($in['slot']) && is_array($in['slot'])) {
         $getUser(); $r = &$user;
         $bet = (int)($in['slot']['bet'] ?? 0);
@@ -565,16 +569,26 @@ else {
         elseif ($r['coins'] < $bet) $out['slot'] = 'poor';
         else {
             $p['slot'] = $now; $r['coins'] -= $bet;
-            $reels = [];
-            for ($i = 0; $i < 3; $i++) {
+            $grid = [];
+            for ($c = 0; $c < 4; $c++) for ($row = 0; $row < 3; $row++) {
                 $n = mt_rand(1, array_sum(SLOT_SYMS));
-                foreach (SLOT_SYMS as $k => $w) if (($n -= $w) <= 0) { $reels[] = $k; break; }
+                foreach (SLOT_SYMS as $k => $w) if (($n -= $w) <= 0) { $grid[$c][$row] = $k; break; }
             }
-            $c = array_count_values($reels); arsort($c); $top = array_key_first($c);
-            $win = $c[$top] === 3 ? $bet * SLOT_PAY[$top] : ($c[$top] === 2 ? ($top === 'golden' ? $bet * 5 : $bet) : 0);
+            $fifths = 0; $lines = [];
+            foreach (SLOT_LINES as $li => $L) {
+                $seq = array_map(fn($c) => $grid[$c][$L[$c]], [0, 1, 2, 3]);
+                $base = 'golden'; foreach ($seq as $k) if ($k !== 'golden') { $base = $k; break; }
+                $run = 0; foreach ($seq as $k) { if ($k === $base || $k === 'golden') $run++; else break; }
+                $wild = 0; foreach ($seq as $k) { if ($k === 'golden') $wild++; else break; }
+                $pay = $run >= 3 ? SLOT_PAY[$base][$run - 3] : 0; $sym = $base; $n = $run;
+                if ($wild >= 3 && SLOT_PAY['golden'][$wild - 3] > $pay) { $pay = SLOT_PAY['golden'][$wild - 3]; $sym = 'golden'; $n = $wild; }
+                if ($pay) { $fifths += $pay; $lines[] = [$li, $n, $sym]; }
+            }
+            $win = $fifths ? max(1, (int)round($bet * $fifths / 5)) : 0;
+            $reels = [$grid[0][1], $grid[1][1], $grid[2][1], $grid[3][1]];
             // only what you win on top of the bet counts as XP
             earn($r, $win, false); if ($win > $bet) $r['lxp'] += $win - $bet;
-            $dirty = true; $out['slot'] = ['reels' => $reels, 'win' => $win, 'bet' => $bet];
+            $dirty = true; $out['slot'] = ['grid' => $grid, 'reels' => $reels, 'lines' => $lines, 'win' => $win, 'bet' => $bet];
         }
     }
     // confetti and bubbles: free, everyone sees them
@@ -588,7 +602,7 @@ else {
         }
     }
     // what you own changed: the client keeps its list in step
-    if (isset($out['shop']) || isset($out['capsule']) || isset($out['wishgift'])) $out['owned'] = $user['owned'] ?? [];
+    if (isset($out['shop']) || isset($out['capsule']) || isset($out['wishgift']) || isset($out['mccap'])) $out['owned'] = $user['owned'] ?? [];
     // your quests for today, and the ones you do once
     if (!empty($in['quests'])) {
         $getUser(); $r = &$user;
@@ -759,6 +773,7 @@ else {
                 foreach ($need as $k => $n) { $kit[$k] -= $n; if ($kit[$k] <= 0) unset($kit[$k]); }
                 $pay = DISHES[$dish][1]; earn($r, $pay); $world['served'][$o] = $sec;
                 $out['serve'] = [$dish, $pay];
+                if (!in_array('mccap', $r['owned'] ?? [], true) && mt_rand(1, 100) === 1) { $r['owned'][] = 'mccap'; $out['mccap'] = 1; }
             }
         }
         $r['inv']['kit'] = $kit; $dirty = true;
@@ -781,6 +796,7 @@ else {
         $out['farm'] = $f; $p['c'] = $r['coins'];
     }
     $p['sk'] = !empty($in['sk']) ? 1 : 0;         // on the skateboard
+    $p['si'] = !empty($in['si']) && empty($in['sk']) ? 1 : 0;   // sitting down
     $mine = array_filter($p['in'], fn($i) => $i[2] > $now - 8);
     if ($mine) $out['in'] = array_values(array_map(fn($i) => [$i[0], $i[1], round($now - $i[2], 2), $i[4] ?? 0], $mine));
 
@@ -848,6 +864,7 @@ foreach ($world['people'] as $u => $p) {
     if ($p['w']) $o['w'] = (object)$p['w'];
     if (!empty($p['st'])) $o['st'] = $p['st'];
     if (!empty($p['sk'])) $o['sk'] = 1;
+    if (!empty($p['si'])) $o['si'] = 1;
     if ($p['e'] && $p['e'][1] > $now - 4) $o['e'] = [$p['e'][0], round($now - $p['e'][1], 2)];
     $out['people'][] = $o;
 }

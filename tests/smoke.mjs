@@ -362,7 +362,7 @@ async function checkWorld(label, viewport) {
       have: w.have, seen: Object.keys(w.have), prices: Object.fromEntries(Object.keys(w.have).map(k => [k, 2])) };
     out.lxp = 120;
     if (b.board) out.top = [['tester', 900], ['guest', 300]];
-    if (b.slot) { w.coins -= b.slot.bet; out.slot = { reels: ['stag', 'stag', 'stag'], win: b.slot.bet * 20, bet: b.slot.bet }; w.coins += out.slot.win; out.coins = w.coins; }
+    if (b.slot) { w.coins -= b.slot.bet; out.slot = { grid: [['green', 'stag', 'pillbug'], ['ladybug', 'stag', 'green'], ['goliath', 'stag', 'green'], ['stag', 'stag', 'pillbug']], reels: ['stag', 'stag', 'stag', 'stag'], lines: [[0, 4, 'stag']], win: b.slot.bet * 12, bet: b.slot.bet }; w.coins += out.slot.win; out.coins = w.coins; }
     if (b.quests) out.quests = { daily: [{ name: 'Catch 3 beetles', n: 1, of: 3, coins: 10, done: false }], once: [{ name: 'Catch your first fish', coins: 10, done: true }] };
     if (b.dig) { out.dig = 't:clover'; out.quest = [['Dig through the lost and found', 10]]; }
     if (b.party) out.fx = [[b.party.x, b.party.y, 0.1, 40, b.party.k]];
@@ -599,9 +599,9 @@ async function checkWorld(label, viewport) {
   await page.keyboard.press('e');
   await page.click('#w-slots [data-bet="5"]');
   await page.click('#w-slot-spin');
-  await page.waitForTimeout(2600);
+  await page.waitForTimeout(3200);
   if (!w.sent.some(b => b.slot?.bet === 5)) fail(`${label} world: the slot machine sent no spin`);
-  if (!(await page.textContent('#w-slot-msg')).includes('100')) fail(`${label} world: the slot win is not shown`);
+  if (!(await page.textContent('#w-slot-msg')).includes('60')) fail(`${label} world: the slot win is not shown`);
   await page.screenshot({ path: `${ROOT}tests/out/${label}-world-slots.png` });
   await page.keyboard.press('Escape');
   // the map
