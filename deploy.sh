@@ -1,18 +1,20 @@
 #!/bin/bash
-# Deploy BeetleBoy SP to beetle.sevensevenseven.net.
+# Deploy BeetleBoy SP to beetle.sevensevenseven.net and the world to remilia.sevensevenseven.net (same files).
 # Bumps the cache version (index.html ?v= and APP_VERSION in js/core.js),
 # runs the smoke test, commits that bump, then syncs. uploads/ (images people posted) is never touched.
 set -euo pipefail
 cd "$(dirname "$0")"
-REMOTE='ssh300010381@ngcobalt438.manitu.net:/home/sites/site100039010/web/beetle.sevensevenseven.net/'
+HOST='ssh300010381@ngcobalt438.manitu.net:/home/sites/site100039010/web'
 if [ -n "$(git status --porcelain)" ]; then echo "Commit your changes first."; exit 1; fi
 node tests/smoke.mjs || { echo "Not deployed: fix the smoke test first."; exit 1; }
 V=$(date +%Y%m%d%H%M)
-sed -i -E "s/\?v=[0-9a-z]+\"/?v=$V\"/g" index.html chat/index.html
+sed -i -E "s/\?v=[0-9a-z]+\"/?v=$V\"/g" index.html chat/index.html world.html
 sed -i -E "s/const APP_VERSION = '[^']*'/const APP_VERSION = '$V'/" js/core.js
 git commit -qam "Deploy $V"
+for SITE in beetle remilia; do
 rsync -az --delete --omit-dir-times \
   --exclude=.git --exclude=.gitignore --exclude=CLAUDE.md --exclude=PROGRESS.md --exclude=.claude/ --exclude=README.md --exclude=tool.py --exclude=deploy.sh --exclude=pull_incoming.sh --exclude=gen_assets.py \
   --exclude='*.bak' --exclude=__pycache__/ --exclude=data/ --exclude=uploads/ --exclude=devlogin.html --exclude=tests/ --exclude=/test/ --exclude=node_modules/ --exclude=package.json --exclude=package-lock.json \
-  ./ "$REMOTE" 2>&1 | grep -v 'failed to set permissions\|code 23' || true
+  ./ "$HOST/$SITE.sevensevenseven.net/" 2>&1 | grep -v 'failed to set permissions\|code 23' || true
+done
 echo "Deployed $V"

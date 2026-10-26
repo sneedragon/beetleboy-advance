@@ -324,12 +324,90 @@ async function checkChatPage(label, viewport) {
   await page.close();
 }
 
+// the world: a fake world.php that remembers where I go, sells one hat and plays a video
+async function checkWorld(label, viewport) {
+  const page = await browser.newPage({ viewport });
+  page.on('pageerror', e => fail(`${label} world: page error: ${e.message}`));
+  page.on('console', m => { if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) fail(`${label} world: console error: ${m.text()}`); });
+  page.on('response', r => { if (r.url().startsWith(BASE) && r.status() >= 400) fail(`${label} world: ${r.status()} ${r.url().slice(BASE.length)}`); });
+  await page.addInitScript(t => { localStorage.setItem('bb_access', t); localStorage.setItem('bb_refresh', 'r'); localStorage.setItem('bb_mute', '1'); }, fakeJwt);
+  await page.route('**/proxy.php', route => {
+    const { path } = JSON.parse(route.request().postData() || '{}');
+    route.fulfill({ contentType: 'application/json', body: JSON.stringify(apiAnswer(path || '')) });
+  });
+  await page.route(/(chatroom|push)\.php/, route => route.fulfill({ contentType: 'application/json', body: '{"ok":true}' }));
+  const w = { x: 900, y: 600, coins: 100, owned: [], wear: {}, sent: [], tv: null };
+  await page.route('**/world.php', route => {
+    const b = JSON.parse(route.request().postData() || '{}');
+    w.sent.push(b);
+    if (b.x != null) { w.x = b.x; w.y = b.y; }
+    const out = { me: 'tester', now: Date.now() / 1000, coins: w.coins, wear: w.wear,
+      ball: { x: 360, y: 980, vx: 0, vy: 0, age: 5 }, tv: w.tv,
+      people: [{ u: 'tester', d: 'Tester', x: w.x, y: w.y, w: w.wear }, { u: 'guest', d: 'Guest Cat', x: 960, y: 640, w: { hat: 'crown' }, e: ['wave', 1] }] };
+    if (b.buy === 'antenna' && w.coins >= 40) { w.coins -= 40; w.owned.push('antenna'); w.wear.hat = 'antenna'; out.shop = 'bought'; out.coins = w.coins; }
+    if (b.tv) w.tv = out.tv = { v: 'dQw4w9WgXcQ', age: 0, by: 'Tester' };
+    if (b.shopinfo) { out.catalog = [{ id: 'antenna', slot: 'hat', name: 'Antenna', price: 40 }, { id: 'crown', slot: 'hat', name: 'Crown', price: 300 }]; out.owned = w.owned; }
+    route.fulfill({ contentType: 'application/json', body: JSON.stringify(out) });
+  });
+  await page.route(/^https?:\/\/(?!127\.0\.0\.1)/, route => route.abort());
+  await page.goto(BASE + '/world.html');
+  await page.waitForTimeout(1500);
+  if (await page.isVisible('#login-screen')) fail(`${label} world: did not start`);
+  if ((await page.$$eval('#chat-messages .chat-msg', els => els.length)) !== 3) fail(`${label} world: chat beside the world is missing`);
+  if (!(await page.textContent('#w-coins')).includes('100')) fail(`${label} world: coins not shown`);
+  if (await page.evaluate(() => world.cats.size) < 2) fail(`${label} world: the other cat is missing`);
+  await page.screenshot({ path: `${ROOT}tests/out/${label}-world.png` });
+  const box = await page.$eval('#w-canvas', c => { const r = c.getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height }; });
+  await page.mouse.click(box.x + box.w * 0.75, box.y + box.h * 0.5);
+  await page.waitForTimeout(500);
+  if (!(w.sent.at(-1)?.x > 900)) fail(`${label} world: clicking did not send where to walk`);
+  await page.click('#w-emote-btn');
+  await page.click('#w-emotes [data-emote="heart"]');
+  await page.waitForTimeout(300);
+  if (!w.sent.some(b => b.emote === 'heart')) fail(`${label} world: emote not sent`);
+  // walk into the terminal and buy the antenna
+  await page.evaluate(() => { const me = world.cats.get(world.me); me.x = me.tx = 1440; me.y = me.ty = 330; world.target = null; });
+  await page.waitForTimeout(300);
+  if (!await page.isVisible('#w-act')) fail(`${label} world: no shop button in the terminal`);
+  await page.click('#w-act');
+  await page.waitForSelector('[data-buy="antenna"]', { timeout: 3000 }).catch(() => fail(`${label} world: shop shows no items`));
+  await page.click('[data-buy="antenna"]');
+  await page.waitForTimeout(500);
+  if (!await page.$('[data-off="hat"]')) fail(`${label} world: buying did not put the hat on`);
+  await page.screenshot({ path: `${ROOT}tests/out/${label}-world-shop.png` });
+  await page.keyboard.press('Escape');
+  // the club screen
+  await page.evaluate(() => { const me = world.cats.get(world.me); me.x = me.tx = 360; me.y = me.ty = 330; });
+  await page.waitForTimeout(300);
+  await page.click('#w-act');
+  if (!await page.isVisible('#w-tv-consent')) fail(`${label} world: the screen asks no consent before YouTube`);
+  await page.fill('#w-tv-url', 'https://youtu.be/dQw4w9WgXcQ');
+  await page.click('#w-tv-play');
+  await page.waitForTimeout(1300);
+  if (!w.sent.some(b => b.tv)) fail(`${label} world: video not sent`);
+  // the lab opens the game for a password login
+  await page.evaluate(() => { const me = world.cats.get(world.me); me.x = me.tx = 1440; me.y = me.ty = 900; });
+  await page.waitForTimeout(300);
+  await page.click('#w-act');
+  if (!await page.$('#w-lab iframe')) fail(`${label} world: the lab did not open the game`);
+  await page.click('#w-lab-close');
+  await page.waitForTimeout(300);
+  if (!w.sent.some(b => b.xp)) fail(`${label} world: closing the lab asked for no coins`);
+  // the remilia sign-in sees the lab taped off
+  if (await page.evaluate(() => { localStorage.setItem('bb_chat_rn', '1'); const r = blocked(1440, 784); localStorage.removeItem('bb_chat_rn'); return r; }) !== 'lab') fail(`${label} world: the lab door is open for the remilia sign-in`);
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  if (overflow > 2) fail(`${label} world: scrolls sideways by ${overflow}px`);
+  await page.close();
+}
+
 try {
   await check('desktop', { width: 1400, height: 860 });
   await check('phone', { width: 400, height: 860 });
   await checkChatPage('desktop', { width: 1400, height: 860 });
   await checkChatPage('phone', { width: 400, height: 860 });
   await checkChatPageV1('phone', { width: 400, height: 860 });
+  await checkWorld('desktop', { width: 1400, height: 860 });
+  await checkWorld('phone', { width: 400, height: 860 });
 } finally {
   await browser.close();
   server.kill();

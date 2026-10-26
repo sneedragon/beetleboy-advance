@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content">
+  <title>Layer 01</title>
+  <meta name="theme-color" content="#050407">
+  <link rel="stylesheet" href="style.css?v=202610260118">
+  <link rel="stylesheet" href="chat/chat.css?v=202610260118">
+  <link rel="stylesheet" href="world.css?v=202610260118">
+  <link rel="icon" href="icons/beetles/green.png" type="image/png">
+</head>
+<body class="chatpage world">
+
+  <div id="login-screen" class="hidden">
+    <div class="login-box">
+      <h1>Layer 01</h1>
+      <p class="login-sub">A place on the network where the remilia chat hangs out. Sign in with your remilia.net account.</p>
+      <form id="login-form">
+        <input id="lf-user" type="text" placeholder="Username" autocomplete="username" required>
+        <input id="lf-pass" type="password" placeholder="Password" autocomplete="current-password" required>
+        <input id="lf-otp" type="text" inputmode="numeric" placeholder="2FA code" autocomplete="one-time-code" maxlength="8" hidden>
+        <button type="submit" id="login-btn">CONNECT</button>
+        <div id="login-err"></div>
+      </form>
+      <button type="button" id="login-rn" hidden>Sign in on remilia.net instead</button>
+      <p class="login-disclaimer">Your credentials go straight to remilia.net. Only a session token is kept in your browser. With the remilia.net sign-in you can chat and walk around, but the lab (the beetle game) needs the password login.</p>
+    </div>
+  </div>
+
+  <div id="cp" class="hidden">
+    <header id="cp-head">
+      <a id="cp-game" href="index.html" title="The beetle game">🪲</a>
+      <h1>Layer 01</h1>
+      <input id="cp-search" type="search" placeholder="Search…" autocomplete="off">
+      <button type="button" id="cp-brag-btn" title="Show off your collection">🏆</button>
+      <button type="button" id="cp-people-btn" title="People">👥</button>
+      <button type="button" id="cp-settings-btn" title="Settings">⚙</button>
+    </header>
+    <div id="cp-filters">
+      <button type="button" class="cp-chip active" data-filter="all">All</button>
+      <button type="button" class="cp-chip" data-filter="me">For me <span id="cp-me-count"></span></button>
+      <button type="button" class="cp-chip" data-filter="media">Pics &amp; links</button>
+      <button type="button" class="cp-chip hidden" id="cp-user-chip"></button>
+      <button type="button" id="cp-older" class="hidden">Search further back</button>
+    </div>
+
+    <div id="cp-main">
+      <div id="world">
+        <canvas id="w-canvas"></canvas>
+        <div id="w-hud">
+          <span id="w-coins" title="Coins: for being here, and for crafting in the lab. Spend them at the terminal."></span>
+          <span id="w-count"></span>
+        </div>
+        <div id="w-zone"></div>
+        <div id="w-note"></div>
+        <div id="w-toast"></div>
+        <div id="w-bar">
+          <button type="button" id="w-emote-btn" title="Emotes">☺</button>
+          <button type="button" id="w-act" class="hidden"></button>
+        </div>
+        <div id="w-emotes" class="hidden">
+          <button type="button" data-emote="wave">👋</button>
+          <button type="button" data-emote="heart">❤️</button>
+          <button type="button" data-emote="laugh">😂</button>
+          <button type="button" data-emote="spark">✨</button>
+          <button type="button" data-emote="dance">🎵</button>
+          <button type="button" data-emote="sleep">💤</button>
+          <button type="button" data-emote="what">❓</button>
+        </div>
+
+        <div id="w-shop" class="w-panel hidden">
+          <div class="w-box">
+            <header><h2>Terminal</h2><span id="w-shop-coins"></span><button type="button" id="w-shop-close">✕</button></header>
+            <div id="w-shop-list"></div>
+          </div>
+        </div>
+
+        <div id="w-screen" class="w-panel hidden">
+          <div class="w-box">
+            <header><h2>Club screen</h2><button type="button" id="w-screen-close">✕</button></header>
+            <div id="w-tv-consent">
+              <p>The screen plays YouTube videos for everyone in the club. Watching loads the player from youtube-nocookie.com.</p>
+              <button type="button" id="w-tv-yes">Watch along</button>
+            </div>
+            <p id="w-tv-now" class="w-dim"></p>
+            <div class="w-row">
+              <input id="w-tv-url" type="text" placeholder="YouTube link" autocomplete="off">
+              <button type="button" id="w-tv-play">Play</button>
+            </div>
+            <button type="button" id="w-tv-stop" class="w-quiet">Turn the screen off</button>
+          </div>
+        </div>
+
+        <div id="w-lab" class="hidden">
+          <button type="button" id="w-lab-close">✕ Back to the world</button>
+        </div>
+      </div>
+
+      <div id="mode-chat">
+        <div id="chat-notif"></div>
+        <div id="chat-messages"></div>
+        <button type="button" id="cp-jump" class="hidden"></button>
+        <div id="reply-bar" class="hidden">
+          <span>↩ Replying to <strong id="reply-bar-name"></strong></span>
+          <button id="reply-bar-cancel" type="button">✕</button>
+        </div>
+        <div id="chat-attach-preview" class="hidden"></div>
+        <div id="chat-input-row">
+          <div id="chat-suggest"></div>
+          <input id="chat-file-input" type="file" accept="image/*" style="display:none">
+          <button id="chat-attach" type="button" title="Attach image">📎</button>
+          <input id="chat-input" type="text" placeholder="Say something… ([item], ~name, /roll)" maxlength="2000" autocomplete="off">
+          <button id="chat-send" type="button">▶</button>
+        </div>
+      </div>
+
+      <aside id="cp-side">
+        <section>
+          <h2>Around lately</h2>
+          <div id="cp-people"></div>
+        </section>
+        <section>
+          <h2>Today</h2>
+          <div id="cp-today"></div>
+        </section>
+      </aside>
+    </div>
+
+    <div id="cp-settings" class="hidden">
+      <label>Alert me when someone writes
+        <input id="cp-words" type="text" placeholder="e.g. trade, diamond, gm">
+      </label>
+      <label class="cp-check"><input type="checkbox" id="cp-sound"> Sounds</label>
+      <label class="cp-check"><input type="checkbox" id="cp-compact"> Compact view</label>
+      <button type="button" id="cp-notif">Allow desktop notifications</button>
+      <div id="cp-muted"></div>
+      <button type="button" id="cp-logout">Log out</button>
+    </div>
+
+    <div id="cp-card" class="hidden"></div>
+
+    <div id="cp-brag" class="hidden">
+      <div class="cp-brag-box">
+        <div class="cp-brag-img"></div>
+        <div class="cp-brag-acts">
+          <button type="button" id="cp-brag-close">Close</button>
+          <button type="button" id="cp-brag-again">Redraw</button>
+          <button type="button" id="cp-brag-send" class="cp-primary">Put it in the chat</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="assets.js?v=202610260118"></script>
+  <script src="data.js?v=202610260118"></script>
+  <script src="sfx.js?v=202610260118"></script>
+  <script src="js/core.js?v=202610260118"></script>
+  <script src="js/api.js?v=202610260118"></script>
+  <script src="js/chat.js?v=202610260118"></script>
+  <script src="js/advisor.js?v=202610260118"></script>
+  <script src="js/tree.js?v=202610260118"></script>
+  <script src="js/chatpage.js?v=202610260118"></script>
+  <script src="js/world.js?v=202610260118"></script>
+</body>
+</html>

@@ -1,0 +1,112 @@
+/* BeetleBoy SP · The world (world.html). Builds on style.css and chat/chat.css:
+   always dark, a CRT green and a signal red, the chat as a column beside the map. */
+body.world, body.world[data-theme], body.world[data-scheme="light"] {
+  --chassis: #07060a; --chassis2: #0b0a10; --chassis3: #050407;
+  --chassis-grad-1: #0b0a10; --chassis-grad-2: #050407;
+  --panel: #0e0d13; --panel2: #09080d; --panel-bg-1: #0e0d13; --panel-bg-2: #07060a;
+  --ctrl-bg-1: #121118; --ctrl-bg-2: #0b0a10;
+  --border: #1f1d27; --border2: #2e2b38;
+  --screen-bg: #050407;
+  --text: #d8d4e8; --dim: #6b6680;
+  --accent: #b3001e; --accent2: #7a0014;
+  --w-green: #9cffb0; --w-red: #ff2a3a;
+  color-scheme: dark;
+  background: #050407;
+  color: var(--text);
+  font-family: ui-monospace, "DejaVu Sans Mono", Menlo, monospace;
+}
+body.world #cp { max-width: none; }
+body.world #cp-head h1 { font-weight: normal; letter-spacing: 0.3em; color: var(--w-green); }
+body.world #cp-filters { display: none; }
+
+/* the map takes the room, the chat sits in a column on the right */
+body.world #cp-main { position: relative; }
+#world { flex: 1; min-width: 0; position: relative; overflow: hidden; background: #050407; touch-action: none; user-select: none; }
+#w-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: crosshair; }
+body.world #cp-main #mode-chat { flex: 0 0 380px; border-left: 1px solid var(--border); font-size: 15px; }
+body.world #cp-people-btn { display: block; }
+body.world #cp-side {
+  position: fixed; top: 0; right: 0; bottom: 0; width: min(300px, 85vw); z-index: 65;
+  background: var(--panel); border-left: 1px solid var(--border2);
+  transform: translateX(100%); transition: transform 0.2s;
+}
+body.world.cp-side-open #cp-side { transform: none; box-shadow: -10px 0 40px rgba(0,0,0,0.6); }
+
+/* heads-up bits over the map */
+#w-hud { position: absolute; top: 10px; left: 12px; display: flex; gap: 14px; align-items: center; pointer-events: none; font-size: 14px; }
+#w-coins { color: #e8d68a; text-shadow: 0 0 8px rgba(232,214,138,0.5); }
+#w-coins.up { animation: w-pop 0.6s; }
+@keyframes w-pop { 30% { transform: scale(1.3); color: #fff; } }
+#w-count { color: var(--dim); }
+#w-zone {
+  position: absolute; top: 16%; left: 0; right: 0; text-align: center; pointer-events: none;
+  font-size: 22px; letter-spacing: 0.6em; color: var(--w-green); text-shadow: 0 0 12px rgba(156,255,176,0.6); opacity: 0;
+}
+#w-zone.show { animation: w-zone 2.6s; }
+@keyframes w-zone { 10%, 70% { opacity: 1; } 100% { opacity: 0; } }
+#w-note { position: absolute; top: 40px; left: 12px; right: 12px; color: var(--w-red); font-size: 13px; pointer-events: none; }
+#w-toast {
+  position: absolute; bottom: 70px; left: 50%; transform: translate(-50%, 10px); max-width: calc(100% - 32px);
+  padding: 8px 14px; background: rgba(5,4,7,0.9); border: 1px solid var(--border2); color: var(--text);
+  font-size: 13px; opacity: 0; transition: opacity 0.25s, transform 0.25s; pointer-events: none; text-align: center;
+}
+#w-toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+#w-bar { position: absolute; bottom: 14px; left: 12px; right: 12px; display: flex; gap: 8px; justify-content: center; pointer-events: none; }
+#w-bar button, .w-box button, #w-emotes button, #w-lab-close {
+  pointer-events: auto; font: inherit; background: rgba(14,13,19,0.92); color: var(--text);
+  border: 1px solid var(--border2); padding: 8px 14px; cursor: pointer;
+}
+#w-bar button:hover, .w-box button:hover:not(:disabled), #w-emotes button:hover { border-color: var(--w-green); color: var(--w-green); }
+#w-emote-btn { font-size: 18px; padding: 6px 12px; }
+#w-act { color: var(--w-green); border-color: rgba(156,255,176,0.5); letter-spacing: 0.08em; }
+#w-act.hidden, #w-emotes.hidden, .w-panel.hidden, #w-lab.hidden, #w-tv-consent.hidden { display: none; }
+#w-emotes { position: absolute; bottom: 62px; left: 50%; transform: translateX(-50%); display: flex; gap: 4px; flex-wrap: wrap; justify-content: center; max-width: calc(100% - 24px); }
+#w-emotes button { font-size: 20px; padding: 6px 8px; }
+
+/* the shop and the screen: a terminal window over the map */
+.w-panel { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(5,4,7,0.6); padding: 16px; z-index: 5; }
+.w-box {
+  width: min(520px, 100%); max-height: 100%; overflow-y: auto; background: #08090a;
+  border: 1px solid rgba(156,255,176,0.35); box-shadow: 0 0 30px rgba(156,255,176,0.08); padding: 14px 16px 16px;
+}
+.w-box header { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+.w-box h2 { flex: 1; font-size: 14px; font-weight: normal; letter-spacing: 0.3em; text-transform: uppercase; color: var(--w-green); }
+.w-box header button { padding: 2px 8px; }
+#w-shop-coins { color: #e8d68a; }
+.w-box h3 { font-size: 11px; font-weight: normal; letter-spacing: 0.15em; text-transform: uppercase; color: var(--dim); margin: 12px 0 6px; }
+.w-items { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px; }
+.w-item { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 6px; border: 1px solid var(--border); font-size: 12px; text-align: center; }
+.w-item.on { border-color: rgba(156,255,176,0.6); }
+.w-item canvas { width: 64px; height: 64px; image-rendering: pixelated; }
+.w-item button { padding: 4px 10px; font-size: 12px; }
+.w-item button:disabled { opacity: 0.4; cursor: default; }
+.w-dim { color: var(--dim); font-size: 13px; margin: 8px 0; }
+.w-box p { font-size: 13px; line-height: 1.5; }
+#w-tv-consent { padding: 10px; border: 1px solid var(--border2); margin-bottom: 10px; }
+#w-tv-consent button { margin-top: 8px; color: var(--w-green); }
+.w-row { display: flex; gap: 8px; }
+.w-row input { flex: 1; min-width: 0; font: inherit; font-size: 14px; background: #050407; color: var(--text); border: 1px solid var(--border2); padding: 8px; }
+.w-quiet { margin-top: 10px; font-size: 12px !important; color: var(--dim) !important; border-color: var(--border) !important; }
+
+/* the club video sits exactly over the screen drawn in the map */
+#w-tv { position: absolute; pointer-events: none; }
+#w-tv iframe { width: 100%; height: 100%; border: 0; display: block; }
+
+/* the lab: the beetle game in a window */
+#w-lab { position: absolute; inset: 0; z-index: 6; background: #050407; display: flex; flex-direction: column; }
+#w-lab-close { align-self: flex-start; margin: 6px; padding: 4px 10px; font-size: 13px; }
+#w-lab iframe { flex: 1; width: 100%; border: 0; border-top: 1px solid var(--border2); }
+
+/* the login screen in the same colours */
+body.world .login-box { border-color: rgba(156,255,176,0.3); }
+body.world .login-box h1 { font-weight: normal; letter-spacing: 0.4em; color: var(--w-green); text-shadow: 0 0 12px rgba(156,255,176,0.4); }
+
+/* phones: the map on top, the chat below it */
+@media (max-width: 860px) {
+  body.world #cp-main { flex-direction: column; }
+  #world { flex: 0 0 52%; }
+  body.world #cp-main #mode-chat { flex: 1; min-height: 0; border-left: 0; border-top: 1px solid var(--border); font-size: 15px; }
+  #w-zone { font-size: 17px; }
+  #w-bar button { padding: 6px 12px; }
+}

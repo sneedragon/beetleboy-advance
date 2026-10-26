@@ -1,10 +1,16 @@
 # Always revalidate the page itself so new app.js/data.js versions load right away
 <IfModule mod_headers.c>
-  <FilesMatch "^(index\.html)?$">
+  <FilesMatch "^((index|world)\.html)?$">
     Header set Cache-Control "no-cache"
   </FilesMatch>
 </IfModule>
 
+# remilia.sevensevenseven.net opens straight into the world
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteCond %{HTTP_HOST} ^remilia\. [NC]
+  RewriteRule ^$ world.html [L]
+</IfModule>
 
 AddType application/manifest+json .webmanifest
 
