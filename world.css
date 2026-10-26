@@ -170,9 +170,11 @@ body.world #cp-side-close { display: block; position: sticky; top: 0; margin-lef
 .w-hotgrid button img { width: 24px; height: 24px; object-fit: contain; image-rendering: pixelated; }
 .w-hotgrid button .w-fish { font-size: 18px; line-height: 1; height: auto; }
 .w-hotgrid button.on { background: linear-gradient(#c9d4ff, #8fa3f0); }
-@media (max-width: 720px) {
-  #w-hot { bottom: 66px; left: 12px; right: auto; }
-  #w-hot button { width: 36px; height: 36px; }
+/* when the map is too narrow for both decks, the hotbar sits on top of the other one */
+#world { container: world / inline-size; }
+@container world (max-width: 620px) {
+  #w-hot { bottom: 60px; left: 8px; right: auto; }
+  #w-emotes, #w-toys { bottom: 108px; }
 }
 #w-held:empty { display: none; }
 #w-bar #w-held button { font-size: 14px; background: linear-gradient(#c9d4ff, #8fa3f0) !important; }
@@ -369,16 +371,6 @@ body.world.w-dark .dm-msg.mine { background: #22264a; border-color: #39408a; }
 body.world.w-dark .dm-banner { background: #3a1f26; border-color: #6b2e3b; }
 body.world.w-dark .dm-banner button { border-color: #8fa3f0; color: #c9d4ff; }
 
-/* phones: the map on top, the chat below it */
-@media (max-width: 860px) {
-  body.world #cp { padding: 6px; gap: 6px; }
-  body.world #cp-main { flex-direction: column; gap: 6px; }
-  #world { flex: 0 0 52%; }
-  body.world #cp-main #mode-chat { flex: 1; min-height: 0; padding: 6px; }
-  body.world #cp-head h1 { font-size: 1.05rem; }
-  #w-zone { top: 40px; }
-  #w-bar button { padding: 4px 10px; }
-}
 .w-toyicon { width: 64px; height: 64px; display: flex; align-items: center; justify-content: center; font-size: 34px; }
 #w-toys button.w-locked { opacity: 0.6; }
 #w-cap-got small { display: block; font-weight: bold; text-shadow: 0 1px 0 rgba(0,0,0,0.35); }
@@ -415,4 +407,53 @@ a.w-link { display: inline-block; padding: 6px 14px; border-radius: 6px; text-de
 @media (pointer: coarse) {
   body.world { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
   body.world input, body.world textarea, body.world [contenteditable] { -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }
+}
+
+/* phones: smaller keys and decks closer to the edge */
+@media (max-width: 860px), (pointer: coarse) and (max-height: 520px) {
+  body.world #cp { padding: 6px; gap: 6px; }
+  body.world #cp-head { padding: 4px 6px; gap: 6px; }
+  body.world #cp-head h1 { display: none; }
+  body.world #cp-head button, body.world #cp-head a#cp-game { padding: 3px 8px; font-size: 13px; }
+  body.world #cp-search { flex: 1; min-width: 0; width: auto; padding: 4px 8px; font-size: 14px; }
+  #w-hud { top: 8px; left: 8px; font-size: 13px; }
+  #w-zone { top: 40px; font-size: 18px; }
+  #w-bar, #w-hot { bottom: 8px; gap: 4px; padding: 4px; border-radius: 8px; }
+  #w-bar { left: 8px; }
+  #w-hot { right: 8px; left: auto; }
+  #w-bar button { height: 34px; min-width: 34px; padding: 0 8px; font-size: 16px; }
+  #w-dark-btn { width: 30px; }
+  #w-hot button { width: 34px; height: 34px; }
+  #w-hot button img { width: 26px; height: 26px; }
+  #w-emotes, #w-toys { left: 8px; bottom: 56px; max-width: calc(100% - 16px); }
+  #w-orders { top: 40px; right: 8px; width: auto; max-width: 160px; gap: 4px; }
+  .w-ticket { font-size: 12px; padding: 3px 6px 6px; column-gap: 5px; }
+  .w-ticket b { font-size: 15px; white-space: nowrap; }
+  .w-panel { padding: 8px; }
+  body.world #cp-main #mode-chat { padding: 6px; }
+  body.world #chat-input-row { padding-top: 6px; }
+  body.world #chat-input { min-width: 0; }
+}
+@container world (max-width: 520px) {
+  @media (max-width: 860px), (pointer: coarse) and (max-height: 520px) {
+    #w-hot { bottom: 52px; left: 8px; right: auto; }
+    #w-emotes, #w-toys { bottom: 96px; }
+  }
+}
+/* phone upright: the map on top with most of the height, the chat below it */
+@media (max-width: 860px) and (orientation: portrait) {
+  body.world #cp-main { flex-direction: column; gap: 6px; }
+  #world { flex: 1 1 0; min-height: 0; }
+  body.world #cp-main #mode-chat { flex: 0 0 28%; min-height: 140px; }
+  #w-orders { top: 72px; }
+}
+/* phone sideways: the map takes the full height, the bar and the chat share a column next to it */
+@media (orientation: landscape) and (max-height: 520px) {
+  body.world #cp { display: grid; grid-template-columns: minmax(0, 1fr) clamp(230px, 34vw, 340px); grid-template-rows: auto minmax(0, 1fr); }
+  body.world #cp-main { display: contents; }
+  body.world #cp-head { grid-column: 2; grid-row: 1; }
+  #world { grid-column: 1; grid-row: 1 / 3; }
+  body.world #cp-main #mode-chat { grid-column: 2; grid-row: 2; min-height: 0; }
+  #w-zone { top: 10px; }
+  #w-orders { top: 44px; }
 }
