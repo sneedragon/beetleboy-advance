@@ -164,7 +164,7 @@ else {
 
     // just arrived: coins and clothes from the database, and the daily bonus
     if (!$prev || $p['c'] === null || $p['w'] === null) {
-        $r = $getUser();
+        $getUser(); $r = &$user;
         if ($r['day'] !== $day) {
             $r['day'] = $day; $r['act_coins'] = 0; $r['xp_coins'] = 0;
             $r['coins'] += DAILY; $out['bonus'] = DAILY; $dirty = true;
@@ -177,7 +177,7 @@ else {
         $p['act'] += min(5, $sec - ($prev['t'] ?? $sec));
         if ($p['act'] >= 60) {
             $p['act'] -= 60;
-            $r = $getUser();
+            $getUser(); $r = &$user;
             if ($r['day'] !== $day) { $r['day'] = $day; $r['act_coins'] = 0; $r['xp_coins'] = 0; }
             if ($r['act_coins'] < ACT_CAP) { $r['act_coins']++; $r['coins']++; $dirty = true; }
         }
@@ -189,7 +189,7 @@ else {
         $p['xa'] = $sec;
         $xp = beetleXp($token, $me['api']);
         if ($xp !== null) {
-            $r = $getUser();
+            $getUser(); $r = &$user;
             if ($r['xp'] !== null && $xp > $r['xp']) {
                 if ($r['day'] !== $day) { $r['day'] = $day; $r['act_coins'] = 0; $r['xp_coins'] = 0; }
                 $gain = intdiv($xp - $r['xp'] + $r['xp_rest'], XP_PER_COIN);
@@ -203,7 +203,7 @@ else {
 
     // shop: buy and wear
     if (isset($in['buy']) && isset(SHOP[$in['buy']])) {
-        $r = $getUser(); $id = $in['buy'];
+        $getUser(); $r = &$user; $id = $in['buy'];
         if (in_array($id, $r['owned'], true)) $out['shop'] = 'owned';
         elseif ($r['coins'] < SHOP[$id][2]) $out['shop'] = 'poor';
         else {
@@ -212,7 +212,7 @@ else {
         }
     }
     if (isset($in['wear']) && is_array($in['wear'])) {
-        $r = $getUser();
+        $getUser(); $r = &$user;
         foreach (['hat', 'col', 'hold', 'trail'] as $slot) {
             if (!array_key_exists($slot, $in['wear'])) continue;
             $id = $in['wear'][$slot];
@@ -222,7 +222,7 @@ else {
         $dirty = true;
     }
     if (!empty($in['shopinfo'])) {
-        $r = $getUser();
+        $getUser(); $r = &$user;
         $out['catalog'] = array_map(fn($id, $s) => ['id' => $id, 'slot' => $s[0], 'name' => $s[1], 'price' => $s[2]], array_keys(SHOP), SHOP);
         $out['owned'] = $r['owned'];
     }
@@ -266,13 +266,13 @@ $out['now'] = $now;
 $out['people'] = [];
 foreach ($world['people'] as $u => $p) {
     $o = ['u' => (string)$u, 'd' => $p['d'], 'x' => $p['x'], 'y' => $p['y']];
-    if ($p['w']) $o['w'] = $p['w'];
+    if ($p['w']) $o['w'] = (object)$p['w'];
     if ($p['e'] && $p['e'][1] > $now - 4) $o['e'] = [$p['e'][0], round($now - $p['e'][1], 2)];
     $out['people'][] = $o;
 }
 $out['coins'] = $world['people'][$U]['c'] ?? ($user['coins'] ?? 0);
-$out['wear'] = $world['people'][$U]['w'] ?? [];
+$out['wear'] = (object)($world['people'][$U]['w'] ?? []);
 $b = $world['ball'];
-$out['ball'] = ['x' => $b['x'], 'y' => $b['y'], 'vx' => $b['vx'], 'vy' => $b['vy'], 'age' => round($now - $b['t'], 3)];
+$out['ball'] = ['x' => $b['x'], 'y' => $b['y'], 'vx' => $b['vx'], 'vy' => $b['vy'], 'age' => round(min($now - $b['t'], 86400), 3)];
 if ($world['tv']) $out['tv'] = ['v' => $world['tv']['v'], 'age' => round($now - $world['tv']['s'], 2), 'by' => $world['tv']['by']];
 echo json_encode($out);
