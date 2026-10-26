@@ -9,6 +9,7 @@
 
 const WORLD_W = 1800, WORLD_H = 1200;
 const W_SPEED = 170;                 // world units a second
+const W_SKATE = 245;                 // on the skateboard (world.php lets nobody go faster than 260)
 const W_POLL = 1000;
 const W_ACTIVE = 180_000;            // input this recent counts as "here" for coins
 const PEN = [120, 860, 600, 1100];   // the park's ball pen, as in world.php
@@ -33,6 +34,7 @@ const FISH_ICON = { minnow: '🐟', koi: '🎏', puffer: '🐡', jelly: '🪼', 
   shrimp: '🦐', crab: '🦀', frog: '🐸', shell: '🐚', squid: '🦑', duck: '🦆', turtle: '🐢', lobster: '🦞', whale: '🐋' };
 const STALL = { x: 1250, y: 470, w: 100, h: 50, at: { x: 1300, y: 560 } };   // the stall buys what you found, as in world.php
 const BIN = { x: 1600, y: 668, w: 48, h: 40, at: { x: 1624, y: 740 } };      // the lost and found box
+const MAILBOX = { x: 1178, y: 612, w: 26, h: 64, at: { x: 1191, y: 712 } };  // walk up to it for your messages
 const STALL_SOLID = [STALL.x, STALL.y + 14, STALL.w, 32], BIN_SOLID = [BIN.x + 2, BIN.y + 8, BIN.w - 4, BIN.h - 10];
 // the place floats in the sky: you can walk on these and nowhere else
 const PLATFORMS = [[30, 400, 1740, 400], [680, 10, 440, 1180], ...[[60, 40], [1140, 40], [60, 780], [1140, 780]].map(([x, y]) => [x, y, 600, 380])]
@@ -57,6 +59,7 @@ const SPOTS = [
   { id: 'game', r: { x: 1380, y: 984, w: 120, h: 56 }, at: { x: 1440, y: 960 }, col: '#2f9a5e', text: () => '🪲 Play the beetle game', act: () => openLab(), hide: () => labLocked() },
   { id: 'pond', r: { x: POND.x - 56, y: POND.y - 26, w: 112, h: 52 }, at: { x: POND.x, y: POND.y + 52 }, col: '#3f7fdc', text: () => world.fishing ? '🎣 Reel in' : '🎣 Fish', act: () => castLine() },
   { id: 'stall', r: STALL, at: STALL.at, col: '#e8a33d', text: () => '★ Sell what you found', act: () => openBag('things') },
+  { id: 'mail', r: MAILBOX, at: MAILBOX.at, col: '#d8443c', text: () => world.unread ? `✉ Mailbox (${world.unread} new)` : '✉ Mailbox', act: () => window.dmOpen?.(), hide: () => !window.dmOpen },
   { id: 'bin', r: BIN, at: BIN.at, col: '#8c86a3', text: () => '📦 Lost and found', act: () => dig() },
   { id: 'gate', r: { x: 1370, y: 740, w: 140, h: 60 }, at: { x: 1440, y: 740 }, col: '#c23a4a', text: () => '🔒 Password sign-in only', act: () => labDenied(true), hide: () => !labLocked() },
 ];
@@ -64,13 +67,19 @@ const SPOTS = [
 // beetles: every browser works out the same ones from the clock (bugAt() in world.php)
 const BUG_N = 4, BUG_LIFE = 90;
 const BUG_AREAS = [[1180, 830, 1700, 1130], [1180, 830, 1700, 1130], [140, 820, 620, 1120], [720, 480, 1080, 720]];
-const BUG_KINDS = [['green', 'ladybug', 'pillbug', 'cucumber'], ['stag', 'purple', 'harlequin', 'blue_longicorn'], ['golden', 'golden_tiger']];
+// tin, bronze, mithril, adamantite, diamond (BUGS in world.php); diamond is one in 500
+const BUG_KINDS = [['green'], ['purple', 'ladybug', 'cucumber'],
+  ['monarch', 'pond', 'giraffe_weevil', 'pillbug', 'imperial_tortoise', 'christmas', 'skull', 'bumblebee', 'golden_tiger', 'blue_longicorn'],
+  ['goliath', 'bombardier', 'death_feigning', 'pondhawk', 'stag', 'sabertooth_longhorn', 'sunset_moth'],
+  ['golden', 'widow', 'candycane_tiger_moth', 'mars_rhino', 'harlequin']];
+const BUG_TIER = ['tin', 'brz', 'mth', 'adm', 'dia'];
+const bugTier = r => r < 0.002 ? 4 : r < 0.02 ? 3 : r < 0.12 ? 2 : r < 0.42 ? 1 : 0;
 const hrand = n => { const v = Math.sin(n * 12.9898) * 43758.5453; return v - Math.floor(v); };
 function bugAt(k, t) {
   const g = Math.floor((t + k * 13) / BUG_LIFE), s = g * 31 + k * 7;
   const [x0, y0, x1, y1] = BUG_AREAS[k], r = hrand(s + 3);
   return {
-    id: `${k}:${g}`, kind: r < 0.06 ? 2 : r < 0.3 ? 1 : 0, s,
+    id: `${k}:${g}`, kind: bugTier(r), s,
     x: x0 + hrand(s + 1) * (x1 - x0) + 36 * Math.sin(t * (0.3 + hrand(s + 4) * 0.4) + s),
     y: y0 + hrand(s + 2) * (y1 - y0) + 24 * Math.sin(t * (0.25 + hrand(s + 5) * 0.4) + s * 2),
   };
@@ -104,7 +113,7 @@ function buildSolids() {
   s.push([POND.x - 52, POND.y - 22, 104, 44]);
   for (const [x, y] of TREES) s.push([x - 18, y - 6, 36, 16]);
   s.push([1380, 990, 120, 40]);                                                // the workbench
-  s.push(STALL_SOLID, BIN_SOLID);
+  s.push(STALL_SOLID, BIN_SOLID, [MAILBOX.x + 8, MAILBOX.y + 50, 10, 14]);
   for (const [x, y] of POLES) s.push([x - 8, y - 8, 16, 16]);
   world.solids = s.map(([x, y, w, h]) => ({ x, y, w, h }));
 }
@@ -197,6 +206,7 @@ async function worldTickNow() {
   const pos = (extra.catch || extra.sell || extra.dig) && me ? me : at;
   const body = { ...(pos ? { x: Math.round(pos.x), y: Math.round(pos.y) } : {}), ...extra };
   if (Date.now() - world.active < W_ACTIVE) body.a = 1;
+  if (world.skate) body.sk = 1;
   const d = await worldPost(body);
   if (!d?.people) {
     if (extra.catch) world.catching.delete(extra.catch);
@@ -218,7 +228,7 @@ async function worldTickNow() {
       c = { u: p.u, d: p.d, x: p.x, y: p.y, tx: p.x, ty: p.y, dir: 'down', flip: false, moving: false, t0: Math.random() * 4, bubble: c?.bubble, trail: [] };
       world.cats.set(p.u, c);
     }
-    c.d = p.d; c.w = p.w || {}; c.st = p.st || '';
+    c.d = p.d; c.w = p.w || {}; c.st = p.st || ''; c.sk = p.u === world.me ? world.skate : !!p.sk;
     // someone new walked in (not on my first look, and not back from a short break)
     if (world.looked && p.u !== world.me && clock - (world.lastSeen.get(p.u) ?? -1e9) > 300) {
       worldToast(`👋 ${p.d || p.u} logged on${p.st ? ` · ${p.st}` : ''}`, 3500);
@@ -256,6 +266,8 @@ async function worldTickNow() {
   if (d.quests) renderQuests(d.quests);
   if (d.quest) d.quest.forEach(([name, n], i) => setTimeout(() => { worldToast(`📜 ${name}: +${n} stars`, 4000); sfx('claim'); }, 1200 + i * 4200));
   if (d.inv || d.catalog) window.renderBag?.(d.inv);
+  if (d.trade) tradeResult(d.trade);
+  renderOffers(d.trades || []);
   if (d.prof) window.cardStats?.(d.prof);
   for (const i of d.in || []) gotIn(i, clock);
   syncFx(d.fx || [], clock);
@@ -302,7 +314,14 @@ function placeEchoes() {
 function worldCount() {
   const n = [...world.cats.values()].filter(c => !c.ghost).length;
   const el = document.getElementById('w-count');
-  if (el) el.textContent = n ? `${n} here` : '';
+  if (el) el.textContent = n ? `${n} online` : '';
+  // the list in the people panel, rebuilt only when someone comes, goes or changes their status
+  const list = [...world.cats.values()].filter(c => !c.ghost).sort((a, b) => (b.u === world.me) - (a.u === world.me) || (a.d || a.u).localeCompare(b.d || b.u));
+  const html = list.map(c => `<div class="cp-person" data-user="${esc(c.u)}"><span class="w-on"></span>` +
+    `<span class="chat-user" style="--name-h:${nameHue(c.d || c.u)}">${esc(c.d || c.u)}${c.u === world.me ? ' (you)' : ''}</span>` +
+    (c.st ? `<span class="cp-ago">${esc(c.st)}</span>` : '') + '</div>').join('') || '<p class="cp-empty">Nobody in the world right now.</p>';
+  const box = document.getElementById('cp-online');
+  if (box && box.dataset.h !== html) { box.innerHTML = html; box.dataset.h = html; }
 }
 function setCoins(n) {
   if (n == null) return;
@@ -336,7 +355,7 @@ function worldStep(dt, clock) {
     if (mine && world.target) { c.tx = world.target.x; c.ty = world.target.y; }
     const dx = c.tx - c.x, dy = c.ty - c.y, dist = Math.hypot(dx, dy);
     if (!mine && dist > 500) { c.x = c.tx; c.y = c.ty; c.moving = false; continue; }
-    const step = W_SPEED * dt;
+    const step = (c.sk ? W_SKATE : W_SPEED) * dt;
     c.moving = dist > 1;
     if (!c.moving) continue;
     const mx = step >= dist ? dx : dx / dist * step, my = step >= dist ? dy : dy / dist * step;
@@ -657,6 +676,15 @@ function buildBackground() {
   g.beginPath(); g.moveTo(bn.x + bn.w, bn.y + 8); g.lineTo(bn.x + bn.w + 8, bn.y); g.lineTo(bn.x + bn.w - 14, bn.y); g.lineTo(bn.x + bn.w - 18, bn.y + 8); g.fill();
   g.fillStyle = '#ff8fb8'; g.fillRect(bn.x + 12, bn.y + 4, 6, 6);
   g.fillStyle = '#7fd1ff'; g.fillRect(bn.x + 26, bn.y + 2, 5, 8);
+  // the mailbox: a red box on a post (the flag is drawn live)
+  const mb = MAILBOX;
+  g.fillStyle = 'rgba(30,30,60,0.25)'; g.fillRect(mb.x + 4, mb.y + mb.h - 3, mb.w - 4, 6);
+  g.fillStyle = D ? '#3a3648' : '#8a8fa3'; g.fillRect(mb.x + 10, mb.y + 34, 6, mb.h - 34);
+  g.fillStyle = D ? '#8a2a28' : '#d8443c';
+  g.beginPath(); g.moveTo(mb.x, mb.y + 38); g.lineTo(mb.x, mb.y + 10); g.arc(mb.x + mb.w / 2, mb.y + 10, mb.w / 2, Math.PI, 0); g.lineTo(mb.x + mb.w, mb.y + 38); g.fill();
+  g.fillStyle = D ? '#5c1c1b' : '#a8302a'; g.fillRect(mb.x, mb.y + 34, mb.w, 4);
+  g.fillStyle = D ? '#1a1820' : '#3a2a2a'; g.fillRect(mb.x + 6, mb.y + 16, mb.w - 12, 3);
+  g.fillStyle = D ? '#c9b07a' : '#ffe6a8'; g.font = wf(9, 'bold'); g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('✉', mb.x + mb.w / 2, mb.y + 27);
   world.bg = c;
 }
 const MONITORS = [[1226, 96, 58, 48], [1290, 96, 58, 48], [1354, 96, 58, 48], [1418, 96, 58, 48], [1546, 96, 40, 48], [1588, 96, 40, 48], [1546, 150, 40, 48], [1588, 150, 40, 48],
@@ -713,6 +741,12 @@ function worldDraw(now) {
 
 // the monitors, the screen, the dance floor, the well, the capsule machine
 function drawLive(g, t) {
+  // the mailbox flag goes up when there is something new for me
+  const mb = MAILBOX, up = world.unread > 0;
+  g.fillStyle = world.dark ? '#4a4460' : '#6d7389'; g.fillRect(mb.x + mb.w, mb.y - 6, 2, 36);
+  g.fillStyle = up ? '#ffd34d' : (world.dark ? '#6a5236' : '#e8a33d');
+  if (up) g.fillRect(mb.x + mb.w + 2, mb.y - 6 + Math.round(Math.sin(t * 4)), 10, 7);
+  else g.fillRect(mb.x + mb.w + 2, mb.y + 20, 4, 10);
   MONITORS.forEach(([x, y, w, h], i) => {
     if (Math.sin(t * 0.7 + i * 1.7) < -0.8) return;
     g.fillStyle = 'rgba(156,255,176,0.12)'; g.fillRect(x + 6, y + 6, w - 12, h - 18);
@@ -810,12 +844,12 @@ function drawBugs(g, t) {
     if (!img?.complete || !img.naturalWidth) continue;
     const n = bugAt(+b.id.split(':')[0], t + 0.2);
     const ang = Math.atan2(n.y - b.y, n.x - b.x) + Math.PI / 2;
-    const size = b.kind === 2 ? 26 : 22;
+    const size = b.kind >= 3 ? 26 + (b.kind - 3) * 4 : 22;
     g.fillStyle = 'rgba(40,40,70,0.2)'; g.beginPath(); g.ellipse(b.x, b.y + 3, size / 2.6, size / 6, 0, 0, Math.PI * 2); g.fill();
     g.save(); g.translate(b.x, b.y - 4); g.rotate(ang + Math.sin(t * 14 + b.s) * 0.08);
     g.imageSmoothingEnabled = true; g.drawImage(img, -size / 2, -size / 2, size, size); g.imageSmoothingEnabled = false;
     g.restore();
-    if (b.kind === 2 && Math.sin(t * 4 + b.s) > 0.6) { g.fillStyle = '#fff6c0'; g.fillRect(b.x + 8, b.y - 16, 2, 6); g.fillRect(b.x + 6, b.y - 14, 6, 2); }
+    if (b.kind >= 3 && Math.sin(t * 4 + b.s) > 0.6) { g.fillStyle = b.kind === 4 ? '#cfe0ff' : '#fff6c0'; g.fillRect(b.x + 8, b.y - 16, 2, 6); g.fillRect(b.x + 6, b.y - 14, 6, 2); }
   }
 }
 
@@ -836,11 +870,12 @@ function drawCat(g, c, t) {
   const dancing = em === 'dance', sleeping = em === 'sleep';
   let dir = c.dir, flip = c.flip;
   if (dancing && !c.moving) { const b = Math.floor((t - c.emote.at) * 4) % 4; dir = ['down', 'side', 'up', 'side'][b]; flip = b === 3; }
-  const seq = CAT_ANIM[c.moving ? 'walk' : 'idle'][dir];
-  const f = sleeping && !c.moving ? 1 : seq[Math.floor((t + c.t0) * (c.moving ? 8 : 2)) % seq.length];
+  const walk = c.moving && !c.sk;           // on the board the cat stands still and rolls
+  const seq = CAT_ANIM[walk ? 'walk' : 'idle'][dir];
+  const f = sleeping && !c.moving ? 1 : seq[Math.floor((t + c.t0) * (walk ? 8 : 2)) % seq.length];
   const sx = (f % 3) * 48, sy = Math.floor(f / 3) * 48;
   const x = Math.round(c.x);
-  const hop = dancing && !c.moving ? Math.round(Math.abs(Math.sin((t - c.emote.at) * 8)) * 6) : 0;
+  const hop = (dancing && !c.moving ? Math.round(Math.abs(Math.sin((t - c.emote.at) * 8)) * 6) : 0) + (c.sk ? 7 : 0);
   const y = Math.round(c.y);
   const flick = c.ghost ? (Math.sin(t * 11 + c.t0 * 5) > 0.85 ? 0.15 : 0.45) : 1;
   g.globalAlpha = flick;
@@ -851,6 +886,7 @@ function drawCat(g, c, t) {
     g.fillStyle = 'rgba(200,0,40,0.55)';
     for (const [ox, oy, r] of [[-6, 0, 1.6], [4, -1, 1.2], [8, 1, 1]]) { g.beginPath(); g.arc(x + ox, y + oy, r, 0, Math.PI * 2); g.fill(); }
   }
+  if (c.sk) drawBoard(g, x, y, dir, c.moving, t + c.t0);
   if (c.w?.back === 'wings') drawWings(g, x, y - hop, t + c.t0, c.moving);
   if (c.w?.back && c.w.back !== 'wings' && dir !== 'up') drawBack(g, c.w.back, x, y - hop, dir, flip, t + c.t0, c.moving);
   if (c.w?.hold === 'balloon') drawBalloon(g, x, y - hop, t + c.t0);
@@ -874,6 +910,15 @@ function drawCat(g, c, t) {
     g.fillText(EMOTE_ICON[em] || '', x + (em === 'sleep' ? 14 : 0), y - 50 - hop - Math.min(10, age * 12));
     g.globalAlpha = 1;
   }
+}
+
+function drawBoard(g, x, y, dir, moving, t) {
+  const side = dir === 'side', w = side ? 38 : 14, h = side ? 6 : 30, by = y - 4 - (side ? 0 : 10);
+  g.fillStyle = '#2a2433';
+  for (const [ox, oy] of side ? [[-13, 4], [13, 4]] : [[-8, -10], [8, -10], [-8, 10], [8, 10]]) { g.beginPath(); g.arc(x + ox, by + oy, 3, 0, Math.PI * 2); g.fill(); }
+  g.fillStyle = '#ff3d6e'; roundRect(g, x - w / 2, by - h / 2, w, h, 3); g.fill();
+  g.fillStyle = '#ffd34d'; g.fillRect(x - w / 2 + 3, by - h / 2 + 1, w - 6, 2);
+  if (moving && Math.sin(t * 20) > 0.3) { g.fillStyle = 'rgba(255,255,255,0.6)'; g.fillRect(x - w / 2 - 6, by + 3, 4, 1); }
 }
 
 function drawWings(g, x, y, t, moving) {
@@ -1543,12 +1588,39 @@ function gotIn([k, from, age, n], clock) {
   const key = `${k}|${from}|${Math.round(netNow() - age)}`;
   if (world.seenIn.has(key)) return;
   world.seenIn.add(key);
-  const t = { hug: `${from} hugged you 🤗`, high5: `${from} gave you a high five 🙌`, gift: `${from} gave you ★ ${n} 🎁` }[k];
+  const t = { hug: `${from} hugged you 🤗`, high5: `${from} gave you a high five 🙌`, gift: `${from} gave you ★ ${n} 🎁`,
+    tradeok: `${from} took your trade 🔁`, tradeno: `${from} did not take your trade` }[k];
   if (!t) return;
+  if (k.startsWith('trade')) { worldToast(t, 4500); if (k === 'tradeok') { sfx('claim'); worldSend({ inv: 1 }); } return; }
   worldToast(t, 4500);
   sfx('claim');
   const me = world.cats.get(world.me);
   if (me) { me.emote = { k, at: clock }; if (k === 'gift') world.splashes.push({ x: me.x, y: me.y - 60, t: clock, text: `★ +${n}` }); }
+}
+// trade offers to me (take it or not) and mine that still wait for an answer
+let offerKey = '';
+const bugChip = k => k ? `<span class="w-bugchip">${itemIcon(k)}${esc(itemName(k))}</span>` : '';
+function renderOffers(list) {
+  const key = JSON.stringify(list);
+  if (key === offerKey) return;
+  offerKey = key;
+  const el = document.getElementById('w-offer');
+  el.innerHTML = list.map(o => {
+    const who = `<b>${esc(o.d || o.u)}</b>`;
+    if (!o.in) return `<div>🔁 Waiting for ${who} to answer <button type="button" data-offer="${o.id}" data-ok="0">Take back</button></div>`;
+    const t = o.give && o.want ? `${who} offers ${bugChip(o.give)} for your ${bugChip(o.want)}`
+      : o.give ? `${who} wants to give you ${bugChip(o.give)}` : `${who} asks for your ${bugChip(o.want)}`;
+    return `<div>🔁 ${t} <span class="w-row"><button type="button" class="w-main" data-offer="${o.id}" data-ok="1">Accept</button><button type="button" data-offer="${o.id}" data-ok="0">No thanks</button></span></div>`;
+  }).join('');
+  el.classList.toggle('hidden', !list.length);
+  if (list.some(o => o.in && !renderOffers.seen?.has(o.id))) sfx('react');
+  renderOffers.seen = new Set(list.map(o => o.id));
+}
+function tradeResult(r) {
+  const t = { sent: 'Offer sent. It stays open for two minutes.', done: 'Traded 🔁 It is in your bag.', declined: 'Turned down.', withdrawn: 'Offer taken back.',
+    nohave: 'One of you does not have that beetle any more.', gone: 'That offer is gone.', many: 'You have three offers open already.', bad: 'Pick a beetle first.' }[r];
+  if (t) worldToast(t);
+  if (r === 'done') sfx('claim');
 }
 function giftResult(r) {
   const t = { ok: 'Sent 🎁', poor: 'You do not have that many stars.', cap: 'That is all you can give away today.', wait: 'Wait a moment before the next gift.', gone: 'They are not here right now.', bad: 'Between 1 and 100 coins.' }[r];
@@ -1572,11 +1644,26 @@ function gift(u, n) { worldSend({ gift: { to: u, n } }, true); }
 
 // ── toys: cloudballs to throw, fireworks for everyone ───────────────────────
 const TOYS = { toss: 'Tap where to throw the cloudball', fw: 'Tap the sky for a firework (★ 2)', confetti: 'Tap where the confetti goes', bubbles: 'Tap where to blow bubbles' };
+const TOY_NAME = { toss: '☁ Cloudball', fw: '🎆 Firework', confetti: '🎉 Confetti', bubbles: '🫧 Bubbles' };
 function setAim(k) {
   world.aim = world.aim === k ? null : k;
-  document.querySelectorAll('#w-toys [data-toy]').forEach(b => b.classList.toggle('on', b.dataset.toy === world.aim));
-  document.getElementById('w-toy-btn').classList.toggle('on', !!world.aim);
-  worldNote(world.aim ? `${TOYS[world.aim]} · Esc to stop` : '');
+  worldNote(world.aim ? TOYS[world.aim] : '');
+  showHeld();
+}
+function setSkate(on) {
+  world.skate = on;
+  const me = world.cats.get(world.me);
+  if (me) me.sk = on;
+  worldSend({}, true);
+  showHeld();
+}
+// what you have in your paws, with a button to put it away
+function showHeld() {
+  document.querySelectorAll('#w-toys [data-toy]').forEach(b => b.classList.toggle('on', b.dataset.toy === world.aim || (b.dataset.toy === 'skate' && !!world.skate)));
+  document.getElementById('w-toy-btn').classList.toggle('on', !!(world.aim || world.skate));
+  document.getElementById('w-held').innerHTML =
+    (world.aim ? `<button type="button" data-drop="aim" title="Put it away">${TOY_NAME[world.aim]} <b>✕</b></button>` : '') +
+    (world.skate ? '<button type="button" data-drop="skate" title="Get off the board">🛹 Get off <b>✕</b></button>' : '');
 }
 function useToy(x, y) {
   const me = world.cats.get(world.me);
@@ -1815,7 +1902,8 @@ function openBag(tab) {
   drawBag(BAG.d);
 }
 window.openBag = openBag;
-window.renderBag = d => { if (d) { BAG.d = d; world.owned = d.owned || world.owned; } drawBag(BAG.d); };
+window.renderBag = d => { if (d) { BAG.d = d; world.owned = d.owned || world.owned; } drawBag(BAG.d); window.cardInv?.(); };
+const bugRar = k => { const r = BUG_TIER[BUG_KINDS.findIndex(ks => ks.includes(k))]; return `<small style="color:${RARITY_HEX[r]}">${esc(RARITY_NAMES[r] || '')}</small>`; };
 const nearStall = () => { const me = world.cats.get(world.me); return me && Math.hypot(me.x - STALL.at.x, me.y - STALL.at.y) < 120; };
 function drawBag(d) {
   const box = document.getElementById('w-bag-list');
@@ -1843,8 +1931,8 @@ function drawBag(d) {
   } else if (BAG.tab === 'bugs') {
     const seen = new Set(d.seen), all = BUG_KINDS.flat(), got = all.filter(k => seen.has('b:' + k)).length;
     box.innerHTML = `<div class="w-items">${all.map(k => seen.has('b:' + k)
-      ? `<div class="w-item"><img src="${esc(`icons/beetles/${k}.png`)}" alt=""><span>${esc(itemName('b:' + k))}</span></div>`
-      : `<div class="w-item locked"><img src="${esc(`icons/beetles/${k}.png`)}" alt=""><span>???</span></div>`).join('')}</div>
+      ? `<div class="w-item"><img src="${esc(`icons/beetles/${k}.png`)}" alt=""><span>${esc(itemName('b:' + k))}</span>${bugRar(k)}${d.have['b:' + k] ? `<b>× ${d.have['b:' + k]}</b>` : ''}</div>`
+      : `<div class="w-item locked"><img src="${esc(`icons/beetles/${k}.png`)}" alt=""><span>???</span>${bugRar(k)}</div>`).join('')}</div>
       <p class="w-dim">${got} of ${all.length} found. Beetles fly around the park and the garden. Tap one to catch it.</p>`;
   } else {
     const ids = Object.keys(d.fishnames);
@@ -2068,7 +2156,20 @@ function setupWorld() {
     if (!k) return;
     document.getElementById('w-toys').classList.add('hidden');
     if (k === 'fish') { const s = SPOTS.find(x => x.id === 'pond'); world.pending = s; world.target = { ...s.at }; return; }
+    if (k === 'skate') return setSkate(!world.skate);
     setAim(k);
+  });
+  document.getElementById('w-held').addEventListener('click', e => {
+    const k = e.target.closest('[data-drop]')?.dataset.drop;
+    if (k === 'aim') setAim(world.aim);
+    if (k === 'skate') setSkate(false);
+  });
+  document.getElementById('w-count').addEventListener('click', e => { e.stopPropagation(); document.body.classList.add('cp-side-open'); });
+  document.getElementById('w-offer').addEventListener('click', e => {
+    const b = e.target.closest('[data-offer]');
+    if (!b) return;
+    b.disabled = true;
+    worldSend({ tradeans: { id: +b.dataset.offer, ok: b.dataset.ok === '1' }, inv: 1 }, true);
   });
   document.getElementById('w-bag-btn').addEventListener('click', () => openBag());
   document.getElementById('w-dark-btn').addEventListener('click', () => setDark(!world.dark));

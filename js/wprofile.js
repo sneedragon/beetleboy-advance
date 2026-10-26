@@ -5,7 +5,7 @@ const card = { u: '', p: null, prof: null };
 async function openCard(u, d) {
   const el = document.getElementById('w-card');
   closePanels();
-  card.u = u; card.p = null; card.prof = null;
+  card.u = u; card.p = null; card.prof = null; card.trade = null;
   card.d = d || world.cats.get(u)?.d || u;
   el.classList.remove('hidden');
   renderCard();
@@ -18,6 +18,7 @@ async function openCard(u, d) {
   renderCard();
 }
 window.cardStats = prof => { if (prof.u === card.u) { card.prof = prof; renderCard(); } };
+window.cardInv = () => { if (card.trade) renderCard(); };
 // names in the chat and in the side list open the card too
 openProfile = (h, d) => openCard(h, d);
 
@@ -37,6 +38,7 @@ function renderCard() {
       : vc.pendingRequestTo ? '<button type="button" data-c="cancel">Request sent ✕</button>'
       : '<button type="button" data-c="request">Add friend</button>';
   }
+  if (card.trade && !me) return renderTrade(el, name, here);
   const was = el.querySelector('.wc-status-set input'), typing = was && document.activeElement === was ? was.value : null;
   el.querySelector('.w-box').innerHTML = `
     <header><h2>~${esc(u)}</h2><button type="button" data-c="close">✕</button></header>
@@ -65,6 +67,7 @@ function renderCard() {
       <button type="button" data-c="hug" ${here ? '' : 'disabled'}>🤗 Hug</button>
       <button type="button" data-c="high5" ${here ? '' : 'disabled'}>🙌 High five</button>
       <button type="button" data-c="ball" ${here ? '' : 'disabled'}>☁ Cloudball</button>
+      <button type="button" data-c="trade" ${here ? '' : 'disabled'}>🔁 Trade beetles</button>
       ${user && (rnAuth() || vc.canPoke !== false) ? '<button type="button" data-c="poke">👉 Poke</button>' : ''}
       ${friend}
     </div>
@@ -83,11 +86,36 @@ function renderCard() {
   world.z = z;
 }
 
+// trading: pick one of your beetles, one of theirs, or one of each
+function renderTrade(el, name, here) {
+  const t = card.trade, mine = BAG.d?.have, theirs = card.prof?.beetles;
+  const grid = (have, side) => {
+    const ks = Object.keys(have || {}).filter(k => k.startsWith('b:') && have[k] > 0)
+      .sort((a, b) => BUG_KINDS.findIndex(x => x.includes(b.slice(2))) - BUG_KINDS.findIndex(x => x.includes(a.slice(2))) || itemName(a).localeCompare(itemName(b)));
+    if (!have) return '<p class="w-dim">Looking…</p>';
+    if (!ks.length) return `<p class="w-dim">${side === 'give' ? 'You have no beetles yet.' : 'They have no beetles yet.'}</p>`;
+    return `<div class="wc-trade">${ks.map(k => `<button type="button" data-pick="${side}" data-k="${esc(k)}" class="${t[side] === k ? 'on' : ''}" title="${esc(itemName(k))}">
+      ${itemIcon(k)}<span>${esc(itemName(k))}</span>${bugRar(k.slice(2))}${have[k] > 1 ? `<b>× ${have[k]}</b>` : ''}</button>`).join('')}</div>`;
+  };
+  el.querySelector('.w-box').innerHTML = `
+    <header><h2>Trade with ${esc(name)}</h2><button type="button" data-c="close">✕</button></header>
+    <h3>You give</h3>${grid(mine, 'give')}
+    <h3>You get</h3>${grid(theirs, 'want')}
+    <div class="wc-acts">
+      <button type="button" data-c="untrade">‹ Back</button>
+      <button type="button" data-c="offer" class="w-main" ${here && (t.give || t.want) ? '' : 'disabled'}>Send the offer</button>
+    </div>
+    <p class="w-dim">${here ? 'They get two minutes to say yes.' : 'They have to be in the world to trade.'}</p>`;
+}
+
 async function cardAction(act, btn) {
   const u = card.u, msg = t => { const m = document.querySelector('#w-card .wc-msg'); if (m) m.textContent = t; };
   const shut = () => document.getElementById('w-card').classList.add('hidden');
   if (act === 'close') return shut();
   if (act === 'bag') return openBag();
+  if (act === 'trade') { card.trade = { give: null, want: null }; worldSend({ inv: 1, prof: u }, true); return renderCard(); }
+  if (act === 'untrade') { card.trade = null; return renderCard(); }
+  if (act === 'offer') { worldSend({ trade: { to: u, ...card.trade } }, true); return shut(); }
   if (act === 'dm') { shut(); return window.dmOpen?.(u, card.d); }
   if (act === 'mention') {
     shut();
@@ -143,6 +171,8 @@ document.getElementById('w-card').addEventListener('submit', e => {
 });
 document.getElementById('w-card').addEventListener('click', e => {
   if (e.target.id === 'w-card') return e.target.classList.add('hidden');
+  const pick = e.target.closest('[data-pick]');
+  if (pick) { const s = pick.dataset.pick; card.trade[s] = card.trade[s] === pick.dataset.k ? null : pick.dataset.k; return renderCard(); }
   const g = e.target.closest('[data-gift]');
   if (g) { gift(card.u, +g.dataset.gift); return; }
   const b = e.target.closest('[data-c]');

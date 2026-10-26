@@ -52,7 +52,7 @@
         <canvas id="w-top"></canvas>
         <div id="w-hud">
           <span id="w-coins" title="Stars: for being here, quests and selling what you find at the stall. Spend them at the terminal."></span>
-          <span id="w-count"></span>
+          <span id="w-count" title="Who is online"></span>
         </div>
         <div id="w-zone"></div>
         <div id="w-note"></div>
@@ -63,12 +63,15 @@
           <button type="button" id="w-bag-btn" title="Your bag">🎒</button>
           <button type="button" id="w-quest-btn" title="Quests">📜</button>
           <button type="button" id="w-dark-btn" title="Turn the lights off" aria-label="Light switch"><i></i></button>
+          <div id="w-held"></div>
         </div>
+        <div id="w-offer" class="hidden"></div>
         <div id="w-toys" class="hidden">
           <button type="button" data-toy="toss">☁ Cloudball</button>
           <button type="button" data-toy="fw">🎆 Firework ★ 2</button>
           <button type="button" data-toy="confetti">🎉 Confetti</button>
           <button type="button" data-toy="bubbles">🫧 Bubbles</button>
+          <button type="button" data-toy="skate">🛹 Skateboard</button>
           <button type="button" data-toy="fish">🎣 Go fishing</button>
         </div>
         <div id="w-emotes" class="hidden">
@@ -169,6 +172,10 @@
 
       <aside id="cp-side">
         <button type="button" id="cp-side-close" title="Close">✕</button>
+        <section>
+          <h2>Online now</h2>
+          <div id="cp-online"></div>
+        </section>
         <section>
           <h2>Around lately</h2>
           <div id="cp-people"></div>

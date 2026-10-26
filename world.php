@@ -81,8 +81,13 @@ const FISH = [
     'boot' => ['Old boot', 8, 1], 'disk' => ['Floppy disk', 4, 2],
 ];
 // beetles, by how rare they are (as BUG_KINDS in js/world.js), and what the stall pays
-const BUGS = [['green', 'ladybug', 'pillbug', 'cucumber'], ['stag', 'purple', 'harlequin', 'blue_longicorn'], ['golden', 'golden_tiger']];
-const BUG_PRICE = [2, 5, 15];
+const BUGS = [['green'], ['purple', 'ladybug', 'cucumber'],
+    ['monarch', 'pond', 'giraffe_weevil', 'pillbug', 'imperial_tortoise', 'christmas', 'skull', 'bumblebee', 'golden_tiger', 'blue_longicorn'],
+    ['goliath', 'bombardier', 'death_feigning', 'pondhawk', 'stag', 'sabertooth_longhorn', 'sunset_moth'],
+    ['golden', 'widow', 'candycane_tiger_moth', 'mars_rhino', 'harlequin']];
+const BUG_PRICE = [2, 4, 10, 30, 150];
+// how often each tier turns up: diamond is one beetle in 500
+function bugTier(float $r): int { return $r < 0.002 ? 4 : ($r < 0.02 ? 3 : ($r < 0.12 ? 2 : ($r < 0.42 ? 1 : 0))); }
 // junk from the beetle game: the pond and the lost and found box turn it up
 const JUNK = ['ballpoint_pen', 'bendy_straw', 'bike_reflector', 'bottle_cap', 'broken_firework', 'burger_wrapper', 'button', 'chewed_eraser',
     'chip_bag', 'chocolate_bar', 'chocolate_wrapper', 'coffee_can', 'cracker_wrapper', 'deodorant_can', 'empty_noodle_cup', 'event_band',
@@ -118,7 +123,7 @@ const DAILY_Q = [
     'party'   => ['Throw confetti or blow bubbles', 3, 5],
 ];
 const ONCE_Q = [
-    'first_bug'  => ['Catch your first beetle', 10], 'first_fish' => ['Catch your first fish', 10], 'golden' => ['Catch a golden beetle', 40],
+    'first_bug'  => ['Catch your first beetle', 10], 'first_fish' => ['Catch your first fish', 10], 'golden' => ['Catch a diamond beetle', 100],
     'all_bugs'   => ['Catch every kind of beetle', 80], 'all_fish' => ['Catch every kind of fish', 120], 'trinket' => ['Find a trinket', 20],
     'seller'     => ['Earn 200 stars at the stall', 30], 'hugger' => ['Hug or high five 10 times', 25], 'dressed' => ['Wear something in every slot', 50],
     'whale'      => ['Catch the tiny whale', 50],
@@ -141,7 +146,7 @@ function quest(array &$r, string $day, string $ev, int $n, array &$out): void {
     if ($ev === 'touch') $r['inv']['st']['touch'] = ($r['inv']['st']['touch'] ?? 0) + $n;
     $seen = $r['inv']['seen'] ?? []; $st = $r['inv']['st'] ?? []; $allBugs = array_merge(...BUGS);
     $done = [
-        'first_bug' => array_sum($r['inv']['bugs']) > 0, 'first_fish' => array_sum($r['inv']['fish']) > 0, 'golden' => $r['inv']['bugs'][2] > 0,
+        'first_bug' => array_sum($r['inv']['bugs']) > 0, 'first_fish' => array_sum($r['inv']['fish']) > 0, 'golden' => ($r['inv']['bugs'][4] ?? 0) > 0,
         'all_bugs' => !array_filter($allBugs, fn($b) => !isset($seen["b:$b"])),
         'all_fish' => !array_filter(array_keys(FISH), fn($f) => empty($r['inv']['fish'][$f])),
         'trinket' => (bool)array_filter(array_keys($seen), fn($k) => str_starts_with($k, 't:')),
@@ -181,6 +186,7 @@ function loadUser(bool $test, string $u): array {
     $r['bug_coins'] = (int)($r['bug_coins'] ?? 0);
     $r['wear']  = json_decode($r['wear'], true) ?: [];
     $r['inv']   = (json_decode($r['inv'] ?? '{}', true) ?: []) + ['bugs' => [0, 0, 0], 'fish' => [], 'gday' => '', 'gsent' => 0, 'have' => [], 'seen' => [], 'st' => [], 'qd' => []];
+    $r['inv']['bugs'] = array_pad(array_values($r['inv']['bugs']), count(BUGS), 0);
     return $r;
 }
 function saveUser(bool $test, array $r): void {
@@ -206,7 +212,7 @@ function bugAt(int $k, float $t): array {
     $s = $g * 31 + $k * 7;
     [$x0, $y0, $x1, $y1] = BUG_AREAS[$k];
     $r = hrand($s + 3);
-    return ['id' => $k . ':' . $g, 's' => $s, 'kind' => $r < 0.06 ? 2 : ($r < 0.3 ? 1 : 0),
+    return ['id' => $k . ':' . $g, 's' => $s, 'kind' => bugTier($r),
         'x' => $x0 + hrand($s + 1) * ($x1 - $x0) + 36 * sin($t * (0.3 + hrand($s + 4) * 0.4) + $s),
         'y' => $y0 + hrand($s + 2) * ($y1 - $y0) + 24 * sin($t * (0.25 + hrand($s + 5) * 0.4) + $s * 2)];
 }
@@ -222,10 +228,12 @@ if (!$fp) fail(500, 'world unavailable');
 flock($fp, LOCK_EX);
 $world = json_decode(stream_get_contents($fp) ?: '{}', true);
 if (!is_array($world)) $world = [];
-$world += ['people' => [], 'ball' => ['x' => 360, 'y' => 980, 'vx' => 0, 'vy' => 0, 't' => 0], 'tv' => null, 'tvq' => [], 'caught' => [], 'fx' => [], 'toss' => []];
+$world += ['people' => [], 'ball' => ['x' => 360, 'y' => 980, 'vx' => 0, 'vy' => 0, 't' => 0], 'tv' => null, 'tvq' => [], 'caught' => [], 'fx' => [], 'toss' => [], 'trades' => []];
 foreach ($world['caught'] as $id => $t) if ($t < time() - BUG_LIFE * 2) unset($world['caught'][$id]);
 $now = microtime(true); $sec = time(); $day = gmdate('Y-m-d');
 foreach ($world['people'] as $u => $p) if (($p['t'] ?? 0) < $sec - STALE) unset($world['people'][$u]);
+// a trade offer lasts two minutes, and only while both are here
+$world['trades'] = array_values(array_filter($world['trades'], fn($o) => $o['t'] > $sec - 120 && isset($world['people'][$o['a']], $world['people'][$o['b']])));
 $world['fx'] = array_values(array_filter($world['fx'], fn($f) => $f[2] > $now - 6));
 $world['toss'] = array_values(array_filter($world['toss'], fn($f) => $f[4] > $now - 4));
 // the screen moves on to the next video once this one has run out
@@ -493,8 +501,53 @@ else {
             $inv = json_decode($o['inv'] ?? '{}', true) ?: [];
             $out['prof'] = ['u' => $in['prof'], 'coins' => (int)$o['coins'], 'items' => count(json_decode($o['owned'], true) ?: []),
                 'wear' => (object)(json_decode($o['wear'], true) ?: []), 'bugs' => array_sum($inv['bugs'] ?? []),
-                'fish' => array_sum($inv['fish'] ?? []), 'quests' => count($inv['qd'] ?? []), 'since' => (int)$o['since'], 'status' => (string)($o['status'] ?? ''), 'here' => isset($world['people'][$in['prof']])];
+                'fish' => array_sum($inv['fish'] ?? []), 'quests' => count($inv['qd'] ?? []), 'since' => (int)$o['since'], 'status' => (string)($o['status'] ?? ''), 'here' => isset($world['people'][$in['prof']]),
+                'beetles' => (object)array_filter($inv['have'] ?? [], fn($n, $k) => str_starts_with((string)$k, 'b:') && $n > 0, ARRAY_FILTER_USE_BOTH)];
         } else $out['prof'] = ['u' => $in['prof'], 'none' => true, 'here' => false];
+    }
+    // trading beetles: an offer to someone who is here, and they take it or not
+    $isBug = fn($k) => $k === null || (is_string($k) && str_starts_with($k, 'b:') && in_array(substr($k, 2), array_merge(...BUGS), true));
+    if (isset($in['trade']) && is_array($in['trade'])) {
+        $to = (string)($in['trade']['to'] ?? ''); $give = $in['trade']['give'] ?? null; $want = $in['trade']['want'] ?? null;
+        $getUser();
+        if (!$isBug($give) || !$isBug($want) || (!$give && !$want)) $out['trade'] = 'bad';
+        elseif ($to === $U || !isset($world['people'][$to])) $out['trade'] = 'gone';
+        elseif ($give && ($user['inv']['have'][$give] ?? 0) < 1) $out['trade'] = 'nohave';
+        else {
+            $world['trades'] = array_values(array_filter($world['trades'], fn($o) => !($o['a'] === $U && $o['b'] === $to)));
+            if (count(array_filter($world['trades'], fn($o) => $o['a'] === $U)) >= 3) $out['trade'] = 'many';
+            else {
+                $world['tradeid'] = ($world['tradeid'] ?? 0) + 1;
+                $world['trades'][] = ['id' => $world['tradeid'], 'a' => $U, 'ad' => $me['d'], 'b' => $to, 'give' => $give, 'want' => $want, 't' => $sec];
+                $out['trade'] = 'sent';
+            }
+        }
+    }
+    if (isset($in['tradeans']) && is_array($in['tradeans'])) {
+        $id = (int)($in['tradeans']['id'] ?? 0);
+        $i = array_search($id, array_column($world['trades'], 'id'), true);
+        $o = $i === false ? null : $world['trades'][$i];
+        if (!$o || ($o['a'] !== $U && $o['b'] !== $U)) $out['trade'] = 'gone';
+        else {
+            array_splice($world['trades'], $i, 1);
+            $tell = function (string $k) use (&$world, $o, $me, $now, $U) { if (isset($world['people'][$o['a']])) $world['people'][$o['a']]['in'][] = [$k, $me['d'], $now, $U, 0]; };
+            if ($o['a'] === $U) $out['trade'] = 'withdrawn';
+            elseif (empty($in['tradeans']['ok'])) { $tell('tradeno'); $out['trade'] = 'declined'; }
+            else {
+                // both still have what they offered: swap, and save them both while the world is locked
+                $getUser(); $r = &$user; $a = loadUser($test, $o['a']);
+                $has = fn(array $x, ?string $k) => !$k || ($x['inv']['have'][$k] ?? 0) > 0;
+                if (!$has($a, $o['give']) || !$has($r, $o['want'])) { $tell('tradeno'); $out['trade'] = 'nohave'; }
+                else {
+                    if ($o['give']) { $a['inv']['have'][$o['give']]--; gain($r, $o['give']); }
+                    if ($o['want']) { $r['inv']['have'][$o['want']]--; gain($a, $o['want']); }
+                    $a['inv']['have'] = array_filter($a['inv']['have'], fn($n) => $n > 0);
+                    $r['inv']['have'] = array_filter($r['inv']['have'], fn($n) => $n > 0);
+                    saveUser($test, $a); $dirty = true;
+                    $tell('tradeok'); $out['trade'] = 'done';
+                }
+            }
+        }
     }
     // your bag
     if (!empty($in['inv'])) {
@@ -513,6 +566,7 @@ else {
         db($test)->prepare('UPDATE users SET status = ? WHERE u = ?')->execute([$st, $U]);
     }
     if (isset($in['emote']) && in_array($in['emote'], EMOTES, true)) $p['e'] = [$in['emote'], $now];
+    $p['sk'] = !empty($in['sk']) ? 1 : 0;         // on the skateboard
     $mine = array_filter($p['in'], fn($i) => $i[2] > $now - 8);
     if ($mine) $out['in'] = array_values(array_map(fn($i) => [$i[0], $i[1], round($now - $i[2], 2), $i[4] ?? 0], $mine));
 
@@ -576,10 +630,14 @@ foreach ($world['people'] as $u => $p) {
     $o = ['u' => (string)$u, 'd' => $p['d'], 'x' => $p['x'], 'y' => $p['y']];
     if ($p['w']) $o['w'] = (object)$p['w'];
     if (!empty($p['st'])) $o['st'] = $p['st'];
+    if (!empty($p['sk'])) $o['sk'] = 1;
     if ($p['e'] && $p['e'][1] > $now - 4) $o['e'] = [$p['e'][0], round($now - $p['e'][1], 2)];
     $out['people'][] = $o;
 }
 $out['gone'] = array_keys($world['caught']);
+// trade offers to me and from me
+foreach ($world['trades'] as $o) if ($o['a'] === $U || $o['b'] === $U) $out['trades'][] = ['id' => $o['id'], 'in' => $o['b'] === $U,
+    'u' => $o['b'] === $U ? $o['a'] : $o['b'], 'd' => $o['b'] === $U ? $o['ad'] : ($world['people'][$o['b']]['d'] ?? $o['b']), 'give' => $o['give'], 'want' => $o['want']];
 // the newest direct message for me, so the page knows when to fetch them
 try { $q = db($test)->prepare('SELECT MAX(id) FROM dm WHERE b = ?'); $q->execute([$U]); $out['dm'] = (int)$q->fetchColumn(); } catch (Throwable $e) {}
 $out['coins'] = $world['people'][$U]['c'] ?? ($user['coins'] ?? 0);

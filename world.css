@@ -45,14 +45,14 @@ body.world #cp-search::placeholder, body.world .w-row input::placeholder, #dm-in
 
 /* every button is a plastic key; the one that matters is navy */
 body.world #cp-head button, body.world #cp-head a#cp-game, #w-bar button, .w-box button, #w-emotes button, #w-toys button,
-#w-lab-close, #w-dm header button, #dm-send, #cp-side-close, body.world #chat-attach, body.world #chat-send {
+#w-lab-close, #w-offer button, #w-dm header button, #dm-send, #cp-side-close, body.world #chat-attach, body.world #chat-send {
   font-family: var(--pixel); font-size: 14px; color: var(--text); cursor: pointer;
   background: linear-gradient(#ffffff, #e2e2e2 60%, #cfcfcf); border: 1px solid var(--border2); border-radius: 6px;
   box-shadow: inset 0 1px 0 #fff, 0 2px 0 #8a8a8a; padding: 6px 12px; text-decoration: none;
 }
 body.world button:active:not(:disabled) { transform: translateY(1px); box-shadow: inset 0 1px 0 #fff, 0 1px 0 #8a8a8a; }
 .w-box button:disabled { opacity: 0.45; cursor: default; }
-.w-box .w-main, body.world #chat-send, body.world #login-btn {
+.w-box .w-main, #w-offer .w-main, body.world #chat-send, body.world #login-btn {
   color: #fff; background: linear-gradient(#4a63cf, var(--navy) 55%, var(--navy2)); border-color: #0b1446;
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.4), 0 2px 0 #0b1446; letter-spacing: 0.06em;
 }
@@ -95,6 +95,9 @@ body.world #cp-side-close { display: block; position: sticky; top: 0; margin-lef
   border: 1px solid #7d8473; box-shadow: inset 0 2px 3px rgba(0,0,0,0.25), 0 0 0 2px #e4e4e4, 0 0 0 3px var(--border2);
 }
 #w-coins:empty, #w-count:empty { display: none; }
+#w-count { pointer-events: auto; cursor: pointer; }
+.w-on { width: 8px; height: 8px; border-radius: 50%; background: #3ec46d; box-shadow: 0 0 4px #3ec46d; flex-shrink: 0; margin: 0 4px; }
+#cp-online .cp-ago { max-width: 45%; overflow: hidden; text-overflow: ellipsis; }
 #w-coins.up { animation: w-pop 0.6s; }
 @keyframes w-pop { 30% { transform: scale(1.25); } }
 #w-zone {
@@ -145,6 +148,29 @@ body.world #cp-side-close { display: block; position: sticky; top: 0; margin-lef
 }
 #w-emotes button { font-size: 20px; padding: 4px 8px; }
 #w-toys button { font-size: 14px; }
+#w-held { display: flex; gap: 6px; }
+#w-held:empty { display: none; }
+#w-bar #w-held button { font-size: 14px; background: linear-gradient(#c9d4ff, #8fa3f0) !important; }
+#w-held b { font-weight: normal; margin-left: 4px; }
+#w-offer {
+  position: absolute; top: 76px; left: 50%; transform: translateX(-50%); width: min(420px, calc(100% - 24px)); display: flex; flex-direction: column; gap: 6px; z-index: 5;
+}
+#w-offer > div {
+  padding: 8px 10px; background: var(--plastic); border: 1px solid var(--border2); border-radius: 8px; box-shadow: var(--bevel), var(--lift);
+  font-size: 14px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
+}
+#w-offer .w-row { margin-left: auto; display: flex; gap: 6px; }
+.w-bugchip { display: inline-flex; align-items: center; gap: 3px; font-weight: bold; }
+.w-bugchip img { width: 22px; height: 22px; object-fit: contain; }
+.wc-trade { display: grid; grid-template-columns: repeat(auto-fill, minmax(78px, 1fr)); gap: 6px; max-height: 190px; overflow-y: auto; margin-bottom: 6px; }
+.wc-trade button { display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 5px 3px; font-size: 12px; line-height: 1.15; }
+.wc-trade button.on { background: linear-gradient(#c9d4ff, #8fa3f0); box-shadow: inset 0 0 0 2px var(--navy); }
+.wc-trade img { width: 36px; height: 36px; object-fit: contain; }
+.wc-trade small { font-size: 11px; }
+#w-card h3 { font-family: var(--pixel); font-weight: normal; font-size: 15px; color: var(--navy2); margin: 8px 0 6px; }
+body.world.w-dark #w-offer > div { background: #24222e; color: #e6e3f0; }
+body.world.w-dark .wc-trade button.on { background: #22264a; }
+body.world.w-dark #w-card h3 { color: #b9c4ff; }
 #w-toys button.on { background: linear-gradient(#c9d4ff, #8fa3f0); }
 
 /* windows over the map: a title bar, then the inset */
@@ -297,10 +323,10 @@ body.world.w-dark {
 }
 body.world.w-dark .w-panel { background: rgba(0,0,0,0.45); }
 body.world.w-dark #cp-head button, body.world.w-dark #cp-head a#cp-game, body.world.w-dark .w-box button, body.world.w-dark #w-emotes button, body.world.w-dark #w-toys button,
-body.world.w-dark #w-lab-close, body.world.w-dark #w-dm header button, body.world.w-dark #cp-side-close, body.world.w-dark #chat-attach, body.world.w-dark #login-rn {
+body.world.w-dark #w-lab-close, body.world.w-dark #w-offer button, body.world.w-dark #w-dm header button, body.world.w-dark #cp-side-close, body.world.w-dark #chat-attach, body.world.w-dark #login-rn {
   background: linear-gradient(#3a3746, #2a2733 60%, #211f29); box-shadow: inset 0 1px 0 rgba(255,255,255,0.1), 0 2px 0 #000;
 }
-body.world.w-dark .w-box .w-main, body.world.w-dark .w-tabs button.on { background: linear-gradient(#4a63cf, var(--navy) 55%, var(--navy2)); }
+body.world.w-dark .w-box .w-main, body.world.w-dark #w-offer .w-main, body.world.w-dark .w-tabs button.on { background: linear-gradient(#4a63cf, var(--navy) 55%, var(--navy2)); }
 body.world.w-dark #w-bar button { color: #1d1f2a; }
 body.world.w-dark .login-box h1, body.world.w-dark .w-box h3, body.world.w-dark .w-item b, body.world.w-dark .w-quest li span { color: #b9c4ff; }
 body.world.w-dark .w-item, body.world.w-dark .w-quest li { border-color: #3a3746; }

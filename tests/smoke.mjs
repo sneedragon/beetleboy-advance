@@ -352,7 +352,10 @@ async function checkWorld(label, viewport) {
     if (b.fish) { out.fish = 'koi'; out.fish_name = 'Koi'; w.fish = 1; }
     if (b.fw) { w.coins -= 2; out.coins = w.coins; out.fw = 'ok'; out.fx = [[b.fw.x, b.fw.y, 0.1, 200]]; }
     if (b.gift) { w.coins -= b.gift.n; out.coins = w.coins; out.gift = 'ok'; }
-    if (b.prof) out.prof = { u: b.prof, coins: 5, items: 1, wear: { hat: 'crown' }, bugs: 3, fish: 2, since: 1, here: true };
+    if (b.prof) out.prof = { u: b.prof, coins: 5, items: 1, wear: { hat: 'crown' }, bugs: 3, fish: 2, since: 1, here: true, beetles: { 'b:stag': 1, 'b:golden': 1 } };
+    if (b.trade) { out.trade = 'sent'; w.offer = { id: 7, in: true, u: 'guest', d: 'Guest Cat', give: 'b:golden', want: null }; }
+    if (b.tradeans) { out.trade = 'done'; w.offer = null; }
+    if (w.offer) out.trades = [w.offer];
     w.have ||= { 'b:green': 2, 'j:bottle_cap': 1 };
     if (b.sell) { const k = b.sell.k; if (k && w.have[k]) { out.sell = { n: w.have[k], coins: 2 * w.have[k] }; w.coins += out.sell.coins; out.coins = w.coins; delete w.have[k]; } else out.sell = 'none'; }
     if (b.inv) out.inv = { owned: w.owned, bugs: [2, 1, 0], fish: w.fish ? { koi: 1 } : {}, fishnames: { minnow: 'Minnow', koi: 'Koi', golden: 'Golden fish' },
@@ -459,7 +462,18 @@ async function checkWorld(label, viewport) {
   if (!w.sent.some(b => b.fw)) fail(`${label} world: the firework did not go up`);
   await page.waitForTimeout(900);
   await page.screenshot({ path: `${ROOT}tests/out/${label}-world-toys.png` });
-  await page.keyboard.press('Escape');
+  // what you hold has its own button to put it away
+  await page.click('#w-held [data-drop="aim"]').catch(() => fail(`${label} world: no button to put the toy away`));
+  if (await page.evaluate(() => world.aim)) fail(`${label} world: the toy is still in hand`);
+  // the skateboard: faster, and everyone sees it
+  await page.click('#w-toy-btn');
+  await page.click('#w-toys [data-toy="skate"]');
+  await goTo(1000, 700);
+  await page.waitForTimeout(1200);
+  if (!w.sent.some(b => b.sk)) fail(`${label} world: riding the board was not sent`);
+  await page.screenshot({ path: `${ROOT}tests/out/${label}-world-skate.png` });
+  await page.click('#w-held [data-drop="skate"]').catch(() => fail(`${label} world: no button to get off the board`));
+  if (await page.evaluate(() => world.skate)) fail(`${label} world: still on the board`);
   // the bag
   await page.click('#w-bag-btn');
   await page.click('#w-bag [data-tab="fish"]');
@@ -512,6 +526,19 @@ async function checkWorld(label, viewport) {
   await page.waitForTimeout(400);
   if (!w.sent.some(b => b.gift?.to === 'guest')) fail(`${label} world: the gift was not sent`);
   await page.screenshot({ path: `${ROOT}tests/out/${label}-world-card.png` });
+  // a trade: one of theirs for nothing, then their offer comes in and I take it
+  await page.click('#w-card [data-c="trade"]');
+  await page.waitForSelector('#w-card [data-pick="want"][data-k="b:stag"]', { timeout: 3000 }).catch(() => fail(`${label} world: the trade shows none of their beetles`));
+  await page.click('#w-card [data-pick="want"][data-k="b:stag"]');
+  await page.screenshot({ path: `${ROOT}tests/out/${label}-world-trade.png` });
+  await page.click('#w-card [data-c="offer"]');
+  await page.waitForTimeout(600);
+  if (!w.sent.some(b => b.trade?.to === 'guest' && b.trade.want === 'b:stag')) fail(`${label} world: the trade offer was not sent`);
+  await page.waitForSelector('#w-offer [data-ok="1"]', { timeout: 3000 }).catch(() => fail(`${label} world: an incoming offer does not show`));
+  await page.screenshot({ path: `${ROOT}tests/out/${label}-world-offer.png` });
+  await page.click('#w-offer [data-ok="1"]');
+  await page.waitForTimeout(600);
+  if (!w.sent.some(b => b.tradeans?.id === 7 && b.tradeans.ok)) fail(`${label} world: accepting the offer sent nothing`);
   await page.keyboard.press('Escape');
   // my own card sets a status
   await page.evaluate(() => openProfile('tester'));
@@ -531,15 +558,25 @@ async function checkWorld(label, viewport) {
   await page.screenshot({ path: `${ROOT}tests/out/${label}-world-hue.png` });
   await page.click('#cp-settings-btn');
   await page.evaluate(() => { localStorage.removeItem('bb_world_hue'); world.hue = SKY_HUE; paintSky(); });
-  // the people list slides in and back out
-  await page.click('#cp-people-btn');
+  // the people list slides in (from the count too) and shows who is online
+  await page.click('#w-count');
   await page.waitForTimeout(300);
+  if (!(await page.textContent('#cp-online')).includes('Guest Cat')) fail(`${label} world: the online list misses the other cat`);
+  await page.screenshot({ path: `${ROOT}tests/out/${label}-world-online.png` });
   await page.click('#cp-side-close');
   await page.waitForTimeout(300);
   if (await page.evaluate(() => document.body.classList.contains('cp-side-open'))) fail(`${label} world: the people list does not close`);
   // the remilia sign-in finds the garden gate shut
   if (await page.evaluate(() => { localStorage.setItem('bb_chat_rn', '1'); const r = blocked(1440, 784); localStorage.removeItem('bb_chat_rn'); return r; }) !== 'lab') fail(`${label} world: the garden gate is open for the remilia sign-in`);
   await page.screenshot({ path: `${ROOT}tests/out/${label}-world-garden.png` });
+  // the mailbox opens the messages
+  await goTo(1191, 712);
+  await page.waitForTimeout(300);
+  if (await page.evaluate(() => world.near?.id) !== 'mail') fail(`${label} world: no prompt at the mailbox`);
+  await page.keyboard.press('e');
+  await page.waitForTimeout(300);
+  if (!await page.isVisible('#w-dm')) fail(`${label} world: the mailbox did not open the messages`);
+  await page.screenshot({ path: `${ROOT}tests/out/${label}-world-mail.png` });
   // a message to the other cat, sealed in the browser
   await page.evaluate(() => window.dmOpen('guest', 'Guest Cat'));
   await page.fill('#dm-input', 'hello in secret');

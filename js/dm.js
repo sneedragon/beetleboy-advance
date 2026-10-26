@@ -96,6 +96,7 @@ function dmBadge() {
   const n = new Set([...dmState.msgs.values()].filter(m => m.b === dmState.me && !muted.has(m.a) && m.id > (dmState.read[m.a] || 0)).map(m => m.a)).size;
   const el = document.getElementById('cp-dm-badge');
   el.textContent = n || ''; el.classList.toggle('hidden', !n);
+  world.unread = n;
 }
 
 function dmMarkRead(u) {
