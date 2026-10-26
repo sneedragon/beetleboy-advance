@@ -1976,6 +1976,8 @@ function worldKey(e, down) {
   const t = e.target;
   if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
   if (e.ctrlKey || e.metaKey || e.altKey) return;
+  // Enter jumps into the chat field (a button inside a panel keeps its own Enter)
+  if (down && e.key === 'Enter' && !t?.closest?.('.w-box, #w-dm, #w-lab')) { e.preventDefault(); document.getElementById('chat-input')?.focus(); return; }
   const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
   world.active = Date.now();
   if (down && key === 'e') { worldAct(); return; }

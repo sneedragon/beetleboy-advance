@@ -496,6 +496,9 @@ async function checkWorld(label, viewport) {
   await page.mouse.click(box.x + box.w * 0.5, box.y + box.h * 0.5);
   await page.waitForTimeout(400);
   if (!w.sent.some(b => b.party?.k === 'confetti')) fail(`${label} world: no confetti`);
+  await page.evaluate(() => document.activeElement?.blur());
+  await page.keyboard.press('Enter');
+  if (await page.evaluate(() => document.activeElement?.id) !== 'chat-input') fail(`${label} world: Enter did not focus the chat`);
   await page.click('#w-dark-btn');
   await page.waitForTimeout(600);
   if (!await page.evaluate(() => document.body.classList.contains('w-dark'))) fail(`${label} world: night mode did not turn on`);

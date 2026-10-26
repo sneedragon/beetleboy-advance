@@ -297,12 +297,12 @@ body.world.w-dark {
 }
 body.world.w-dark .w-panel { background: rgba(0,0,0,0.45); }
 body.world.w-dark #cp-head button, body.world.w-dark #cp-head a#cp-game, body.world.w-dark .w-box button, body.world.w-dark #w-emotes button, body.world.w-dark #w-toys button,
-body.world.w-dark #w-lab-close, body.world.w-dark #w-dm header button, body.world.w-dark #cp-side-close, body.world.w-dark #chat-attach {
+body.world.w-dark #w-lab-close, body.world.w-dark #w-dm header button, body.world.w-dark #cp-side-close, body.world.w-dark #chat-attach, body.world.w-dark #login-rn {
   background: linear-gradient(#3a3746, #2a2733 60%, #211f29); box-shadow: inset 0 1px 0 rgba(255,255,255,0.1), 0 2px 0 #000;
 }
 body.world.w-dark .w-box .w-main, body.world.w-dark .w-tabs button.on { background: linear-gradient(#4a63cf, var(--navy) 55%, var(--navy2)); }
 body.world.w-dark #w-bar button { color: #1d1f2a; }
-body.world.w-dark .w-box h3, body.world.w-dark .w-item b, body.world.w-dark .w-quest li span { color: #b9c4ff; }
+body.world.w-dark .login-box h1, body.world.w-dark .w-box h3, body.world.w-dark .w-item b, body.world.w-dark .w-quest li span { color: #b9c4ff; }
 body.world.w-dark .w-item, body.world.w-dark .w-quest li { border-color: #3a3746; }
 body.world.w-dark .w-item.on { background: #22264a; }
 body.world.w-dark .w-quest li em { color: #e8c35a; }
