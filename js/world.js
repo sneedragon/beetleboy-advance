@@ -42,7 +42,7 @@ const GARDEN_GATES = [GARDEN_GATE];                               // the only wa
 const WELL = { x: 1185, y: 1045 };
 const TREES = [[130, 1560], [440, 1580], [270, 1720], [560, 1270], [910, 1440], [1000, 1930], [1370, 2020], [1000, 380], [1370, 860], [2280, 1000]];
 const POLES = [[978, 320], [1392, 320], [978, 892], [1392, 892], [80, 1180], [2290, 1180], [978, 1760], [1392, 1760]];
-const POND = { x: 1185, y: 620, rx: 135, ry: 72 };               // fishing, as in world.php
+const POND = { x: 1185, y: 620, rx: 78, ry: 50 };                 // fishing, as in world.php
 // the bit of shore nearest to me: you can fish from all round the pond
 function pondShore() {
   const me = world.cats?.get(world.me);
@@ -173,7 +173,8 @@ function buildSolids() {
   for (const r of SLOTS) s.push([r.x, r.y + 30, r.w, r.h - 30, 'prop']);       // the slot machines
   for (const r of FURNITURE) s.push([...r.slice(0, 4), 'prop']);               // sofas, the bar, couches, benches
   s.push([WELL.x - 34, WELL.y - 18, 68, 36]);
-  s.push([POND.x - POND.rx + 6, POND.y - POND.ry + 6, POND.rx * 2 - 12, POND.ry * 2 - 12, 'pond']);
+  // the pond is round, so it blocks as three stacked bands rather than one box: you can walk round its edge
+  for (const k of [0.4, 0.72, 0.94]) { const hw = POND.rx * Math.sqrt(1 - k * k) - 4, hh = POND.ry * k - 4; s.push([POND.x - hw, POND.y - hh, hw * 2, hh * 2, 'pond']); }
   for (const [x, y] of TREES) s.push([x - 18, y - 6, 36, 16]);
   s.push([675, 1330, 120, 40, 'prop']);                                        // the workbench
   s.push([...STALL_SOLID, 'prop'], BIN_SOLID, [MAILBOX.x + 8, MAILBOX.y + 50, 10, 14]);
@@ -880,9 +881,9 @@ function buildBackground() {
     }
     if (s.k === 'fence') {                                  // the garden: tall iron railings over a stone base, no jumping these
       g.fillStyle = 'rgba(20,20,40,0.3)'; g.fillRect(s.x, s.y + s.h, s.w, 8);
-      g.fillStyle = D ? '#2a2733' : '#b9bccb'; g.fillRect(s.x, s.y + s.h - 12, s.w, 12);
-      g.fillStyle = D ? '#3a3648' : '#e6e8f0'; g.fillRect(s.x, s.y + s.h - 12, s.w, 2);
-      g.fillStyle = D ? '#0c0b12' : '#3a3550';
+      g.fillStyle = D ? '#4a4562' : '#b9bccb'; g.fillRect(s.x, s.y + s.h - 12, s.w, 12);
+      g.fillStyle = D ? '#6e6890' : '#e6e8f0'; g.fillRect(s.x, s.y + s.h - 12, s.w, 2);
+      g.fillStyle = D ? '#a9a3cc' : '#3a3550';               // pale railings at night, so they show against the dark
       g.fillRect(s.x, s.y - 26, s.w, 3); g.fillRect(s.x, s.y - 8, s.w, 2);
       const vert = s.h > s.w;
       for (let i = 2; i < (vert ? s.h : s.w); i += 9) {
@@ -1558,6 +1559,22 @@ function drawHat(g, id, x, y, dir, t, flip = false) {
       }
       break;
     }
+    case 'pumpkinhat': {
+      // a carved pumpkin worn like a helmet, with a curly stem and a leaf
+      g.fillStyle = '#c95a10'; g.beginPath(); g.ellipse(x, y + 4, 17, 13, 0, Math.PI, 0); g.lineTo(x + 17, y + 9); g.lineTo(x - 17, y + 9); g.fill();
+      g.fillStyle = '#ff8a1e';
+      for (const o of [-9, 0, 9]) { g.beginPath(); g.ellipse(x + o, y + 3, 6, 12, 0, Math.PI, 0); g.lineTo(x + o + 6, y + 9); g.lineTo(x + o - 6, y + 9); g.fill(); }
+      g.fillStyle = 'rgba(255,255,255,0.25)'; g.fillRect(x - 11, y - 5, 3, 7);
+      if (dir !== 'up') {                                        // the carved grin glows from inside
+        const fx = dir === 'side' ? x + (flip ? -5 : 5) : x;
+        g.fillStyle = '#ffe36a';
+        for (const s of [-1, 1]) { g.beginPath(); g.moveTo(fx + s * 7, y + 1); g.lineTo(fx + s * 3, y + 1); g.lineTo(fx + s * 5, y - 4); g.fill(); }
+        g.fillRect(fx - 6, y + 5, 12, 2);
+      }
+      g.strokeStyle = '#4f6b22'; g.lineWidth = 3; g.beginPath(); g.moveTo(x, y - 8); g.quadraticCurveTo(x + 1, y - 15, x + 5, y - 16); g.stroke();
+      g.fillStyle = '#6fa83a'; g.beginPath(); g.ellipse(x - 5, y - 11, 5, 2.5, -0.5, 0, Math.PI * 2); g.fill();
+      break;
+    }
     case 'beanie':
       g.fillStyle = '#e04a5a'; g.beginPath(); g.arc(x, y + 9, 14, Math.PI, 0); g.fill();
       g.fillStyle = '#b5303f'; g.fillRect(x - 14, y + 5, 28, 5);
@@ -2166,7 +2183,7 @@ function capsuleResult(d) {
     const got = document.getElementById('w-cap-got');
     got.classList.remove('hidden');
     got.querySelector('span').innerHTML = `<small style="color:${CAP_COL[tier]}">${CAP_TIER_NAME[tier]}</small><b>${esc(d.capsule_name)}</b>${d.capsule_dup ? 'You have this one already, so the spare is in your bag. Sell it at the stall or trade it.' : 'You are wearing it now.'}`;
-    if (tier >= 2 && !d.capsule_dup) { sfx('claim'); const m = world.cats.get(world.me); if (m) world.fx.set(`cap${performance.now()}`, { x: m.x, y: m.y - 30, hue: tier === 3 ? 45 : 270, kind: 'confetti', t0: performance.now() / 1000 }); }
+    if (tier >= 2 && !d.capsule_dup) { sfx(tier === 3 ? 'jackpot' : 'rare'); const m = world.cats.get(world.me); if (m) world.fx.set(`cap${performance.now()}`, { x: m.x, y: m.y - 30, hue: tier === 3 ? 45 : 270, kind: 'confetti', t0: performance.now() / 1000 }); }
     const slot = world.catalog?.find(i => i.id === d.capsule)?.slot || 'hat';
     previewCat(got.querySelector('canvas'), { [slot]: d.capsule });
   }, wait);
@@ -2584,7 +2601,7 @@ function castLine() {
   if (now - (world.lastCast || 0) < 8) return worldToast('Let the water settle a moment.');
   world.lastCast = now;
   me.dir = 'up';
-  world.fishing = { t0: now, bite: now + 2.5 + Math.random() * 3, x: POND.x + (Math.random() - 0.5) * 110, y: POND.y + (Math.random() - 0.5) * 36 };
+  world.fishing = { t0: now, bite: now + 2.5 + Math.random() * 3, x: POND.x + (Math.random() - 0.5) * 90, y: POND.y + (Math.random() - 0.5) * 30 };
   worldToast('Wait for it to bite, then tap again.', 2500);
 }
 function fishCheck(me, t) {
@@ -2878,8 +2895,10 @@ function capsuleDraw(now) {
   if (a >= 0.8) {
     const b = a - 0.8, ready = cap.res && b > 0.9;
     const y = Math.min(232, 186 + b * b * 400);
+    if (!cap.drop) { cap.drop = 1; sfx('capsuleDrop'); }
+    if (b > 0.15 && !cap.wob) { cap.wob = 1; sfx('wobble'); }
     if (!ready || !cap.open) {
-      if (ready && !cap.open) { cap.open = t; sfx('claim'); }
+      if (ready && !cap.open) { cap.open = t; sfx('pop'); }
       const wob = Math.sin(b * 22) * (b > 0.15 ? 0.25 : 0);
       g.save(); g.translate(mx + 25, y); g.rotate(wob);
       g.fillStyle = col; g.beginPath(); g.arc(0, 0, 14, Math.PI, 0); g.fill();
@@ -2906,9 +2925,9 @@ function capsuleDraw(now) {
   cap.raf = requestAnimationFrame(capsuleDraw);
 }
 function capsuleSpin() {
-  cap.t0 = performance.now() / 1000; cap.res = null; cap.open = 0;
+  cap.t0 = performance.now() / 1000; cap.res = null; cap.open = 0; cap.drop = 0; cap.wob = 0;
   document.getElementById('w-cap-got').classList.add('hidden');
-  sfx('click');
+  sfx('crank');
   if (!cap.raf) cap.raf = requestAnimationFrame(capsuleDraw);
 }
 

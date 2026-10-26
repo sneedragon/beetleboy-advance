@@ -85,6 +85,19 @@ const SFX = (() => {
     beetle:   () => { const f = vary(1800, 3); tone(f, { type: 'triangle', dur: 0.05, vol: 0.06, slide: 1.4 }); tone(f * 1.2, { type: 'triangle', at: 0.06, dur: 0.05, vol: 0.05, slide: 1.3 }); },
     beetleMad: () => tone(300, { type: 'sawtooth', dur: 0.15, vol: 0.05, slide: 0.7 }),
     flee:     () => noise({ dur: 0.35, vol: 0.08, freq: 1800, q: 0.5 }),
+    // the slot machines
+    lever:    () => { noise({ dur: 0.12, vol: 0.1, freq: 500, q: 1.5 }); tone(140, { type: 'square', dur: 0.12, vol: 0.05, slide: 0.6, wet: false }); for (let i = 0; i < 8; i++) tone(1400 + i * 60, { type: 'square', at: 0.12 + i * 0.045, dur: 0.025, vol: 0.022, wet: false }); },
+    reelTick: () => tone(vary(1700, 1), { type: 'square', dur: 0.02, vol: 0.018, wet: false }),
+    reelStop: () => { noise({ dur: 0.06, vol: 0.14, freq: 260, q: 2 }); tone(196, { type: 'triangle', dur: 0.09, vol: 0.08, slide: 0.7, wet: false }); },
+    tease:    () => tone(392, { type: 'sawtooth', dur: 0.9, vol: 0.035, slide: 2, attack: 0.05 }),
+    coins:    () => { for (let i = 0; i < 7; i++) { tone(vary(2093, 2), { type: 'triangle', at: i * 0.06, dur: 0.09, vol: 0.05 }); noise({ at: i * 0.06, dur: 0.04, vol: 0.04, freq: 7000, q: 6 }); } },
+    jackpot:  () => { arp([523.25, 659.25, 783.99, 1046.5, 783.99, 1046.5, 1318.5, 1567.98], 0.09, { type: 'square', dur: 0.2, vol: 0.045 }); tone(261.63, { type: 'triangle', dur: 0.8, vol: 0.06 }); tone(2093, { at: 0.75, dur: 0.6, vol: 0.05 }); for (let i = 0; i < 12; i++) noise({ at: 0.2 + i * 0.07, dur: 0.05, vol: 0.035, freq: 8000, q: 5 }); },
+    slotLose: () => { tone(330, { type: 'triangle', dur: 0.14, vol: 0.05 }); tone(262, { type: 'triangle', at: 0.14, dur: 0.24, vol: 0.05, slide: 0.9 }); },
+    // the capsule machine
+    crank:    () => { for (let i = 0; i < 6; i++) { noise({ at: i * 0.07, dur: 0.035, vol: 0.12, freq: 1100 + (i % 2) * 300, q: 4 }); tone(320 + (i % 2) * 40, { type: 'square', at: i * 0.07, dur: 0.03, vol: 0.03, wet: false }); } },
+    capsuleDrop: () => { tone(520, { type: 'triangle', dur: 0.08, vol: 0.07, slide: 0.6 }); tone(340, { type: 'triangle', at: 0.13, dur: 0.07, vol: 0.05, slide: 0.7 }); tone(260, { type: 'triangle', at: 0.22, dur: 0.06, vol: 0.035, slide: 0.8 }); noise({ dur: 0.05, vol: 0.08, freq: 600, q: 2 }); },
+    wobble:   () => { for (let i = 0; i < 3; i++) tone(440 + i * 30, { type: 'sine', at: i * 0.12, dur: 0.1, vol: 0.04, slide: 1.3 }); },
+    pop:      () => { noise({ dur: 0.07, vol: 0.18, freq: 1800, q: 0.7 }); tone(900, { dur: 0.08, vol: 0.08, slide: 2.2, wet: false }); arp([1318.5, 1567.98, 2093], 0.05, { at: 0.06, dur: 0.25, vol: 0.04 }); },
     unmute:   () => arp([659.25, 987.77], 0.07, { type: 'triangle', dur: 0.15, vol: 0.06 }),
   };
   // Halloween: minor, a bit wobbly

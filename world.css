@@ -387,6 +387,16 @@ body.world.w-dark #cp-head h1 { color: #b9c4ff; }
 .w-ticket i { position: absolute; left: 0; bottom: 0; height: 3px; background: #2fae7a; }
 .w-ticket.done { opacity: 0.5; }
 .w-hand { padding: 4px 8px; background: var(--lcd); color: var(--lcd-ink); border: 1px solid #7d8473; border-radius: 4px; font-family: var(--pixel); font-size: 13px; }
+#w-wb .w-box { width: min(680px, 100%); }
+#w-wb-cv { display: block; width: 100%; aspect-ratio: 16 / 9; background: #fff; border: 3px solid #c9ccd8; border-radius: 6px; touch-action: none; cursor: crosshair; }
+#w-wb-tools { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px; margin-top: 10px; }
+#w-wb-tools span { width: 8px; }
+#w-wb-tools button[data-wbc] { width: 30px; height: 30px; padding: 0 !important; border-radius: 50%; background: var(--c) !important; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.25); color: #556; }
+#w-wb-tools button.on { outline: 3px solid var(--navy); outline-offset: 2px; }
+#w-wb-tools button.sz { width: 34px; height: 30px; display: flex; align-items: center; justify-content: center; padding: 0 !important; }
+#w-wb-tools button.sz i { display: block; border-radius: 50%; background: currentColor; }
+#w-wb-tools button.sure { color: #fff; background: #d8443c !important; }
+body.world.w-dark #w-wb-tools button.on { outline-color: #b9c4ff; }
 #w-read .w-box { width: min(640px, 100%); display: flex; flex-direction: column; }
 #w-read-body { flex: 1; overflow-y: auto; margin-right: -6px; padding-right: 6px; }
 .w-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 6px; }
@@ -514,6 +524,8 @@ a.w-link { display: inline-block; padding: 6px 14px; border-radius: 6px; text-de
 #w-slot-pay img, #w-slot-pay i { width: 24px; height: 24px; object-fit: contain; image-rendering: pixelated; }
 #w-slot-pay b { margin-left: auto; font-family: var(--pixel); font-weight: normal; color: var(--navy2); }
 #w-slot-pay span { color: var(--dim); }
+body.world.w-dark #w-slot-pay b { color: #ffd76a; }
+body.world.w-dark #w-slot-pay span, body.world.w-dark #w-slot-pay p { color: #d4d0e6; }
 #w-map .w-box { width: min(760px, 100%); }
 #w-map-wrap { display: flex; justify-content: center; }
 #w-map-cv { display: block; border-radius: 6px; border: 1px solid var(--border2); }

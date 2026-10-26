@@ -27,6 +27,9 @@ function setLevel(xp) {
 
 // ── the notice board by the plaza ───────────────────────────────────────────
 const PATCH = [
+  ['26 Oct', 'A whiteboard in the library where everyone draws together, with colours, an eraser and a wipe. You also get a star for every five minutes you spend here now.'],
+  ['26 Oct', 'The pond is smaller, so you can walk round it and jump it on the board. Kickers only throw you the way their arrows point, the rails are easier to land on, and the garden fence shows at night.'],
+  ['26 Oct', 'The slots and the capsule machine sound like it now: a lever, ticking reels, coins and a fanfare for big wins. A pumpkin you harvest is sometimes hollow, with a pumpkin hat inside.'],
   ['26 Oct', 'Sit down on any chair, stool, bench, sofa or pew. On the board you can now kickflip over tables, benches and the park hedges, but not over the garden fence.'],
   ['26 Oct', 'The beetle slots have four reels of three with seven lines, a golden wild and big wins. The Jade Arches look like a jade dynasty now, steaks show when they are cooked, and you can see what you are carrying. One order in a hundred gives you the crew cap.'],
   ['26 Oct', 'A back alley with a dumpster behind the Jade Arches and Cyberia, a busier terminal with computers, arcades and servers, your level next to your name, and walking that stops when you let go.'],
@@ -105,8 +108,8 @@ function spinSlots() {
   clearWins();
   slotCols().forEach(c => { c.classList.remove('land'); c.classList.add('spin'); });
   clearInterval(HUB.anim);
-  HUB.anim = setInterval(() => slotCols().forEach(c => { if (c.classList.contains('spin')) c.innerHTML = cellsHtml([randSym(), randSym(), randSym()]); }), 60);
-  renderSlots(); sfx('click');
+  HUB.anim = setInterval(() => { slotCols().forEach(c => { if (c.classList.contains('spin')) c.innerHTML = cellsHtml([randSym(), randSym(), randSym()]); }); if (HUB.spinning) sfx('reelTick'); }, 60);
+  renderSlots(); sfx('lever');
   worldSend({ slot: { bet: HUB.bet } }, true);
 }
 function slotResult(s) {
@@ -117,7 +120,8 @@ function slotResult(s) {
   const tease = (s.lines || []).some(([, n]) => n === 3) || s.grid?.slice(0, 3).some(c => c.includes('golden'));
   const at = j => wait + j * 380 + (j === 3 && tease ? 700 : 0);
   world.slotSpin = { i: HUB.slot, until: performance.now() / 1000 + (at(3) + 300) / 1000, reels: s.reels };
-  cols.forEach((c, j) => setTimeout(() => { c.classList.remove('spin'); c.innerHTML = cellsHtml(s.grid[j]); c.classList.add('land'); sfx('click'); }, at(j)));
+  cols.forEach((c, j) => setTimeout(() => { c.classList.remove('spin'); c.innerHTML = cellsHtml(s.grid[j]); c.classList.add('land'); sfx('reelStop'); }, at(j)));
+  if (tease) setTimeout(() => sfx('tease'), at(2) + 60);
   setTimeout(() => {
     const net = s.win - s.bet;
     stop(s.win === 0 ? 'No luck this time.' : net > 0 ? `You win ★ ${s.win}!` : `★ ${s.win} back.`);
@@ -132,8 +136,10 @@ function slotResult(s) {
     const big = document.getElementById('w-slot-big');
     if (s.win >= s.bet * 30) { big.textContent = s.lines.some(([, n, k]) => k === 'golden' && n === 4) ? 'JACKPOT' : 'MEGA WIN'; big.className = 'show mega'; }
     else if (s.win >= s.bet * 8) { big.textContent = 'BIG WIN'; big.className = 'show'; }
+    if (s.win >= s.bet * 8) sfx('jackpot');
+    else if (net > 0) sfx('coins');
+    else if (s.win === 0) sfx('slotLose');
     if (net > 0) {
-      sfx('claim');
       const me = world.cats.get(world.me);
       if (me) world.splashes.push({ x: me.x, y: me.y - 60, t: performance.now() / 1000, text: `+★ ${s.win}`, col: '#ffb43d' });
       if (s.win >= s.bet * 8) for (let i = 0; i < 4; i++) world.fx.set(`slot${Date.now()}${i}`, { x: SLOTS[HUB.slot].x + 38 + (i - 1.5) * 40, y: SLOTS[HUB.slot].y + 20, hue: 30 + i * 20, kind: 'confetti', t0: performance.now() / 1000 + i * 0.2 });

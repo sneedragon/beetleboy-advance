@@ -16,7 +16,7 @@ const GOAL = [1310, 1390];          // the goal mouths at both ends, as in js/wo
 const BALL_K = 1.4;
 // coins
 const DAILY = 25;                  // first visit of the day
-const ACT_CAP = 60;                // one a minute while active, at most this many a day
+const ACT_CAP = 60;                // one every five minutes online, at most this many a day
 const XP_PER_COIN = 200, XP_CAP = 150;
 const CAPSULE = 30;                // the capsule machine
 const WISH = 1;                    // a coin into the well
@@ -50,6 +50,8 @@ const SLOT_PAY = ['green' => [3, 12], 'ladybug' => [4, 16], 'pillbug' => [7, 30]
 const SLOT_LINES = [[1, 1, 1, 1], [0, 0, 0, 0], [2, 2, 2, 2], [0, 1, 1, 0], [2, 1, 1, 2], [1, 0, 0, 1], [1, 2, 2, 1]];
 const SLOT_BETS = [1, 5, 10];
 const PLOTS = 8;
+const LIBRARY = [1860, 1200, 2310, 1490];    // the whiteboard works only in here
+const WB_W = 320; const WB_H = 180; const WB_KEEP = 400;
 const CROPS = ['lettuce' => [1, 120, 2], 'carrot' => [1, 150, 2], 'tomato' => [1, 180, 3], 'potato' => [1, 240, 3],
     'corn' => [2, 300, 5], 'strawberry' => [2, 420, 7], 'pumpkin' => [3, 600, 9]];
 
@@ -106,6 +108,7 @@ const SHOP = [
     // price -1: only the well gives it, one wish in a thousand
     'wishhalo'  => ['hat',   'Wish halo',      -1],
     'mccap'     => ['hat',   'Crew cap',       -1],   // one order in a hundred at the Jade Arches
+    'pumpkinhat'=> ['hat',   'Pumpkin hat',    -1],   // one pumpkin in thirty from the farm
     // toys to unlock: you buy them once and keep them
     'k_hearts'  => ['toy',   'Heart burst',    60],
     'k_snow'    => ['toy',   'Snow cloud',     80],
@@ -402,11 +405,11 @@ else {
         $p['c'] = $r['coins']; $p['l'] = $r['lxp']; $p['w'] = $r['wear']; $p['st'] = (string)($r['status'] ?? '');
     }
 
-    // a coin for each minute spent here while doing something (the tab tells us)
-    if ($prev && !empty($in['a'])) {
+    // a coin for every five minutes spent here
+    if ($prev) {
         $p['act'] += min(5, $sec - ($prev['t'] ?? $sec));
-        if ($p['act'] >= 60) {
-            $p['act'] -= 60;
+        if ($p['act'] >= 300) {
+            $p['act'] -= 300;
             $getUser(); $r = &$user;
             if ($r['day'] !== $day) { $r['day'] = $day; $r['act_coins'] = 0; $r['xp_coins'] = 0; $r['bug_coins'] = 0; }
             if ($r['act_coins'] < ACT_CAP) { $r['act_coins']++; earn($r, 1); $dirty = true; }
@@ -602,7 +605,7 @@ else {
         }
     }
     // what you own changed: the client keeps its list in step
-    if (isset($out['shop']) || isset($out['capsule']) || isset($out['wishgift']) || isset($out['mccap'])) $out['owned'] = $user['owned'] ?? [];
+    if (isset($out['shop']) || isset($out['capsule']) || isset($out['wishgift']) || isset($out['mccap']) || isset($out['pumpkinhat'])) $out['owned'] = $user['owned'] ?? [];
     // your quests for today, and the ones you do once
     if (!empty($in['quests'])) {
         $getUser(); $r = &$user;
@@ -790,10 +793,44 @@ else {
             if ($r['coins'] < CROPS[$c][0]) $out['farmerr'] = 'Not enough stars for that seed.';
             else { $r['coins'] -= CROPS[$c][0]; $f[$i] = [$c, $sec]; }
         } elseif ($i >= 0 && $i < PLOTS && !empty($in['farm']['h']) && $f[$i] && $sec - $f[$i][1] >= CROPS[$f[$i][0]][1]) {
-            gain($r, 'c:' . $f[$i][0]); $r['lxp']++; $out['harvest'] = $f[$i][0]; $f[$i] = null;
+            gain($r, 'c:' . $f[$i][0]); $r['lxp']++; $out['harvest'] = $f[$i][0];
+            if ($f[$i][0] === 'pumpkin' && !in_array('pumpkinhat', $r['owned'] ?? [], true) && mt_rand(1, 30) === 1) { $r['owned'][] = 'pumpkinhat'; $out['pumpkinhat'] = 1; }
+            $f[$i] = null;
         }
         $r['inv']['farm'] = $f; $dirty = true;
         $out['farm'] = $f; $p['c'] = $r['coins'];
+    }
+    // the library whiteboard: everyone draws on it together; the strokes live in their own file
+    if (isset($in['wb']) && is_array($in['wb'])) {
+        $wf = tmpd() . '/' . ($test ? 'bbwb_test.json' : 'bbwb_v1.json');
+        $wp = fopen($wf, 'c+');
+        if ($wp) {
+            flock($wp, LOCK_EX);
+            $wb = json_decode(stream_get_contents($wp) ?: '{}', true);
+            if (!is_array($wb)) $wb = [];
+            $wb += ['n' => 0, 's' => [], 'clr' => 0];
+            $inLib = $rx >= LIBRARY[0] && $rx <= LIBRARY[2] && $ry >= LIBRARY[1] && $ry <= LIBRARY[3];
+            $put = false;
+            if ($inLib && !empty($in['wb']['clr'])) { $wb['s'] = []; $wb['clr'] = ++$wb['n']; $put = true; }
+            foreach ($inLib && is_array($in['wb']['s'] ?? null) ? array_slice($in['wb']['s'], 0, 12) : [] as $st) {
+                if (!is_array($st) || count($st) !== 3 || !is_array($st[2])) continue;
+                $pts = [];
+                foreach (array_slice(array_values($st[2]), 0, 240) as $i => $v) $pts[] = max(0, min($i % 2 ? WB_H : WB_W, (int)$v));
+                if (count($pts) < 2 || count($pts) % 2) continue;
+                $wb['s'][] = [++$wb['n'], max(0, min(7, (int)$st[0])), max(1, min(4, (int)$st[1])), $pts];
+                $put = true;
+            }
+            if ($put) {
+                $wb['s'] = array_slice($wb['s'], -WB_KEEP);
+                ftruncate($wp, 0); rewind($wp); fwrite($wp, json_encode($wb)); fflush($wp);
+            }
+            flock($wp, LOCK_UN); fclose($wp);
+            // only what is new since the last look, unless the board was wiped or the gap is too old
+            $since = (int)($in['wb']['since'] ?? 0);
+            $first = $wb['s'][0][0] ?? $wb['n'] + 1;
+            $full = $since < $wb['clr'] || $since > $wb['n'] || ($since < $first - 1 && $since > 0) || $since === 0;
+            $out['wb'] = ['n' => $wb['n'], 'full' => $full ? 1 : 0, 's' => array_values(array_filter($wb['s'], fn($x) => $full || $x[0] > $since))];
+        }
     }
     $p['sk'] = !empty($in['sk']) ? 1 : 0;         // on the skateboard
     $p['si'] = !empty($in['si']) && empty($in['sk']) ? 1 : 0;   // sitting down

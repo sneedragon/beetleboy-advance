@@ -258,6 +258,12 @@ function farmResult(d) {
     if (me) world.splashes.push({ x: me.x, y: me.y - 56, t: performance.now() / 1000, text: `+1 ${CROP_ICON[d.harvest]}`, col: '#c9a13b' });
     sfx('claim');
   }
+  if (d.pumpkinhat) {
+    worldToast('🎃 This pumpkin was hollow inside: a pumpkin hat! It is in your wardrobe.', 5000);
+    const me = world.cats.get(world.me);
+    if (me) world.splashes.push({ x: me.x, y: me.y - 84, t: performance.now() / 1000, text: '🎃 Pumpkin hat!', col: '#ff8a1e' });
+    sfx('jackpot');
+  }
 }
 
 // ── the church and the library: a reader for the Bible and the articles ─────
@@ -364,8 +370,10 @@ function scoreResult(d) {
 }
 
 // ── the skate park: kickers send you flying, the rail lets you grind ───────
-const KICKERS = [{ x: 1450, y: 1250, w: 44, h: 44 }, { x: 1790, y: 1250, w: 44, h: 44 }, { x: 1450, y: 1520, w: 44, h: 44 }, { x: 1600, y: 1660, w: 44, h: 44 }, { x: 1790, y: 1500, w: 44, h: 44 }];
-const RAILS = [{ x: 1520, y: 1290, w: 200, h: 4 }, { x: 1450, y: 1720, w: 140, h: 4 }, { x: 1700, y: 1440, w: 120, h: 4 }];
+// each kicker faces one way (d): ride up it from the low end towards the yellow lip
+const KICKERS = [{ x: 1440, y: 1250, w: 60, h: 44, d: 0 }, { x: 1790, y: 1250, w: 60, h: 44, d: Math.PI }, { x: 1440, y: 1520, w: 60, h: 44, d: 0 },
+  { x: 1600, y: 1650, w: 44, h: 60, d: -Math.PI / 2 }, { x: 1790, y: 1500, w: 60, h: 44, d: Math.PI }];
+const RAILS = [{ x: 1520, y: 1290, w: 200, h: 6 }, { x: 1450, y: 1720, w: 160, h: 6 }, { x: 1700, y: 1440, w: 130, h: 6 }];
 const BOXES = [{ x: 1560, y: 1380, w: 140, h: 60 }, { x: 1640, y: 1520, w: 100, h: 50 }];
 const inR = (p, r, m = 0) => p.x >= r.x - m && p.x <= r.x + r.w + m && p.y >= r.y - m && p.y <= r.y + r.h + m;
 
@@ -391,6 +399,12 @@ SPOTS.push(
   { id: 'shelf_c', r: SHELF_C, at: { x: 2180, y: 1290 }, near: 60, col: '#b07a42', text: () => '📚 Charlemagne Fang', act: () => openShelf('charlemagne') },
   { id: 'shelf_p', r: SHELF_P, at: { x: 1995, y: 1400 }, near: 60, col: '#b07a42', text: () => '📚 Ray Peat', act: () => openShelf('peat') },
 );
+// the whiteboard: draw on it together; strokes are in board units (320 by 180)
+const WB_R = { x: 2030, y: 1296, w: 130, h: 62 }, WB_W = 320, WB_H = 180;
+const WB_COL = ['#1b1d2a', '#e0383e', '#2f6fe0', '#2f9a5e', '#e8a33d', '#9b4fd6', '#ff7ab6', '#ffffff'];
+const WB_SIZE = [0, 2, 4, 8, 18];
+const WB = { n: 0, strokes: [], pending: [], cur: null, col: 0, size: 2, open: false };
+SPOTS.push({ id: 'wb', r: WB_R, at: { x: WB_R.x + WB_R.w / 2, y: WB_R.y + WB_R.h + 24 }, near: 40, col: '#2f6fe0', text: () => '🖍 Draw on the whiteboard', act: () => openWb() });
 const PEWS = [];
 for (const x of [2400, 2460, 2520, 2580]) PEWS.push({ x, y: 940, w: 18, h: 80 }, { x, y: 1090, w: 18, h: 80 });
 const TABLES = [{ x: 680, y: 80, w: 60, h: 40 }, { x: 830, y: 80, w: 60, h: 40 }, { x: 700, y: 230, w: 60, h: 40 }];
@@ -402,7 +416,7 @@ SEATS.spots();
 
 window.placeSolids = s => {
   for (const { r } of Object.values(STATION)) s.push([r.x, r.y, r.w, r.h, 'prop']);
-  for (const r of [...TABLES, ...DESKS, ...PEWS, SHELF_C, SHELF_P, ALTAR, LECTERN]) s.push([r.x, r.y, r.w, r.h, 'prop']);
+  for (const r of [...TABLES, ...DESKS, ...PEWS, SHELF_C, SHELF_P, ALTAR, LECTERN, WB_R]) s.push([r.x, r.y, r.w, r.h, 'prop']);
 };
 
 window.placeFloors = (g, floor, grass, rnd, D) => {
@@ -419,10 +433,6 @@ window.placeFloors = (g, floor, grass, rnd, D) => {
     g.strokeStyle = D ? 'rgba(255,255,255,0.04)' : 'rgba(80,80,110,0.18)'; g.lineWidth = 1;
     for (let x = z.x; x < z.x + z.w; x += 80) { g.beginPath(); g.moveTo(x + 0.5, z.y); g.lineTo(x + 0.5, z.y + z.h); g.stroke(); }
     for (let y = z.y; y < z.y + z.h; y += 80) { g.beginPath(); g.moveTo(z.x, y + 0.5); g.lineTo(z.x + z.w, y + 0.5); g.stroke(); }
-    // a bowl painted in the corner, and some paint
-    g.fillStyle = D ? '#121119' : '#c6c4cf'; g.beginPath(); g.ellipse(1760, 1690, 80, 60, 0, 0, Math.PI * 2); g.fill();
-    g.strokeStyle = D ? '#3a3648' : '#f2f2f6'; g.lineWidth = 3; g.stroke();
-    for (let i = 0; i < 12; i++) { g.fillStyle = `hsla(${rnd(0, 360)},70%,60%,${D ? 0.12 : 0.25})`; g.beginPath(); g.ellipse(rnd(1430, 1840), rnd(1220, 1760), rnd(10, 26), rnd(6, 14), rnd(0, 3), 0, Math.PI * 2); g.fill(); }
   });
   // the farm: dark earth, tilled plots
   floor(z0('farm'), z => {
@@ -512,21 +522,34 @@ window.placeProps = (g, D, rnd) => {
   }
   // the skate park: kickers, a fun box and a rail
   for (const k of KICKERS) {
-    const grd = g.createLinearGradient(k.x, 0, k.x + k.w, 0);
-    grd.addColorStop(0, D ? '#2a2733' : '#bdbcc8'); grd.addColorStop(1, D ? '#4a4660' : '#f4f4f8');
-    g.fillStyle = 'rgba(40,40,70,0.2)'; g.fillRect(k.x + 4, k.y + k.h, k.w, 6);
-    g.fillStyle = grd; g.fillRect(k.x, k.y, k.w, k.h);
-    g.fillStyle = D ? '#ffd34d' : '#e8a33d'; g.fillRect(k.x + k.w - 4, k.y, 4, k.h);
+    // a wedge: low at the back, high at the yellow lip, with arrows showing which way to ride it
+    const cx = k.x + k.w / 2, cy = k.y + k.h / 2, ux = Math.round(Math.cos(k.d)), uy = Math.round(Math.sin(k.d));
+    const along = ux ? k.w : k.h, across = ux ? k.h : k.w;
+    g.save(); g.translate(cx, cy); g.rotate(k.d);
+    g.fillStyle = 'rgba(20,20,40,0.3)'; g.fillRect(-along / 2 + 6, -across / 2 + 6, along, across);
+    const grd = g.createLinearGradient(-along / 2, 0, along / 2, 0);
+    grd.addColorStop(0, D ? '#3a3650' : '#c4c3cf'); grd.addColorStop(1, D ? '#77729a' : '#ffffff');
+    g.fillStyle = grd; g.fillRect(-along / 2, -across / 2, along, across);
+    g.fillStyle = D ? '#ffd34d' : '#e8a33d'; g.fillRect(along / 2 - 6, -across / 2, 6, across);
+    g.fillStyle = D ? '#9a6a10' : '#b77a1e'; g.fillRect(along / 2, -across / 2 + 2, 3, across);           // the lip's drop
+    g.strokeStyle = D ? 'rgba(255,211,77,0.75)' : 'rgba(60,64,110,0.55)'; g.lineWidth = 3; g.lineCap = 'round';
+    for (const o of [-14, 2]) { g.beginPath(); g.moveTo(o, -9); g.lineTo(o + 8, 0); g.lineTo(o, 9); g.stroke(); }
+    g.restore(); g.lineCap = 'butt';
   }
   for (const BOX of BOXES) {
-    g.fillStyle = 'rgba(40,40,70,0.2)'; g.fillRect(BOX.x + 4, BOX.y + BOX.h, BOX.w, 8);
-    g.fillStyle = D ? '#34304a' : '#b9b6c8'; g.fillRect(BOX.x, BOX.y, BOX.w, BOX.h);
-    g.fillStyle = D ? '#4a4660' : '#e4e3ec'; g.fillRect(BOX.x + 30, BOX.y + 6, BOX.w - 60, BOX.h - 12);
+    g.fillStyle = 'rgba(20,20,40,0.3)'; g.fillRect(BOX.x + 6, BOX.y + BOX.h, BOX.w, 8);
+    g.fillStyle = D ? '#4a4562' : '#b9b6c8'; g.fillRect(BOX.x, BOX.y, BOX.w, BOX.h);
+    g.fillStyle = D ? '#625c82' : '#e4e3ec'; g.fillRect(BOX.x + 30, BOX.y + 6, BOX.w - 60, BOX.h - 12);
+    g.fillStyle = D ? '#ffd34d' : '#e8a33d'; g.fillRect(BOX.x + 28, BOX.y, 3, BOX.h); g.fillRect(BOX.x + BOX.w - 31, BOX.y, 3, BOX.h);
   }
   for (const RAIL of RAILS) {
-    g.fillStyle = 'rgba(40,40,70,0.25)'; g.fillRect(RAIL.x, RAIL.y + 8, RAIL.w, 3);
-    g.fillStyle = D ? '#8a86a8' : '#5d606c'; g.fillRect(RAIL.x, RAIL.y, RAIL.w, RAIL.h);
-    for (let x = RAIL.x + 10; x < RAIL.x + RAIL.w; x += 50) g.fillRect(x, RAIL.y, 3, 10);
+    // a painted strip under the rail shows where to land to grind
+    g.fillStyle = D ? 'rgba(255,61,110,0.16)' : 'rgba(255,61,110,0.14)'; g.fillRect(RAIL.x - 6, RAIL.y - 14, RAIL.w + 12, RAIL.h + 28);
+    g.fillStyle = 'rgba(20,20,40,0.3)'; g.fillRect(RAIL.x, RAIL.y + 12, RAIL.w, 4);
+    g.fillStyle = D ? '#b8b4d8' : '#4d505c';
+    for (let x = RAIL.x + 8; x < RAIL.x + RAIL.w; x += 48) g.fillRect(x, RAIL.y, 4, 14);
+    g.fillRect(RAIL.x, RAIL.y, RAIL.w, RAIL.h);
+    g.fillStyle = D ? '#ffffff' : '#a7abba'; g.fillRect(RAIL.x, RAIL.y, RAIL.w, 2);
   }
   // the kitchen: the fridge, the board, the grill, the fryer, the plate, the bin, the counter
   const steel = D ? '#2a2c34' : '#d3d6de', steel2 = D ? '#5a1218' : '#a8202a';
@@ -630,6 +653,7 @@ window.placeProps = (g, D, rnd) => {
 
 window.placesLive = (g, clock, layer) => {
   const me = world.cats.get(world.me), D = world.dark;
+  if (layer === 'under' && world.zone?.id === 'library') drawWbStand(g, D);
   if (layer === 'over') {
     // what I carry floats over my head
     // what I carry, held out in front of me in both paws
@@ -719,6 +743,7 @@ window.placesLive = (g, clock, layer) => {
 };
 
 window.placesTick = (d, extra) => {
+  wbResult(d, extra);
   kitchenResult(d);
   farmResult(d);
   scoreResult(d);
@@ -730,14 +755,17 @@ window.placesTick = (d, extra) => {
 };
 
 window.skateRamp = (me, b, t) => {
-  if (!b.z && b.vz <= 0 && b.v > 60 && t - (b.kicked || 0) > 0.5 && (KICKERS.some(k => inR(me, k)) || BOXES.some(x => inR(me, x) && !inR(me, x, -20)))) {
+  // a kicker only throws you when you ride up it the way it faces; the fun box works from either end
+  const up = k => inR(me, k) && Math.cos(b.h - k.d) > 0.5;
+  if (!b.z && b.vz <= 0 && b.v > 60 && t - (b.kicked || 0) > 0.5 && (KICKERS.some(up) || BOXES.some(x => inR(me, x) && !inR(me, x, -20)))) {
     b.vz = SK.pop * (0.75 + 0.6 * b.v / SK.max); b.z = 0.1; b.kicked = t; b.trick = ''; b.spin = 0;
     world.splashes.push({ x: me.x, y: me.y - 60, t, text: 'Air!', col: '#5b63e6' });
     sfx('click');
   }
-  // over the rail on the way down, going along it: grind
-  const onRail = RAILS.some(r => inR(me, r, 5)) && Math.abs(Math.cos(b.h)) > 0.85;
-  if (onRail && b.z > 2 && b.vz <= 0) {
+  // come down anywhere on the pink strip going roughly along the rail, and you lock onto it and grind
+  const rail = RAILS.find(r => inR(me, r, b.grind ? 18 : 14)), onRail = rail && Math.abs(Math.cos(b.h)) > (b.grind ? 0.4 : 0.6);
+  if (onRail && (b.grind || (b.z > 2 && b.vz <= 0))) {
+    me.y += (rail.y + rail.h / 2 - me.y) * 0.5;
     if (!b.grind) { b.grind = t; world.splashes.push({ x: me.x, y: me.y - 60, t, text: '50-50', col: '#ff3d6e' }); sfx('click'); }
     b.z = 6; b.vz = 0;
   } else if (b.grind && !onRail) {
@@ -746,7 +774,97 @@ window.skateRamp = (me, b, t) => {
   }
 };
 
-window.placesClose = () => { for (const id of ['w-pantry', 'w-seeds', 'w-read']) document.getElementById(id)?.classList.add('hidden'); };
+window.placesClose = () => { for (const id of ['w-pantry', 'w-seeds', 'w-read', 'w-wb']) document.getElementById(id)?.classList.add('hidden'); WB.open = false; };
+
+// ── the whiteboard ──────────────────────────────────────────────────────────
+function wbPaint(g, st, k) {
+  const [, c, sz, p] = st;
+  g.strokeStyle = WB_COL[c]; g.lineWidth = WB_SIZE[sz] * k; g.lineCap = 'round'; g.lineJoin = 'round';
+  g.beginPath(); g.moveTo(p[0] * k, p[1] * k);
+  if (p.length === 2) g.lineTo(p[0] * k + 0.01, p[1] * k);
+  for (let i = 2; i < p.length; i += 2) g.lineTo(p[i] * k, p[i + 1] * k);
+  g.stroke();
+}
+// the board, redrawn into its own canvas only when a stroke comes in
+const wbCv = document.createElement('canvas'); wbCv.width = WB_W; wbCv.height = WB_H;
+function wbRender() {
+  const g = wbCv.getContext('2d');
+  g.fillStyle = '#ffffff'; g.fillRect(0, 0, WB_W, WB_H);
+  const all = [...WB.strokes, ...WB.pending, ...(WB.cur ? [WB.cur] : [])];
+  for (const st of all) wbPaint(g, st, 1);
+  const cv = document.getElementById('w-wb-cv');
+  if (WB.open && cv) {                                          // the panel paints at its own size, so lines stay sharp
+    const c = cv.getContext('2d'); c.fillStyle = '#ffffff'; c.fillRect(0, 0, cv.width, cv.height);
+    for (const st of all) wbPaint(c, st, cv.width / WB_W);
+  }
+}
+wbRender();
+function drawWbStand(g, D) {
+  const r = WB_R;
+  g.fillStyle = 'rgba(20,20,40,0.3)'; g.fillRect(r.x + 8, r.y + r.h, r.w - 8, 8);
+  g.fillStyle = D ? '#6e6890' : '#9aa0b2'; g.fillRect(r.x + 10, r.y + r.h - 6, 4, 12); g.fillRect(r.x + r.w - 14, r.y + r.h - 6, 4, 12);
+  g.fillStyle = D ? '#8a86a8' : '#c9ccd8'; g.fillRect(r.x - 3, r.y - 3, r.w + 6, r.h - 2);
+  g.drawImage(wbCv, r.x, r.y, r.w, r.h - 8);
+  if (D) { g.fillStyle = 'rgba(0,0,20,0.25)'; g.fillRect(r.x, r.y, r.w, r.h - 8); }
+  g.fillStyle = D ? '#6e6890' : '#9aa0b2'; g.fillRect(r.x - 3, r.y + r.h - 8, r.w + 6, 4);     // the pen tray
+  for (let i = 0; i < 4; i++) { g.fillStyle = WB_COL[i + 1]; g.fillRect(r.x + 12 + i * 10, r.y + r.h - 10, 7, 2); }
+}
+function openWb() {
+  closePanels();
+  WB.open = true;
+  document.getElementById('w-wb').classList.remove('hidden');
+  wbTools(); wbRender();
+  (world.out.wb ||= { s: [] }).since = WB.n;
+  worldSend({}, true);
+}
+function wbTools() {
+  document.getElementById('w-wb-tools').innerHTML = WB_COL.map((c, i) => `<button type="button" data-wbc="${i}" class="${i === WB.col ? 'on' : ''}" style="--c:${c}" title="${i === 7 ? 'Eraser' : 'Colour'}">${i === 7 ? '⌫' : ''}</button>`).join('')
+    + '<span></span>' + [1, 2, 3, 4].map(z => `<button type="button" data-wbs="${z}" class="sz ${z === WB.size ? 'on' : ''}"><i style="width:${3 + z * 3}px;height:${3 + z * 3}px"></i></button>`).join('')
+    + '<span></span><button type="button" data-wbclr="1" class="clr">Wipe</button>';
+}
+function wbResult(d, extra) {
+  if (extra?.wb?.s?.length) { const sent = extra.wb.s.map(x => x[2]); WB.pending = WB.pending.filter(st => !sent.includes(st[3])); }
+  if (d.wb) {
+    if (d.wb.full) WB.strokes = [];
+    WB.strokes.push(...d.wb.s); WB.strokes = WB.strokes.slice(-400); WB.n = d.wb.n;
+    if (d.wb.s.length || d.wb.full) wbRender();
+  }
+  // look again with every tick while I am in the library
+  if (world.zone?.id === 'library' && !world.out.wb) world.out.wb = { s: [], since: WB.n };
+}
+function wbQueue(st) {
+  WB.pending.push(st);
+  const o = (world.out.wb ||= { s: [] });
+  (o.s ||= []).push([st[1], st[2], st[3]]); o.since = WB.n;
+}
+{
+  const cv = document.getElementById('w-wb-cv');
+  const at = e => { const b = cv.getBoundingClientRect(); return [Math.round((e.clientX - b.left) / b.width * WB_W), Math.round((e.clientY - b.top) / b.height * WB_H)]; };
+  const end = () => { if (!WB.cur) return; const st = WB.cur; WB.cur = null; wbQueue(st); worldSend({}, true); };
+  cv.addEventListener('pointerdown', e => { e.preventDefault(); cv.setPointerCapture(e.pointerId); WB.cur = [0, WB.col, WB.size, at(e)]; wbRender(); });
+  cv.addEventListener('pointermove', e => {
+    if (!WB.cur) return;
+    const p = WB.cur[3], [x, y] = at(e);
+    if (Math.hypot(x - p[p.length - 2], y - p[p.length - 1]) < 2) return;
+    p.push(x, y);
+    if (p.length >= 238) { end(); WB.cur = [0, WB.col, WB.size, [x, y]]; }
+    wbRender();
+  });
+  for (const ev of ['pointerup', 'pointercancel']) cv.addEventListener(ev, end);
+}
+document.getElementById('w-wb').addEventListener('click', e => {
+  if (e.target.id === 'w-wb' || e.target.closest('#w-wb-close')) return placesClose();
+  const v = e.target.closest('button')?.dataset;
+  if (!v) return;
+  if (v.wbc) WB.col = +v.wbc;
+  if (v.wbs) WB.size = +v.wbs;
+  if (v.wbclr) {
+    if (!e.target.closest('button').classList.contains('sure')) { e.target.closest('button').classList.add('sure'); e.target.closest('button').textContent = 'Wipe for everyone?'; return; }
+    WB.strokes = []; WB.pending = []; wbRender();
+    (world.out.wb ||= { s: [] }).clr = 1; worldSend({}, true);
+  }
+  wbTools(); sfx('click');
+});
 
 // the panels
 document.getElementById('w-pantry').addEventListener('click', e => {
