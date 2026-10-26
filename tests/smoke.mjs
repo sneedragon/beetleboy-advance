@@ -348,6 +348,11 @@ async function checkWorld(label, viewport) {
     if (b.tv) w.tv = out.tv = { v: 'dQw4w9WgXcQ', age: 0, by: 'Tester' };
     if (b.capsule) { w.wear.back = 'wings'; out.capsule = 'wings'; out.capsule_name = 'Wings'; }
     if (b.wish) out.wish = 'ok';
+    if (b.fish) { out.fish = 'koi'; out.fish_name = 'Koi'; w.fish = 1; }
+    if (b.fw) { w.coins -= 2; out.coins = w.coins; out.fw = 'ok'; out.fx = [[b.fw.x, b.fw.y, 0.1, 200]]; }
+    if (b.gift) { w.coins -= b.gift.n; out.coins = w.coins; out.gift = 'ok'; }
+    if (b.prof) out.prof = { u: b.prof, coins: 5, items: 1, wear: { hat: 'crown' }, bugs: 3, fish: 2, since: 1, here: true };
+    if (b.inv) out.inv = { owned: w.owned, bugs: [2, 1, 0], fish: w.fish ? { koi: 1 } : {}, fishnames: { minnow: 'Minnow', koi: 'Koi', golden: 'Golden fish' } };
     if (b.catch) { out.caught = b.catch; out.bug_coins = 1; out.gone = [b.catch]; }
     if (b.shopinfo) { out.catalog = [{ id: 'antenna', slot: 'hat', name: 'Antenna', price: 40 }, { id: 'crown', slot: 'hat', name: 'Crown', price: 300 }, { id: 'wings', slot: 'back', name: 'Wings', price: 0 }]; out.owned = w.owned; }
     route.fulfill({ contentType: 'application/json', body: JSON.stringify(out) });
@@ -396,7 +401,7 @@ async function checkWorld(label, viewport) {
   await page.waitForTimeout(300);
   await page.keyboard.press('e');
   await page.click('#w-cap-turn');
-  await page.waitForTimeout(600);
+  await page.waitForTimeout(2200);
   if (!await page.isVisible('#w-cap-got')) fail(`${label} world: the capsule machine gave nothing`);
   await page.keyboard.press('Escape');
   // the well
@@ -416,6 +421,7 @@ async function checkWorld(label, viewport) {
   await page.waitForTimeout(1300);
   if (!w.sent.some(b => b.tv)) fail(`${label} world: video not sent`);
   await page.screenshot({ path: `${ROOT}tests/out/${label}-world-club.png` });
+  await page.keyboard.press('Escape');
   // a beetle in the garden gets caught by walking into it
   await page.evaluate(() => { const b = bugAt(0, netNow()); const me = world.cats.get(world.me); me.x = me.tx = b.x; me.y = me.ty = b.y; world.target = null; });
   await page.waitForTimeout(700);
@@ -428,6 +434,47 @@ async function checkWorld(label, viewport) {
   await page.click('#w-lab-close');
   await page.waitForTimeout(300);
   if (!w.sent.some(b => b.xp)) fail(`${label} world: closing the game asked for no coins`);
+  // the pond: cast, wait for the bite, reel in
+  await goTo(460, 680);
+  await page.waitForTimeout(300);
+  if (await page.evaluate(() => world.near?.id) !== 'pond') fail(`${label} world: no prompt at the pond`);
+  await page.keyboard.press('e');
+  await page.evaluate(() => { world.fishing.bite = performance.now() / 1000 - 0.1; });
+  await page.waitForTimeout(100);
+  await page.keyboard.press('e');
+  await page.waitForTimeout(500);
+  if (!w.sent.some(b => b.fish)) fail(`${label} world: fishing sent nothing`);
+  // a firework from the toys
+  await page.click('#w-toy-btn');
+  await page.click('#w-toys [data-toy="fw"]');
+  await page.mouse.click(box.x + box.w * 0.5, box.y + box.h * 0.3);
+  await page.waitForTimeout(400);
+  if (!w.sent.some(b => b.fw)) fail(`${label} world: the firework did not go up`);
+  await page.waitForTimeout(900);
+  await page.screenshot({ path: `${ROOT}tests/out/${label}-world-toys.png` });
+  await page.keyboard.press('Escape');
+  // the bag
+  await page.click('#w-bag-btn');
+  await page.click('#w-bag [data-tab="fish"]');
+  await page.waitForTimeout(400);
+  if (!(await page.textContent('#w-bag-list')).includes('Koi')) fail(`${label} world: the bag does not show the fish`);
+  await page.screenshot({ path: `${ROOT}tests/out/${label}-world-bag.png` });
+  await page.keyboard.press('Escape');
+  // someone's card: from a name, with things to do together
+  await page.evaluate(() => openProfile('guest'));
+  await page.waitForTimeout(500);
+  if (!await page.isVisible('#w-card .wc-lcd')) fail(`${label} world: the profile card did not open`);
+  await page.click('#w-card [data-gift="5"]');
+  await page.waitForTimeout(400);
+  if (!w.sent.some(b => b.gift?.to === 'guest')) fail(`${label} world: the gift was not sent`);
+  await page.screenshot({ path: `${ROOT}tests/out/${label}-world-card.png` });
+  await page.keyboard.press('Escape');
+  // the people list slides in and back out
+  await page.click('#cp-people-btn');
+  await page.waitForTimeout(300);
+  await page.click('#cp-side-close');
+  await page.waitForTimeout(300);
+  if (await page.evaluate(() => document.body.classList.contains('cp-side-open'))) fail(`${label} world: the people list does not close`);
   // the remilia sign-in finds the garden gate shut
   if (await page.evaluate(() => { localStorage.setItem('bb_chat_rn', '1'); const r = blocked(1440, 784); localStorage.removeItem('bb_chat_rn'); return r; }) !== 'lab') fail(`${label} world: the garden gate is open for the remilia sign-in`);
   await page.screenshot({ path: `${ROOT}tests/out/${label}-world-garden.png` });

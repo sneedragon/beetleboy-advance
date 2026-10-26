@@ -71,6 +71,8 @@ function db(bool $test): PDO {
         act_coins INT NOT NULL DEFAULT 0, xp_coins INT NOT NULL DEFAULT 0, xp INT, xp_rest INT NOT NULL DEFAULT 0,
         owned TEXT NOT NULL DEFAULT "[]", wear TEXT NOT NULL DEFAULT "{}", since INT NOT NULL DEFAULT 0)');
     try { $db->exec('ALTER TABLE users ADD COLUMN bug_coins INT NOT NULL DEFAULT 0'); } catch (PDOException $e) {}
+    // what you caught and gave: {"bugs":[n,n,n],"fish":{id:n},"gday":"","gsent":0}
+    try { $db->exec('ALTER TABLE users ADD COLUMN inv TEXT NOT NULL DEFAULT "{}"'); } catch (PDOException $e) {}
     // direct messages: only ciphertext, gone a day after it was sent
     $db->exec('CREATE TABLE IF NOT EXISTS dmkeys (u TEXT PRIMARY KEY, pub TEXT NOT NULL, t INT NOT NULL)');
     $db->exec('CREATE TABLE IF NOT EXISTS dm (id INTEGER PRIMARY KEY AUTOINCREMENT, a TEXT NOT NULL, b TEXT NOT NULL,

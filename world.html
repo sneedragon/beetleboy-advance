@@ -3,18 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content">
-  <title>Layer 01</title>
-  <meta name="theme-color" content="#e6e6f6">
-  <link rel="stylesheet" href="style.css?v=202610260118">
-  <link rel="stylesheet" href="chat/chat.css?v=202610260118">
-  <link rel="stylesheet" href="world.css?v=202610260118">
+  <title>Layer 777</title>
+  <meta name="theme-color" content="#4d88e3">
+  <link rel="stylesheet" href="style.css?v=202610261500">
+  <link rel="stylesheet" href="chat/chat.css?v=202610261500">
+  <link rel="stylesheet" href="world.css?v=202610261500">
   <link rel="icon" href="icons/beetles/green.png" type="image/png">
 </head>
 <body class="chatpage world">
 
   <div id="login-screen" class="hidden">
     <div class="login-box">
-      <h1>Layer 01</h1>
+      <h1>Layer 777</h1>
       <p class="login-sub">A place on the network where the remilia chat hangs out. Sign in with your remilia.net account.</p>
       <form id="login-form">
         <input id="lf-user" type="text" placeholder="Username" autocomplete="username" required>
@@ -31,7 +31,7 @@
   <div id="cp" class="hidden">
     <header id="cp-head">
       <a id="cp-game" href="index.html" title="The beetle game">🪲</a>
-      <h1>Layer 01</h1>
+      <h1>Layer 777</h1>
       <input id="cp-search" type="search" placeholder="Search…" autocomplete="off">
       <button type="button" id="cp-dm-btn" title="Messages">✉<span id="cp-dm-badge" class="hidden"></span></button>
       <button type="button" id="cp-brag-btn" title="Show off your collection">🏆</button>
@@ -59,12 +59,19 @@
         <div id="w-toast"></div>
         <div id="w-bar">
           <button type="button" id="w-emote-btn" title="Emotes">☺</button>
+          <button type="button" id="w-toy-btn" title="Toys">✦</button>
+          <button type="button" id="w-bag-btn" title="Your bag">🎒</button>
+        </div>
+        <div id="w-toys" class="hidden">
+          <button type="button" data-toy="toss">☁ Cloudball</button>
+          <button type="button" data-toy="fw">🎆 Firework ◉ 2</button>
+          <button type="button" data-toy="fish">🎣 Go fishing</button>
         </div>
         <div id="w-emotes" class="hidden">
           <button type="button" data-emote="wave">👋</button>
           <button type="button" data-emote="heart">❤️</button>
-          <button type="button" data-emote="laugh">😂</button>
-          <button type="button" data-emote="spark">✨</button>
+          <button type="button" data-emote="laugh">😹</button>
+          <button type="button" data-emote="spark">💫</button>
           <button type="button" data-emote="dance">🎵</button>
           <button type="button" data-emote="sleep">💤</button>
           <button type="button" data-emote="what">❓</button>
@@ -84,12 +91,16 @@
               <p>The screen plays YouTube videos for everyone in the club. Watching loads the player from youtube-nocookie.com.</p>
               <button type="button" id="w-tv-yes">Watch along</button>
             </div>
-            <p id="w-tv-now" class="w-dim"></p>
+            <div id="w-tv-now"></div>
+            <div id="w-tv-q"></div>
             <div class="w-row">
               <input id="w-tv-url" type="text" placeholder="YouTube link" autocomplete="off">
-              <button type="button" id="w-tv-play">Play</button>
+              <button type="button" id="w-tv-play" class="w-main">Play</button>
             </div>
-            <button type="button" id="w-tv-stop" class="w-quiet">Turn the screen off</button>
+            <div class="w-row w-end">
+              <button type="button" id="w-tv-skip" class="w-quiet hidden">Skip ⏭</button>
+              <button type="button" id="w-tv-stop" class="w-quiet">Turn the screen off</button>
+            </div>
           </div>
         </div>
 
@@ -97,17 +108,21 @@
           <div class="w-box">
             <header><h2>Capsule machine</h2><button type="button" id="w-cap-close">✕</button></header>
             <p>Thirty coins for a capsule with something you can only find in here: wings, a star, a lantern and a few other things.</p>
+            <canvas id="w-cap-cv" width="240" height="250"></canvas>
             <div id="w-cap-got" class="hidden"><canvas width="64" height="64"></canvas><span></span></div>
-            <button type="button" id="w-cap-turn">Turn the handle (◉ 30)</button>
+            <button type="button" id="w-cap-turn" class="w-main">Turn the handle ◉ 30</button>
           </div>
         </div>
 
-        <div id="w-who" class="hidden">
-          <strong></strong>
-          <button type="button" data-who="dm">✉ Message</button>
-          <button type="button" data-who="wave">👋 Wave</button>
-          <button type="button" data-who="mention">~ Mention</button>
+        <div id="w-bag" class="w-panel hidden">
+          <div class="w-box">
+            <header><h2>Bag</h2><button type="button" id="w-bag-close">✕</button></header>
+            <nav class="w-tabs"><button type="button" data-tab="wear">Wardrobe</button><button type="button" data-tab="bugs">Beetles</button><button type="button" data-tab="fish">Fish</button></nav>
+            <div id="w-bag-list"></div>
+          </div>
         </div>
+
+        <div id="w-card" class="w-panel hidden"><div class="w-box"></div></div>
 
         <div id="w-lab" class="hidden">
           <button type="button" id="w-lab-close">✕ Back to the garden</button>
@@ -142,6 +157,7 @@
       </aside>
 
       <aside id="cp-side">
+        <button type="button" id="cp-side-close" title="Close">✕</button>
         <section>
           <h2>Around lately</h2>
           <div id="cp-people"></div>
@@ -178,16 +194,17 @@
     </div>
   </div>
 
-  <script src="assets.js?v=202610260118"></script>
-  <script src="data.js?v=202610260118"></script>
-  <script src="sfx.js?v=202610260118"></script>
-  <script src="js/core.js?v=202610260118"></script>
-  <script src="js/api.js?v=202610260118"></script>
-  <script src="js/chat.js?v=202610260118"></script>
-  <script src="js/advisor.js?v=202610260118"></script>
-  <script src="js/tree.js?v=202610260118"></script>
-  <script src="js/chatpage.js?v=202610260118"></script>
-  <script src="js/world.js?v=202610260118"></script>
-  <script src="js/dm.js?v=202610260118"></script>
+  <script src="assets.js?v=202610261500"></script>
+  <script src="data.js?v=202610261500"></script>
+  <script src="sfx.js?v=202610261500"></script>
+  <script src="js/core.js?v=202610261500"></script>
+  <script src="js/api.js?v=202610261500"></script>
+  <script src="js/chat.js?v=202610261500"></script>
+  <script src="js/advisor.js?v=202610261500"></script>
+  <script src="js/tree.js?v=202610261500"></script>
+  <script src="js/chatpage.js?v=202610261500"></script>
+  <script src="js/world.js?v=202610261500"></script>
+  <script src="js/wprofile.js?v=202610261500"></script>
+  <script src="js/dm.js?v=202610261500"></script>
 </body>
 </html>

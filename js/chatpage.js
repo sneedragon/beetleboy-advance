@@ -471,10 +471,16 @@ function setupPage() {
     if (act === 'mention') { input.value = `${input.value}${input.value && !input.value.endsWith(' ') ? ' ' : ''}~${u} `; input.focus(); }
     else if (act === 'mute') toggleMute(u);
     else if (act === 'profile') openProfile(u);
+    else if (document.body.classList.contains('world')) openProfile(u);
     else setFilter({ user: filter.user === u ? '' : u });
-    if (window.innerWidth <= 720) document.body.classList.remove('cp-side-open');
+    if (window.innerWidth <= 720 || document.body.classList.contains('world')) document.body.classList.remove('cp-side-open');
   });
-  document.getElementById('cp-people-btn').addEventListener('click', () => document.body.classList.toggle('cp-side-open'));
+  document.getElementById('cp-people-btn').addEventListener('click', e => { e.stopPropagation(); document.body.classList.toggle('cp-side-open'); });
+  document.getElementById('cp-side-close')?.addEventListener('click', () => document.body.classList.remove('cp-side-open'));
+  document.addEventListener('pointerdown', e => {
+    if (document.body.classList.contains('cp-side-open') && !e.target.closest('#cp-side, #cp-people-btn')) document.body.classList.remove('cp-side-open');
+  });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') document.body.classList.remove('cp-side-open'); });
 
   const settings = document.getElementById('cp-settings');
   document.getElementById('cp-settings-btn').addEventListener('click', () => { renderMuted(); settings.classList.toggle('hidden'); });

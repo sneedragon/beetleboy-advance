@@ -27,11 +27,16 @@ const GARDEN_GATE = { x: 1370, y: 772, w: 140, h: 24 };
 const WELL = { x: 900, y: 600 };
 const TREES = [[1250, 892], [1650, 892]];
 const POLES = [[700, 450], [1100, 450], [700, 750], [1100, 750], [300, 600], [1500, 600]];
-const EMOTE_ICON = { wave: '👋', heart: '❤️', laugh: '😂', spark: '✨', sleep: '💤', dance: '🎵', what: '❓' };
-const GLITCH_LINES = ['PRESENT DAY', 'PRESENT TIME', 'you are connected', 'layer 01', 'who is here?', 'the network remembers', 'no carrier'];
+const POND = { x: 460, y: 610 };                                // fishing, as in world.php
+const EMOTE_ICON = { wave: '👋', heart: '❤️', laugh: '😹', spark: '💫', sleep: '💤', dance: '🎵', what: '❓', hug: '🤗', high5: '🙌', gift: '🎁' };
+const FISH_ICON = { minnow: '🐟', koi: '🎏', puffer: '🐡', jelly: '🪼', eel: '🪱', angel: '🐠', boot: '👢', disk: '💾', golden: '👑' };
+// the place floats in the sky: you can walk on these and nowhere else
+const PLATFORMS = [[30, 400, 1740, 400], [680, 10, 440, 1180], ...[[60, 40], [1140, 40], [60, 780], [1140, 780]].map(([x, y]) => [x, y, 600, 380])]
+  .map(([x, y, w, h]) => ({ x, y, w, h }));
+const GLITCH_LINES = ['PRESENT DAY', 'PRESENT TIME', 'you are connected', 'layer 777', 'who is here?', 'the network remembers', 'no carrier'];
 const FORTUNES = [
   'Someone on the network is thinking of you.', 'You are connected. You always were.', 'The wires hum your name tonight.',
-  'Something small and golden is wandering nearby.', 'Close your eyes. Layer 01 will still be here.',
+  'Something small and golden is wandering nearby.', 'Close your eyes. Layer 777 will still be here.',
   'Today is a good day to wave at a stranger.', 'Heaven is a server you have not logged into yet.',
   'Every message you send stays with someone.', 'The sky is loading. Please wait.', 'You are not alone in here.',
   'Light comes down the wires to find you.', 'A cat somewhere just waved at you.', 'Rest. The network keeps watch.',
@@ -46,12 +51,13 @@ const SPOTS = [
   { id: 'capsule', r: { x: 1650, y: 214, w: 56, h: 92 }, at: { x: 1640, y: 350 }, col: '#d65bb6', text: () => '◉ 30 Capsule', act: () => openCapsule() },
   { id: 'well', r: { x: 862, y: 566, w: 76, h: 56 }, at: { x: 900, y: 660 }, col: '#7fb8ff', text: () => '✧ Wish (◉ 1)', act: () => makeWish() },
   { id: 'game', r: { x: 1380, y: 984, w: 120, h: 56 }, at: { x: 1440, y: 960 }, col: '#2f9a5e', text: () => '🪲 Play the beetle game', act: () => openLab(), hide: () => labLocked() },
+  { id: 'pond', r: { x: POND.x - 56, y: POND.y - 26, w: 112, h: 52 }, at: { x: POND.x, y: POND.y + 52 }, col: '#3f7fdc', text: () => world.fishing ? '🎣 Reel in' : '🎣 Fish', act: () => castLine() },
   { id: 'gate', r: { x: 1370, y: 740, w: 140, h: 60 }, at: { x: 1440, y: 740 }, col: '#c23a4a', text: () => '🔒 Password sign-in only', act: () => labDenied(true), hide: () => !labLocked() },
 ];
 
 // beetles: every browser works out the same ones from the clock (bugAt() in world.php)
-const BUG_N = 7, BUG_LIFE = 90;
-const BUG_AREAS = [[1180, 830, 1700, 1130], [1180, 830, 1700, 1130], [1180, 830, 1700, 1130], [140, 820, 620, 1120], [720, 480, 1080, 720], [60, 450, 660, 740], [1140, 450, 1740, 740]];
+const BUG_N = 4, BUG_LIFE = 90;
+const BUG_AREAS = [[1180, 830, 1700, 1130], [1180, 830, 1700, 1130], [140, 820, 620, 1120], [720, 480, 1080, 720]];
 const BUG_KINDS = [['green', 'ladybug', 'pillbug', 'cucumber'], ['stag', 'purple', 'harlequin', 'blue_longicorn'], ['golden', 'golden_tiger']];
 const BUG_COINS = [1, 2, 5];
 const hrand = n => { const v = Math.sin(n * 12.9898) * 43758.5453; return v - Math.floor(v); };
@@ -73,6 +79,7 @@ const world = {
   ball: { x: 360, y: 980, vx: 0, vy: 0, t0: 0 }, kickAt: 0, tv: null, tvAt: 0,
   out: {}, bg: null, noise: [], scan: null, haze: null, glitch: null, nextGlitch: 0, solids: [],
   skew: 0, gone: new Set(), catching: new Set(), bugImg: {}, splashes: [], tile: '', dm: 0,
+  tvq: [], fx: new Map(), toss: new Map(), seenIn: new Set(), aim: null, fishing: null, sky: null,
 };
 
 // ── the map: walls with a doorway toward the plaza, a few solid things ──────
@@ -89,6 +96,7 @@ function buildSolids() {
   s.push([1220, 90, 260, 90], [1540, 90, 92, 120]);                            // terminal monitors
   s.push([1300, 236, 280, 40], [1650, 214, 56, 92]);                           // the counter, the capsule machine
   s.push([WELL.x - 34, WELL.y - 18, 68, 36]);
+  s.push([POND.x - 52, POND.y - 22, 104, 44]);
   for (const [x, y] of TREES) s.push([x - 18, y - 6, 36, 16]);
   s.push([1380, 990, 120, 40]);                                                // the workbench
   for (const [x, y] of POLES) s.push([x - 8, y - 8, 16, 16]);
@@ -106,6 +114,7 @@ function blocked(x, y) {
   const box = { x: x - 13, y: y - 8, w: 26, h: 10 };
   const hit = r => box.x < r.x + r.w && box.x + box.w > r.x && box.y < r.y + r.h && box.y + box.h > r.y;
   if (labLocked() && hit(GARDEN_GATE)) return 'lab';
+  if (!PLATFORMS.some(p => x > p.x + 12 && x < p.x + p.w - 12 && y > p.y + 14 && y < p.y + p.h - 4)) return true;    // the edge, and the sky below
   return world.solids.some(hit);
 }
 
@@ -215,6 +224,19 @@ async function worldTickNow() {
   if (d.tv_err) worldToast(d.tv_err);
   if (d.capsule) capsuleResult(d);
   if (d.wish) wishResult(d.wish);
+  if (d.tv_queued) worldToast(`Added to the queue (${d.tv_queued} waiting)`);
+  world.tvq = d.tvq || [];
+  if (!document.getElementById('w-screen').classList.contains('hidden')) renderQueue();
+  if (d.fish) fishResult(d);
+  if (d.fw === 'poor') worldToast('A firework costs 2 coins.');
+  if (d.touch === 'far') worldToast('Walk up to them first.');
+  if (d.touch === 'gone') worldToast('They are not here right now.');
+  if (d.gift) giftResult(d.gift);
+  if (d.inv || d.catalog) window.renderBag?.(d.inv);
+  if (d.prof) window.cardStats?.(d.prof);
+  for (const i of d.in || []) gotIn(i, clock);
+  syncFx(d.fx || [], clock);
+  syncToss(d.toss || [], clock);
   world.gone = new Set(d.gone || []);
   if (extra.catch) {
     world.catching.delete(extra.catch);
@@ -313,6 +335,7 @@ function worldStep(dt, clock) {
   kickCheck(me, clock);
   catchCheck(me);
   danceCheck(me);
+  fishCheck(me, clock);
   // the nearest thing to use, and walking up to the one I tapped
   world.near = SPOTS.filter(s => !s.hide?.()).map(s => ({ s, d: Math.hypot(s.at.x - me.x, s.at.y - me.y) })).filter(o => o.d < 110).sort((a, b) => a.d - b.d)[0]?.s || null;
   const p = world.pending;
@@ -407,41 +430,83 @@ function noiseTile(alpha) {
   return c;
 }
 
+// the sky, as on remilia.net: blue with clouds, dithered down to a few colours
+const SKY = ['#2b62c4', '#3a74d6', '#4d88e3', '#68a0ec', '#8cbaf3', '#b6d4f8', '#dfecfc', '#ffffff'];
+function buildSky(w, h) {
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const g = c.getContext('2d'), d = g.createImageData(w, h);
+  const pal = SKY.map(x => [1, 3, 5].map(i => parseInt(x.slice(i, i + 2), 16)));
+  const B = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+  const seed = 7.31;
+  const vn = (x, y) => {          // value noise
+    const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi;
+    const r = (a, b) => { const v = Math.sin(a * 127.1 + b * 311.7 + seed) * 43758.5453; return v - Math.floor(v); };
+    const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
+    return (r(xi, yi) * (1 - u) + r(xi + 1, yi) * u) * (1 - v) + (r(xi, yi + 1) * (1 - u) + r(xi + 1, yi + 1) * u) * v;
+  };
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const nx = x / w * 9, ny = y / h * 11;
+    let f = 0, a = 0.5, k = 1;
+    for (let o = 0; o < 5; o++) { f += vn(nx * k, ny * k * 1.8) * a; a /= 2; k *= 2.03; }
+    const cloud = Math.max(0, Math.min(1, (f - 0.5) / 0.2));
+    const v = 0.08 + (y / h) * 0.32 + cloud * 0.75;
+    const i = Math.max(0, Math.min(pal.length - 1, Math.floor(v * (pal.length - 1) + B[(y & 3) * 4 + (x & 3)] / 16)));
+    const o = (y * w + x) * 4, col = pal[i];
+    d.data[o] = col[0]; d.data[o + 1] = col[1]; d.data[o + 2] = col[2]; d.data[o + 3] = 255;
+  }
+  g.putImageData(d, 0, 0);
+  return c;
+}
+
 // everything that never moves, drawn once at one pixel per world unit
 function buildBackground() {
   const c = document.createElement('canvas'); c.width = WORLD_W; c.height = WORLD_H;
   const g = c.getContext('2d');
   const rnd = (a, b) => a + Math.random() * (b - a);
-  // the sky the place floats in
-  const sky = g.createLinearGradient(0, 0, 0, WORLD_H);
-  sky.addColorStop(0, '#dfe5f8'); sky.addColorStop(0.5, '#ece8f6'); sky.addColorStop(1, '#f6e9f0');
-  g.fillStyle = sky; g.fillRect(0, 0, WORLD_W, WORLD_H);
-  for (let i = 0; i < 70; i++) {
-    const x = rnd(0, WORLD_W), y = rnd(0, WORLD_H), r = rnd(60, 190);
-    const gr = g.createRadialGradient(x, y, 0, x, y, r);
-    gr.addColorStop(0, 'rgba(255,255,255,0.75)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
-    g.fillStyle = gr; g.fillRect(x - r, y - r, r * 2, r * 2);
+  const sky = buildSky(WORLD_W / 2, WORLD_H / 2);
+  world.sky = sky;
+  g.imageSmoothingEnabled = false;
+  g.drawImage(sky, 0, 0, WORLD_W, WORLD_H);
+  try { document.body.style.setProperty('--sky', `url(${sky.toDataURL()})`); } catch {}
+  // the platforms: grey plastic slabs with a lit edge, a side and a shadow on the clouds
+  const P = PLATFORMS;
+  g.fillStyle = 'rgba(16,40,110,0.28)';
+  for (const p of P) roundRect(g, p.x + 14, p.y + 36, p.w, p.h, 14), g.fill();
+  for (const p of P) {
+    const side = g.createLinearGradient(0, p.y + p.h - 10, 0, p.y + p.h + 22);
+    side.addColorStop(0, '#9da3b6'); side.addColorStop(1, '#6d7389');
+    g.fillStyle = side; roundRect(g, p.x, p.y + 10, p.w, p.h + 12, 12); g.fill();
   }
-  // the walkways: pale glass, with a faint circuit in it
-  const walk = (x, y, w, h) => {
-    g.fillStyle = 'rgba(255,255,255,0.6)'; g.fillRect(x, y, w, h);
-    g.strokeStyle = 'rgba(120,128,200,0.16)'; g.lineWidth = 1;
-    for (let gx = x; gx <= x + w; gx += 40) { g.beginPath(); g.moveTo(gx + 0.5, y); g.lineTo(gx + 0.5, y + h); g.stroke(); }
-    for (let gy = y; gy <= y + h; gy += 40) { g.beginPath(); g.moveTo(x, gy + 0.5); g.lineTo(x + w, gy + 0.5); g.stroke(); }
-    g.fillStyle = 'rgba(150,160,230,0.35)'; g.fillRect(x, y, w, 2); g.fillRect(x, y + h - 2, w, 2);
-  };
-  walk(0, 440, WORLD_W, 320); walk(680, 0, 440, WORLD_H);
-  g.fillStyle = 'rgba(120,128,200,0.22)';
-  for (let x = 0; x < WORLD_W; x += 60) if (x < 640 || x > 1160) g.fillRect(x, 598, 30, 3);
-  for (let y = 0; y < WORLD_H; y += 60) if (y < 420 || y > 780) g.fillRect(898, y, 3, 30);
+  for (const p of P) {
+    const top = g.createLinearGradient(0, p.y, 0, p.y + p.h);
+    top.addColorStop(0, '#eceef4'); top.addColorStop(1, '#cdd1de');
+    g.fillStyle = top; roundRect(g, p.x, p.y, p.w, p.h, 12); g.fill();
+  }
+  // seams in the plastic, and the lit rim
+  g.save();
+  g.beginPath(); for (const p of P) g.rect(p.x + 6, p.y + 6, p.w - 12, p.h - 12); g.clip();
+  g.strokeStyle = 'rgba(70,80,120,0.13)'; g.lineWidth = 1;
+  for (let x = 0; x <= WORLD_W; x += 40) { g.beginPath(); g.moveTo(x + 0.5, 0); g.lineTo(x + 0.5, WORLD_H); g.stroke(); }
+  for (let y = 0; y <= WORLD_H; y += 40) { g.beginPath(); g.moveTo(0, y + 0.5); g.lineTo(WORLD_W, y + 0.5); g.stroke(); }
+  g.restore();
+  g.fillStyle = 'rgba(80,90,130,0.16)';
+  for (let x = 40; x < WORLD_W - 40; x += 60) if (x < 640 || x > 1160) g.fillRect(x, 598, 30, 3);
+  for (let y = 20; y < WORLD_H - 20; y += 60) if (y < 420 || y > 780) g.fillRect(898, y, 3, 30);
   // the plaza: rings around the well
   for (let r = 260; r > 60; r -= 40) {
-    g.strokeStyle = `rgba(150,160,230,${0.1 + (260 - r) / 1200})`; g.lineWidth = 2;
+    g.strokeStyle = `rgba(60,100,200,${0.06 + (260 - r) / 1800})`; g.lineWidth = 2;
     g.beginPath(); g.ellipse(WELL.x, WELL.y, r, r * 0.7, 0, 0, Math.PI * 2); g.stroke();
   }
+  // the pond: a hole in the platform with the sky showing through
+  g.save();
+  g.beginPath(); g.ellipse(POND.x, POND.y, 56, 26, 0, 0, Math.PI * 2); g.clip();
+  g.drawImage(sky, (POND.x - 60) / 2, (POND.y + 80) / 2, 60, 30, POND.x - 60, POND.y - 30, 120, 60);
+  g.restore();
+  g.strokeStyle = '#9da3b6'; g.lineWidth = 4; g.beginPath(); g.ellipse(POND.x, POND.y, 56, 26, 0, 0, Math.PI * 2); g.stroke();
+  g.strokeStyle = '#ffffff'; g.lineWidth = 1.5; g.beginPath(); g.ellipse(POND.x, POND.y - 2, 58, 27, 0, Math.PI * 1.05, Math.PI * 1.95); g.stroke();
 
   // floors
-  const floor = (z, fn) => { g.save(); g.beginPath(); g.rect(z.x, z.y, z.w, z.h); g.clip(); fn(z); g.restore(); };
+  const floor = (z, fn) => { g.save(); g.beginPath(); roundRect(g, z.x, z.y, z.w, z.h, 12); g.clip(); fn(z); g.restore(); };
   floor(z0('club'), z => {
     g.fillStyle = '#120d1a'; g.fillRect(z.x, z.y, z.w, z.h);
     for (let y = z.y; y < z.y + z.h; y += 30) for (let x = z.x; x < z.x + z.w; x += 30) {
@@ -449,8 +514,8 @@ function buildBackground() {
     }
   });
   floor(z0('shop'), z => {
-    g.fillStyle = '#efedf5'; g.fillRect(z.x, z.y, z.w, z.h);
-    g.strokeStyle = 'rgba(91,99,230,0.08)';
+    g.fillStyle = '#e4e5ea'; g.fillRect(z.x, z.y, z.w, z.h);
+    g.strokeStyle = 'rgba(40,60,140,0.08)';
     for (let x = z.x; x < z.x + z.w; x += 24) { g.beginPath(); g.moveTo(x, z.y); g.lineTo(x, z.y + z.h); g.stroke(); }
     for (let y = z.y; y < z.y + z.h; y += 24) { g.beginPath(); g.moveTo(z.x, y); g.lineTo(z.x + z.w, y); g.stroke(); }
     // cables to the monitors
@@ -468,7 +533,7 @@ function buildBackground() {
       g.fillStyle = '#e8b84a'; g.fillRect(x, y, 2, 2);
     }
   };
-  floor(z0('park'), z => grass(z, '#dcebd5', 2600, 40));
+  floor(z0('park'), z => grass(z, '#cfe6c6', 2600, 40));
   floor(z0('garden'), z => {
     grass(z, '#cde5c4', 3600, 70);
     // stepping stones to the workbench
@@ -480,10 +545,12 @@ function buildBackground() {
   const club = z0('club');
   for (const s of world.solids) {
     if (s.w === 16 && s.h === 16) continue;               // poles are drawn with the wires
+    if (s.x === POND.x - 52 && s.y === POND.y - 22) continue;
     const dark = inRect(s.x + 1, s.y + 1, club);
-    g.fillStyle = dark ? 'rgba(10,6,16,0.6)' : 'rgba(80,80,130,0.18)'; g.fillRect(s.x, s.y + s.h, s.w, 8);
-    g.fillStyle = dark ? '#221a2e' : '#d9d6e8'; g.fillRect(s.x, s.y, s.w, s.h);
+    g.fillStyle = dark ? 'rgba(10,6,16,0.6)' : 'rgba(40,50,90,0.22)'; g.fillRect(s.x, s.y + s.h, s.w, 8);
+    g.fillStyle = dark ? '#221a2e' : '#c3c6d2'; g.fillRect(s.x, s.y, s.w, s.h);
     g.fillStyle = dark ? '#3a2d4a' : '#ffffff'; g.fillRect(s.x, s.y, s.w, 2);
+    if (!dark) { g.fillStyle = '#9da3b6'; g.fillRect(s.x, s.y + s.h - 2, s.w, 2); }
   }
   // terminal: old beige monitors stacked up
   const crt = (x, y, w, h) => {
@@ -530,11 +597,12 @@ function worldDraw(now) {
   const cx = Math.round(world.cam.x * s) / s, cy = Math.round(world.cam.y * s) / s;
   // the floor goes on the bottom canvas, under the club video
   g.setTransform(1, 0, 0, 1, 0, 0);
-  g.fillStyle = '#e6e6f6'; g.fillRect(0, 0, world.canvas.width, world.canvas.height);
+  g.fillStyle = '#4d88e3'; g.fillRect(0, 0, world.canvas.width, world.canvas.height);
   g.setTransform(s, 0, 0, s, -cx * s, -cy * s);
   g.imageSmoothingEnabled = false;
   g.drawImage(world.bg, 0, 0);
   drawLive(g, clock);
+  drawFishing(g, clock);
   drawBugs(g, netNow());
   if (world.target && me?.moving) {
     g.strokeStyle = '#ff3d6e'; g.globalAlpha = 0.6;
@@ -556,6 +624,7 @@ function worldDraw(now) {
   drawWires(gt, clock, cx, cy);
   drawLights(gt, clock, cx, cy, vw, vh);
   drawSigns(gt, clock);
+  drawToys(gt, clock);
   drawPrompt(gt, clock);
   for (const c of world.cats.values()) if (c.bubble && Date.now() < c.bubble.until) drawBubble(gt, c.bubble, Math.round(c.x), Math.round(c.y) - 58, cx, vw);
   drawSplashes(gt, clock);
@@ -704,6 +773,7 @@ function drawCat(g, c, t) {
   if (c.w?.hat) drawHat(g, c.w.hat, x, y - hop - 38, dir, t);
   if (c.w?.hold && c.w.hold !== 'balloon') drawHold(g, c.w.hold, x, y - hop, flip, t);
   label(g, c, x, y);
+  if (c.splat && t - c.splat < 1.5) { const a = t - c.splat; for (let i = 0; i < 4; i++) cloudPuff(g, x - 9 + i * 6, y - 30 - hop + Math.sin(i * 2) * 5, 5, 1 - a / 1.5); }
   g.globalAlpha = 1;
   if (em) {
     const age = t - c.emote.at;
@@ -801,7 +871,7 @@ function drawHold(g, id, x, y, flip, t = 0) {
 }
 
 // text keeps at least its size on screen when the world is drawn small (phones)
-const wf = (px, weight = '') => `${weight} ${Math.round(px / Math.min(1, world.z))}px ui-monospace, "DejaVu Sans Mono", Menlo, monospace`;
+const wf = (px, weight = '') => `${weight} ${Math.round(px / Math.min(1, world.z))}px "Pixelify Sans", ui-monospace, Menlo, monospace`;
 
 function label(g, c, x, y) {
   g.font = wf(10);
@@ -1009,7 +1079,7 @@ function worldFit() {
   world.scan = g.createPattern(sc, 'repeat');
   const W = world.top.width, H = world.top.height;
   const v = g.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.4, W / 2, H / 2, Math.max(W, H) * 0.75);
-  v.addColorStop(0, 'rgba(255,255,255,0)'); v.addColorStop(1, 'rgba(236,232,255,0.6)');
+  v.addColorStop(0, 'rgba(255,255,255,0)'); v.addColorStop(1, 'rgba(214,232,255,0.5)');
   world.haze = v;
 }
 
@@ -1032,9 +1102,10 @@ function tvUpdate(tv) {
   if (tv?.v !== was) tvActive(true);
 }
 
-// the player only runs while you are in Cyberia and said yes to YouTube
+// the player keeps running once you said yes to YouTube, so the video never
+// starts over: you hear it in the club and it fades as you walk away
 async function tvActive(changed = false) {
-  const want = world.tv && tvOk() && world.zone?.id === 'club';
+  const want = world.tv && tvOk();
   if (!want) {
     if (world.player) { try { world.player.destroy(); } catch {} world.player = null; }
     if (world.tvEl) { world.tvEl.remove(); world.tvEl = null; }
@@ -1052,13 +1123,26 @@ async function tvActive(changed = false) {
     document.getElementById('world').insertBefore(el, world.top);
     world.tvEl = el;
   }
+  if (world.tvLoading) return;
+  world.tvLoading = true;
   await loadYt();
-  if (world.player || !world.tv || world.zone?.id !== 'club' || !world.tvEl) return;
+  world.tvLoading = false;
+  if (world.player || !world.tv || !world.tvEl) return;
   world.player = new YT.Player(world.tvEl.firstChild, {
-    host: 'https://www.youtube-nocookie.com', videoId: tv.v,
-    playerVars: { autoplay: 1, start: Math.floor(start), playsinline: 1, rel: 0, modestbranding: 1 },
-    events: { onReady: e => { world.tvShown = true; e.target.playVideo(); } },
+    host: 'https://www.youtube-nocookie.com', videoId: world.tv.v,
+    playerVars: { autoplay: 1, start: Math.floor(Math.max(0, performance.now() / 1000 - world.tv.at)), playsinline: 1, rel: 0, modestbranding: 1, controls: 0, disablekb: 1 },
+    events: {
+      onReady: e => { world.tvShown = true; world.tvVol = -1; e.target.playVideo(); },
+      onStateChange: e => { if (e.data === 1) tvReportLength(); },
+    },
   });
+}
+// the server moves to the next video when this one ends, so tell it how long it is
+function tvReportLength() {
+  const d = world.player?.getDuration?.(), v = world.tv?.v;
+  if (!d || !v || world.tvLen === v) return;
+  world.tvLen = v;
+  worldSend({ tvdur: { v, d: Math.round(d) } });
 }
 
 // keep the video on the screen in the world, and in step with everyone else
@@ -1066,12 +1150,49 @@ function placeTv(cx, cy) {
   const z = world.z, el = world.tvEl;
   el.style.left = `${(CLUB_SCREEN.x - cx) * z}px`; el.style.top = `${(CLUB_SCREEN.y - cy) * z}px`;
   el.style.width = `${CLUB_SCREEN.w * z}px`; el.style.height = `${CLUB_SCREEN.h * z}px`;
-  if (world.player?.getCurrentTime && performance.now() - world.tvAt > 10000 && world.tv) {
-    world.tvAt = performance.now();
-    const should = performance.now() / 1000 - world.tv.at, is = world.player.getCurrentTime();
-    const dur = world.player.getDuration?.() || 0;
-    if (Math.abs(should - is) > 4 && (!dur || should < dur)) world.player.seekTo(should, true);
+  const p = world.player, me = world.cats.get(world.me);
+  if (p?.setVolume && me) {
+    // loud on the dance floor, gone by the middle of the plaza
+    const d = Math.hypot(me.x - (CLUB_SCREEN.x + CLUB_SCREEN.w / 2), me.y - 260);
+    const vol = world.zone?.id === 'club' ? 100 : Math.round(Math.max(0, Math.min(1, 1 - (d - 260) / 420)) * 60);
+    if (Math.abs(vol - world.tvVol) >= 4 || (vol === 0) !== (world.tvVol === 0)) {
+      world.tvVol = vol;
+      try { if (vol) { p.unMute(); p.setVolume(vol); } else p.mute(); } catch {}
+    }
   }
+  if (p?.getCurrentTime && performance.now() - world.tvAt > 10000 && world.tv) {
+    world.tvAt = performance.now();
+    const should = performance.now() / 1000 - world.tv.at, is = p.getCurrentTime();
+    const dur = p.getDuration?.() || 0;
+    if (Math.abs(should - is) > 3 && (!dur || should < dur)) p.seekTo(should, true);
+    if (p.getPlayerState?.() === 2) p.playVideo();
+  }
+}
+
+const ytTitles = new Map();
+async function ytTitle(v) {
+  if (ytTitles.has(v)) return ytTitles.get(v);
+  ytTitles.set(v, '');
+  if (!tvOk()) return '';
+  try {
+    const r = await fetch(`https://www.youtube.com/oembed?format=json&url=${encodeURIComponent('https://youtu.be/' + v)}`);
+    const t = r.ok ? (await r.json()).title || '' : '';
+    ytTitles.set(v, t);
+    if (t) renderQueue();
+    return t;
+  } catch { return ''; }
+}
+function renderQueue() {
+  const now = document.getElementById('w-tv-now'), q = document.getElementById('w-tv-q');
+  const row = (v, by, cls = '') => {
+    const t = ytTitles.get(v); if (t == null) ytTitle(v);
+    return `<li class="${cls}">${tvOk() ? `<img src="https://i.ytimg.com/vi/${v}/default.jpg" alt="">` : '<span class="w-tv-blank"></span>'}<span><b>${esc(t || v)}</b><small>${esc(by)}</small></span></li>`;
+  };
+  now.innerHTML = world.tv ? `<ul class="w-tv-list">${row(world.tv.v, `Playing now · put on by ${world.tv.by}`, 'on')}</ul>` : '<p class="w-dim">Nothing is playing.</p>';
+  q.innerHTML = world.tvq.length ? `<h3>Up next</h3><ul class="w-tv-list">${world.tvq.map(x => row(x.v, x.by)).join('')}</ul>` : '';
+  document.getElementById('w-tv-play').textContent = world.tv ? 'Add to queue' : 'Play';
+  document.getElementById('w-tv-skip').classList.toggle('hidden', !world.tv);
+  document.getElementById('w-tv-stop').classList.toggle('hidden', !world.tv);
 }
 
 function openScreen() {
@@ -1079,7 +1200,7 @@ function openScreen() {
   box.classList.remove('hidden');
   document.getElementById('w-tv-consent').classList.toggle('hidden', tvOk());
   document.getElementById('w-tv-url').value = '';
-  document.getElementById('w-tv-now').textContent = world.tv ? `Playing now, put on by ${world.tv.by}.` : 'Nothing is playing.';
+  renderQueue();
 }
 
 // ── the terminal: the wardrobe and the capsule machine ──────────────────────
@@ -1128,19 +1249,26 @@ function openCapsule() {
   document.getElementById('w-capsule').classList.remove('hidden');
   document.getElementById('w-cap-got').classList.add('hidden');
   document.getElementById('w-cap-turn').disabled = false;
+  cap.t0 = 0; cap.res = null; cap.open = 0;
+  if (!cap.raf) cap.raf = requestAnimationFrame(capsuleDraw);
   if (!world.catalog) worldSend({ shopinfo: 1 }, true);
 }
+const CAP_COL = ['#ffd34d', '#7fd1ff', '#ff8fb8', '#a9f0b0', '#c7a6ff'];
 function capsuleResult(d) {
   const btn = document.getElementById('w-cap-turn');
   btn.disabled = false;
-  if (d.capsule === 'poor') return worldToast('The capsule machine takes 30 coins.');
-  if (d.capsule === 'all') return worldToast('You have everything the capsule machine has. More soon.');
-  const got = document.getElementById('w-cap-got');
-  got.classList.remove('hidden');
-  got.querySelector('span').textContent = `${d.capsule_name}! You are wearing it now.`;
-  const slot = world.catalog?.find(i => i.id === d.capsule)?.slot || 'hat';
-  previewCat(got.querySelector('canvas'), { [slot]: d.capsule });
-  sfx('claim');
+  if (d.capsule === 'poor') { cap.t0 = 0; return worldToast('The capsule machine takes 30 coins.'); }
+  if (d.capsule === 'all') { cap.t0 = 0; return worldToast('You have everything the capsule machine has. More soon.'); }
+  cap.res = { col: CAP_COL[(d.capsule.length + d.capsule.charCodeAt(0)) % CAP_COL.length] };
+  // the prize shows once the capsule has popped open
+  const wait = Math.max(0, (cap.t0 + 1.75) * 1000 - performance.now());
+  setTimeout(() => {
+    const got = document.getElementById('w-cap-got');
+    got.classList.remove('hidden');
+    got.querySelector('span').innerHTML = `<b>${esc(d.capsule_name)}</b>You are wearing it now.`;
+    const slot = world.catalog?.find(i => i.id === d.capsule)?.slot || 'hat';
+    previewCat(got.querySelector('canvas'), { [slot]: d.capsule });
+  }, wait);
 }
 
 // ── the well ─────────────────────────────────────────────────────────────────
@@ -1183,15 +1311,285 @@ function catAt(x, y) {
   }
   return best;
 }
-function openWho(c, sx, sy) {
-  const box = document.getElementById('w-who');
-  box.dataset.u = c.u; box.dataset.d = c.d || c.u;
-  box.querySelector('strong').textContent = c.d || c.u;
-  box.querySelector('[data-who="dm"]').classList.toggle('hidden', !window.dmOpen);
-  box.classList.remove('hidden');
-  const wrap = document.getElementById('world');
-  box.style.left = `${Math.max(8, Math.min(wrap.clientWidth - box.offsetWidth - 8, sx - box.offsetWidth / 2))}px`;
-  box.style.top = `${Math.max(8, sy - box.offsetHeight - 60)}px`;
+// ── things that happen to you: hugs, high fives, coins ───────────────────────
+function gotIn([k, from, age, n], clock) {
+  const key = `${k}|${from}|${Math.round(netNow() - age)}`;
+  if (world.seenIn.has(key)) return;
+  world.seenIn.add(key);
+  const t = { hug: `${from} hugged you 🤗`, high5: `${from} gave you a high five 🙌`, gift: `${from} gave you ◉ ${n} 🎁` }[k];
+  if (!t) return;
+  worldToast(t, 4500);
+  sfx('claim');
+  const me = world.cats.get(world.me);
+  if (me) { me.emote = { k, at: clock }; if (k === 'gift') world.splashes.push({ x: me.x, y: me.y - 60, t: clock, text: `◉ +${n}` }); }
+}
+function giftResult(r) {
+  const t = { ok: 'Sent 🎁', poor: 'You do not have that many coins.', cap: 'That is all you can give away today.', wait: 'Wait a moment before the next gift.', gone: 'They are not here right now.', bad: 'Between 1 and 100 coins.' }[r];
+  if (t) worldToast(t);
+  if (r === 'ok') sfx('claim');
+}
+// walk up to someone, then hug them or high five
+function touch(u, k) {
+  const c = world.cats.get(u), me = world.cats.get(world.me);
+  if (!c || c.ghost || !me) return worldToast('They are not in the world right now.');
+  const side = me.x < c.x ? -1 : 1;
+  const at = { x: c.x + side * 30, y: c.y };
+  const go = () => {
+    me.emote = { k, at: performance.now() / 1000 };
+    worldSend({ touch: { to: u, k }, x: Math.round(me.x), y: Math.round(me.y) }, true);
+  };
+  if (Math.hypot(me.x - c.x, me.y - c.y) < 70) return go();
+  world.target = at; world.pending = { at, act: go };
+}
+function gift(u, n) { worldSend({ gift: { to: u, n } }, true); }
+
+// ── toys: cloudballs to throw, fireworks for everyone ───────────────────────
+const TOYS = { toss: 'Tap where to throw the cloudball', fw: 'Tap the sky for a firework (◉ 2)' };
+function setAim(k) {
+  world.aim = world.aim === k ? null : k;
+  document.querySelectorAll('#w-toys [data-toy]').forEach(b => b.classList.toggle('on', b.dataset.toy === world.aim));
+  document.getElementById('w-toy-btn').classList.toggle('on', !!world.aim);
+  worldNote(world.aim ? `${TOYS[world.aim]} · Esc to stop` : '');
+}
+function useToy(x, y) {
+  const me = world.cats.get(world.me);
+  if (!me) return;
+  const clock = performance.now() / 1000;
+  if (world.aim === 'toss') {
+    const d = Math.hypot(x - me.x, y - me.y), k = Math.min(1, 420 / (d || 1));
+    const tx = me.x + (x - me.x) * k, ty = me.y + (y - me.y) * k;
+    world.toss.set(`me${clock}`, { x0: me.x, y0: me.y - 20, x1: tx, y1: ty, t0: clock, u: world.me, mine: true });
+    me.flip = x < me.x; me.dir = 'side';
+    worldSend({ toss: { x: Math.round(tx), y: Math.round(ty) } }, true);
+  } else if (world.aim === 'fw') {
+    if (world.coins != null && world.coins < 2) return worldToast('A firework costs 2 coins.');
+    worldSend({ fw: { x: Math.round(x), y: Math.round(y) } }, true);
+  }
+}
+function syncFx(list, clock) {
+  const keep = new Set();
+  for (const [x, y, age, hue] of list) {
+    const k = `${x},${y},${hue}`; keep.add(k);
+    if (!world.fx.has(k)) { world.fx.set(k, { x, y, hue, t0: clock - age }); if (age < 1) setTimeout(() => chime(7 + (hue % 5)), Math.max(0, (0.8 - age) * 1000)); }
+  }
+  for (const k of world.fx.keys()) if (!keep.has(k) && clock - world.fx.get(k).t0 > 4) world.fx.delete(k);
+}
+function syncToss(list, clock) {
+  for (const [x0, y0, x1, y1, age, u] of list) {
+    const k = `${x0},${y0},${x1},${y1},${u}`;
+    if (world.toss.has(k)) continue;
+    if (u === world.me) {           // my own throw is drawn already
+      world.toss.set(k, { done: true, t0: clock - age });
+      continue;
+    }
+    world.toss.set(k, { x0, y0, x1, y1, t0: clock - age, u });
+  }
+  for (const [k, f] of world.toss) if (clock - f.t0 > 5) world.toss.delete(k);
+}
+// fireworks go up, burst and fall; cloudballs fly in an arc and go poof
+function drawToys(g, t) {
+  for (const f of world.fx.values()) {
+    const a = t - f.t0;
+    if (a < 0 || a > 3.6) continue;
+    if (a < 0.8) {
+      const y = f.y + 260 * (1 - a / 0.8);
+      g.fillStyle = '#fff6c0'; g.fillRect(f.x - 1, y, 3, 8);
+      g.fillStyle = 'rgba(255,220,160,0.5)'; g.fillRect(f.x, y + 8, 1, 18);
+      continue;
+    }
+    const b = a - 0.8;
+    for (let i = 0; i < 36; i++) {
+      const ang = i / 36 * Math.PI * 2 + hrand(i + f.hue) * 0.2, sp = 70 + hrand(i * 3 + f.hue) * 50;
+      const r = sp * (1 - Math.exp(-b * 2.2));
+      const x = f.x + Math.cos(ang) * r, y = f.y + Math.sin(ang) * r + b * b * 10;
+      g.globalAlpha = Math.max(0, 1 - b / 2.8) * (Math.sin(t * 30 + i) > -0.6 ? 1 : 0.3);
+      g.fillStyle = `hsl(${(f.hue + (i % 3) * 30) % 360} 95% ${i % 4 ? 65 : 90}%)`;
+      g.fillRect(x - 1.5, y - 1.5, 3, 3);
+    }
+    g.globalAlpha = 1;
+  }
+  const me = world.cats.get(world.me);
+  for (const f of world.toss.values()) {
+    if (f.done) continue;
+    const a = (t - f.t0) / 0.7;
+    if (a < 0 || a > 2.2) continue;
+    if (a < 1) {
+      const x = f.x0 + (f.x1 - f.x0) * a, y = f.y0 + (f.y1 - f.y0) * a - Math.sin(a * Math.PI) * 70;
+      g.fillStyle = 'rgba(30,50,110,0.2)'; g.beginPath(); g.ellipse(f.x0 + (f.x1 - f.x0) * a, f.y0 + 20 + (f.y1 - f.y0) * a, 7, 3, 0, 0, Math.PI * 2); g.fill();
+      cloudPuff(g, x, y, 7, 1);
+      continue;
+    }
+    if (!f.landed) {
+      f.landed = true;
+      for (const c of world.cats.values()) {
+        if (c.u === f.u || c.ghost || Math.hypot(c.x - f.x1, c.y - 20 - f.y1) > 30) continue;
+        c.splat = t;
+        if (c === me) worldToast(`${world.cats.get(f.u)?.d || 'Someone'} hit you with a cloudball ☁`);
+        else if (f.mine) sfx('react');
+      }
+    }
+    const b = a - 1;
+    for (let i = 0; i < 6; i++) cloudPuff(g, f.x1 + Math.cos(i) * b * 26, f.y1 + Math.sin(i) * b * 14, 5 * (1 - b / 1.2), 1 - b / 1.2);
+  }
+}
+function cloudPuff(g, x, y, r, alpha) {
+  if (r <= 0 || alpha <= 0) return;
+  g.globalAlpha = alpha;
+  g.fillStyle = '#ffffff';
+  g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.arc(x - r * 0.8, y + r * 0.3, r * 0.7, 0, Math.PI * 2); g.arc(x + r * 0.8, y + r * 0.3, r * 0.7, 0, Math.PI * 2); g.fill();
+  g.fillStyle = 'rgba(140,186,243,0.6)'; g.fillRect(x - r, y + r * 0.6, r * 2, 1);
+  g.globalAlpha = 1;
+}
+
+// ── the pond ─────────────────────────────────────────────────────────────────
+function castLine() {
+  const me = world.cats.get(world.me);
+  if (!me) return;
+  if (world.fishing) {
+    // reeling in early, or right when it bites
+    const f = world.fishing, now = performance.now() / 1000;
+    if (now >= f.bite && now < f.bite + 1.6) { worldSend({ fish: 1 }, true); f.reeled = true; }
+    else { world.fishing = null; worldToast('Nothing on the line.'); }
+    return;
+  }
+  const now = performance.now() / 1000;
+  if (now - (world.lastCast || 0) < 5) return worldToast('Let the water settle a moment.');
+  world.lastCast = now;
+  me.dir = 'up';
+  world.fishing = { t0: now, bite: now + 2.5 + Math.random() * 3, x: POND.x + (Math.random() - 0.5) * 60, y: POND.y + (Math.random() - 0.5) * 20 };
+  worldToast('Wait for it to bite, then tap again.', 2500);
+}
+function fishCheck(me, t) {
+  const f = world.fishing;
+  if (!f) return;
+  if (!me || Math.hypot(me.x - POND.x, me.y - POND.y) > 150) { world.fishing = null; return; }
+  if (!f.told && t >= f.bite) { f.told = true; sfx('click'); world.splashes.push({ x: f.x, y: f.y - 14, t, text: '!', col: '#c23a4a' }); }
+  if (t > f.bite + 1.6 && !f.reeled) { world.fishing = null; worldToast('It got away.'); }
+}
+function fishResult(d) {
+  world.fishing = null;
+  const t = performance.now() / 1000;
+  if (d.fish === 'none') return worldToast('It got away.');
+  if (d.fish === 'wait' || d.fish === 'far') return;
+  world.splashes.push({ x: POND.x, y: POND.y - 20, t, text: FISH_ICON[d.fish] || '🐟', col: '#fff' });
+  worldToast(`You caught ${/^[AEIOU]/.test(d.fish_name) ? 'an' : 'a'} ${d.fish_name}! ${FISH_ICON[d.fish] || ''}`, 4000);
+  sfx('claim');
+}
+function drawFishing(g, t) {
+  // the water moves a little
+  g.strokeStyle = 'rgba(255,255,255,0.7)'; g.lineWidth = 1;
+  for (let i = 0; i < 3; i++) { const r = (t * 8 + i * 12) % 36; g.globalAlpha = 1 - r / 36; g.beginPath(); g.ellipse(POND.x - 20 + i * 18, POND.y + (i - 1) * 4, r, r / 3, 0, 0, Math.PI * 2); g.stroke(); }
+  g.globalAlpha = 1;
+  const f = world.fishing, me = world.cats.get(world.me);
+  if (!f || !me) return;
+  const bite = t >= f.bite, dip = bite ? Math.abs(Math.sin(t * 14)) * 3 : Math.sin(t * 2) * 1;
+  g.strokeStyle = '#4a4560'; g.lineWidth = 1.5;
+  g.beginPath(); g.moveTo(me.x + 10, me.y - 30); g.lineTo(me.x + 20, me.y - 62); g.stroke();
+  g.strokeStyle = 'rgba(40,36,60,0.7)'; g.lineWidth = 0.8;
+  g.beginPath(); g.moveTo(me.x + 20, me.y - 62); g.quadraticCurveTo((me.x + f.x) / 2, me.y - 70, f.x, f.y + dip); g.stroke();
+  g.fillStyle = '#ff3d6e'; g.beginPath(); g.arc(f.x, f.y + dip - 2, 3, Math.PI, 0); g.fill();
+  g.fillStyle = '#fff'; g.beginPath(); g.arc(f.x, f.y + dip - 2, 3, 0, Math.PI); g.fill();
+}
+
+// ── your bag: what you wear, the beetles you caught, the fish you pulled out ─
+const BAG = { tab: 'wear', d: null };
+function openBag() {
+  closePanels();
+  document.getElementById('w-bag').classList.remove('hidden');
+  if (!world.catalog) worldSend({ shopinfo: 1 });
+  worldSend({ inv: 1 }, true);
+  drawBag(BAG.d);
+}
+window.openBag = openBag;
+window.renderBag = d => { if (d) { BAG.d = d; world.owned = d.owned || world.owned; } drawBag(BAG.d); };
+function drawBag(d) {
+  const box = document.getElementById('w-bag-list');
+  if (!box || document.getElementById('w-bag').classList.contains('hidden')) return;
+  document.querySelectorAll('#w-bag [data-tab]').forEach(b => b.classList.toggle('on', b.dataset.tab === BAG.tab));
+  if (!d) { box.innerHTML = '<p class="w-dim">Opening your bag…</p>'; return; }
+  if (BAG.tab === 'wear') {
+    const items = (world.catalog || []).filter(it => world.owned.includes(it.id));
+    box.innerHTML = items.length ? `<div class="w-items">${items.map(it => {
+      const on = world.wear[it.slot] === it.id;
+      return `<div class="w-item${on ? ' on' : ''}"><canvas width="64" height="64" data-prev="${it.id}" data-slot="${it.slot}"></canvas><span>${esc(it.name)}</span>
+        ${on ? `<button type="button" data-off="${it.slot}">Take off</button>` : `<button type="button" data-wear="${it.id}" data-slot="${it.slot}">Wear</button>`}</div>`;
+    }).join('')}</div>` : '<p class="w-dim">Nothing yet. The terminal in the shop and the capsule machine have things to wear.</p>';
+    box.querySelectorAll('canvas[data-prev]').forEach(cv => previewCat(cv, { [cv.dataset.slot]: cv.dataset.prev }));
+  } else if (BAG.tab === 'bugs') {
+    const names = ['Common', 'Rare', 'Golden'];
+    box.innerHTML = `<div class="w-items">${BUG_KINDS.map((k, i) => `<div class="w-item${d.bugs[i] ? '' : ' locked'}">
+      <img src="${esc(world.bugImg[k[0]]?.src || `icons/beetles/${k[0]}.png`)}" alt=""><span>${names[i]} beetles</span><b>${d.bugs[i] || 0}</b></div>`).join('')}</div>
+      <p class="w-dim">Beetles fly around the park and the garden. Tap one to catch it.</p>`;
+  } else {
+    const ids = Object.keys(d.fishnames);
+    const got = ids.filter(id => d.fish[id]).length;
+    box.innerHTML = `<div class="w-items">${ids.map(id => d.fish[id]
+      ? `<div class="w-item"><i class="w-fish">${FISH_ICON[id]}</i><span>${esc(d.fishnames[id])}</span><b>× ${d.fish[id]}</b></div>`
+      : `<div class="w-item locked"><i class="w-fish">?</i><span>???</span></div>`).join('')}</div>
+      <p class="w-dim">${got} of ${ids.length} found. The pond is west of the well.</p>`;
+  }
+}
+
+// ── the capsule machine: the handle turns, a capsule drops, wobbles and pops ─
+const cap = { t0: 0, res: null, raf: 0 };
+function capsuleDraw(now) {
+  const cv = document.getElementById('w-cap-cv');
+  if (!cv || document.getElementById('w-capsule').classList.contains('hidden')) { cap.raf = 0; return; }
+  const g = cv.getContext('2d'), W = cv.width, H = cv.height, t = now / 1000, a = cap.t0 ? t - cap.t0 : -1;
+  g.clearRect(0, 0, W, H);
+  g.imageSmoothingEnabled = false;
+  // the machine
+  const mx = W / 2;
+  g.fillStyle = '#e14d9c'; roundRect(g, mx - 56, 110, 112, 92, 10); g.fill();
+  g.fillStyle = '#b8347b'; g.fillRect(mx - 56, 190, 112, 12);
+  g.fillStyle = 'rgba(220,235,255,0.85)'; g.beginPath(); g.arc(mx, 74, 54, Math.PI, 0); g.fill(); g.fillRect(mx - 54, 74, 108, 40);
+  const balls = [['#ffd34d', -30, 90], ['#7fd1ff', -8, 70], ['#ff8fb8', 22, 92], ['#a9f0b0', 4, 98], ['#c7a6ff', 30, 64], ['#ffd34d', -24, 58], ['#ff8fb8', 8, 44]];
+  const shake = a >= 0 && a < 0.9 ? Math.sin(a * 40) * 2 : 0;
+  balls.forEach(([c, ox, oy], i) => { g.fillStyle = c; g.beginPath(); g.arc(mx + ox + shake * (i % 2 ? 1 : -1), oy + Math.sin(t * 2 + i) * 0.8, 10, 0, Math.PI * 2); g.fill(); g.fillStyle = 'rgba(255,255,255,0.6)'; g.fillRect(mx + ox - 5, oy - 6, 3, 3); });
+  g.fillStyle = 'rgba(255,255,255,0.7)'; g.fillRect(mx - 40, 40, 6, 24);
+  // the handle
+  g.save(); g.translate(mx - 18, 146); g.rotate(a >= 0 ? Math.min(1, a / 0.8) * Math.PI * 2 : 0);
+  g.fillStyle = '#f4f4f4'; g.beginPath(); g.arc(0, 0, 14, 0, Math.PI * 2); g.fill();
+  g.fillStyle = '#9da3b6'; g.fillRect(-12, -3, 24, 6);
+  g.restore();
+  g.fillStyle = '#2a1f33'; roundRect(g, mx + 8, 160, 34, 26, 4); g.fill();
+  // the capsule falls out, wobbles until we know what is inside, then opens
+  const col = cap.res?.col || '#ffd34d';
+  if (a >= 0.8) {
+    const b = a - 0.8, ready = cap.res && b > 0.9;
+    const y = Math.min(232, 186 + b * b * 400);
+    if (!ready || !cap.open) {
+      if (ready && !cap.open) { cap.open = t; sfx('claim'); }
+      const wob = Math.sin(b * 22) * (b > 0.15 ? 0.25 : 0);
+      g.save(); g.translate(mx + 25, y); g.rotate(wob);
+      g.fillStyle = col; g.beginPath(); g.arc(0, 0, 14, Math.PI, 0); g.fill();
+      g.fillStyle = '#ffffff'; g.beginPath(); g.arc(0, 0, 14, 0, Math.PI); g.fill();
+      g.strokeStyle = 'rgba(0,0,0,0.25)'; g.beginPath(); g.moveTo(-14, 0); g.lineTo(14, 0); g.stroke();
+      g.restore();
+    }
+    if (cap.open) {
+      const c = t - cap.open;
+      // the halves fly off, confetti, the prize in a glow
+      g.globalAlpha = Math.max(0, 1 - c);
+      g.fillStyle = col; g.beginPath(); g.arc(mx + 25 - c * 60, 232 - c * 40, 14, Math.PI, 0); g.fill();
+      g.fillStyle = '#fff'; g.beginPath(); g.arc(mx + 25 + c * 60, 232 - c * 30, 14, 0, Math.PI); g.fill();
+      g.globalAlpha = 1;
+      for (let i = 0; i < 40; i++) {
+        const ang = hrand(i) * Math.PI * 2, sp = 60 + hrand(i + 7) * 90;
+        const x = mx + Math.cos(ang) * sp * Math.min(1, c * 1.5), y2 = 150 + Math.sin(ang) * sp * Math.min(1, c * 1.5) + c * c * 40;
+        g.globalAlpha = Math.max(0, 1 - c / 2.2);
+        g.fillStyle = `hsl(${i * 37 % 360} 90% 65%)`; g.fillRect(x, y2, 4, 2 + (i % 3));
+      }
+      g.globalAlpha = 1;
+    }
+  }
+  cap.raf = requestAnimationFrame(capsuleDraw);
+}
+function capsuleSpin() {
+  cap.t0 = performance.now() / 1000; cap.res = null; cap.open = 0;
+  document.getElementById('w-cap-got').classList.add('hidden');
+  sfx('click');
+  if (!cap.raf) cap.raf = requestAnimationFrame(capsuleDraw);
 }
 
 // ── input ────────────────────────────────────────────────────────────────────
@@ -1210,7 +1608,8 @@ function worldKey(e, down) {
   if (down) world.keys.add(k); else world.keys.delete(k);
 }
 function closePanels() {
-  for (const id of ['w-shop', 'w-screen', 'w-capsule', 'w-emotes', 'w-who']) document.getElementById(id).classList.add('hidden');
+  for (const id of ['w-shop', 'w-screen', 'w-capsule', 'w-emotes', 'w-toys', 'w-bag', 'w-card']) document.getElementById(id)?.classList.add('hidden');
+  if (world.aim) setAim(world.aim);
   if (!document.getElementById('w-lab').classList.contains('hidden')) closeLab();
 }
 
@@ -1221,11 +1620,12 @@ function worldPointer(e) {
   const x = world.cam.x + sx / world.z, y = world.cam.y + sy / world.z;
   world.active = Date.now();
   document.getElementById('w-emotes').classList.add('hidden');
-  document.getElementById('w-who').classList.add('hidden');
+  document.getElementById('w-toys').classList.add('hidden');
+  const c = catAt(x, y);
+  if (world.aim && !(c && e.pointerType === 'mouse' && e.shiftKey)) { useToy(x, y); return; }
   const p = world.prompt;
   if (p && inRect(x, y, p)) { world.pending = null; p.s.act(); return; }
-  const c = catAt(x, y);
-  if (c) { openWho(c, sx, sy); return; }
+  if (c) { openProfile(c.u, c.d); return; }
   const spot = SPOTS.find(s => !s.hide?.() && inRect(x, y, { x: s.r.x - 8, y: s.r.y - 8, w: s.r.w + 16, h: s.r.h + 16 }));
   if (spot) { world.pending = spot; world.target = { ...spot.at }; }
   else { world.pending = null; world.target = { x, y }; }
@@ -1235,7 +1635,7 @@ function worldHover(e) {
   const r = world.top.getBoundingClientRect();
   const x = world.cam.x + (e.clientX - r.left) / world.z, y = world.cam.y + (e.clientY - r.top) / world.z;
   const over = (world.prompt && inRect(x, y, world.prompt)) || catAt(x, y) || SPOTS.some(s => !s.hide?.() && inRect(x, y, s.r));
-  world.top.style.cursor = over ? 'pointer' : 'crosshair';
+  world.top.style.cursor = world.aim ? 'crosshair' : over ? 'pointer' : 'default';
 }
 
 function worldLeave() {
@@ -1267,7 +1667,8 @@ function setupWorld() {
   buildBackground();
   world.top.addEventListener('pointerdown', worldPointer);
   world.top.addEventListener('pointermove', worldHover);
-  document.getElementById('w-emote-btn').addEventListener('click', () => document.getElementById('w-emotes').classList.toggle('hidden'));
+  document.getElementById('w-emote-btn').addEventListener('click', () => { document.getElementById('w-toys').classList.add('hidden'); document.getElementById('w-emotes').classList.toggle('hidden'); });
+  document.fonts?.load('12px "Pixelify Sans"');
   document.getElementById('w-emotes').addEventListener('click', e => {
     const k = e.target.closest('button')?.dataset.emote;
     if (!k) return;
@@ -1277,13 +1678,23 @@ function setupWorld() {
     worldSend({ emote: k }, true);
     document.getElementById('w-emotes').classList.add('hidden');
   });
-  document.getElementById('w-who').addEventListener('click', e => {
-    const box = document.getElementById('w-who'), act = e.target.closest('[data-who]')?.dataset.who;
-    if (!act) return;
-    box.classList.add('hidden');
-    if (act === 'dm') window.dmOpen?.(box.dataset.u, box.dataset.d);
-    if (act === 'wave') { const me = world.cats.get(world.me); if (me) me.emote = { k: 'wave', at: performance.now() / 1000 }; worldSend({ emote: 'wave' }, true); }
-    if (act === 'mention') { const i = document.getElementById('chat-input'); i.value = `${i.value}${i.value && !i.value.endsWith(' ') ? ' ' : ''}~${box.dataset.u} `; i.focus(); }
+  document.getElementById('w-toy-btn').addEventListener('click', () => document.getElementById('w-toys').classList.toggle('hidden'));
+  document.getElementById('w-toys').addEventListener('click', e => {
+    const k = e.target.closest('[data-toy]')?.dataset.toy;
+    if (!k) return;
+    document.getElementById('w-toys').classList.add('hidden');
+    if (k === 'fish') { const s = SPOTS.find(x => x.id === 'pond'); world.pending = s; world.target = { ...s.at }; return; }
+    setAim(k);
+  });
+  document.getElementById('w-bag-btn').addEventListener('click', openBag);
+  document.getElementById('w-bag').addEventListener('click', e => {
+    const b = e.target.closest('button');
+    if (e.target.id === 'w-bag') return closePanels();
+    if (!b) return;
+    if (b.id === 'w-bag-close') return closePanels();
+    if (b.dataset.tab) { BAG.tab = b.dataset.tab; drawBag(BAG.d); }
+    if (b.dataset.wear) { world.wear[b.dataset.slot] = b.dataset.wear; worldSend({ wear: { [b.dataset.slot]: b.dataset.wear } }, true); drawBag(BAG.d); }
+    if (b.dataset.off) { delete world.wear[b.dataset.off]; worldSend({ wear: { [b.dataset.off]: null } }, true); drawBag(BAG.d); }
   });
   document.getElementById('w-shop').addEventListener('click', e => {
     const b = e.target.closest('button');
@@ -1297,13 +1708,14 @@ function setupWorld() {
   document.getElementById('w-capsule').addEventListener('click', e => {
     const id = e.target.id;
     if (id === 'w-capsule' || id === 'w-cap-close') closePanels();
-    if (id === 'w-cap-turn') { e.target.disabled = true; worldSend({ capsule: 1, shopinfo: 1 }, true); }
+    if (id === 'w-cap-turn') { e.target.disabled = true; capsuleSpin(); worldSend({ capsule: 1, shopinfo: 1 }, true); }
   });
   document.getElementById('w-screen').addEventListener('click', e => {
     const id = e.target.id;
     if (id === 'w-screen' || id === 'w-screen-close') closePanels();
     if (id === 'w-tv-yes') { try { localStorage.setItem(LS_TV_OK, '1'); } catch {} document.getElementById('w-tv-consent').classList.add('hidden'); tvActive(true); }
-    if (id === 'w-tv-play') { const v = document.getElementById('w-tv-url').value.trim(); if (v) { worldSend({ tv: v }, true); closePanels(); } }
+    if (id === 'w-tv-play') { const i = document.getElementById('w-tv-url'), v = i.value.trim(); if (v) { worldSend({ tv: v }, true); i.value = ''; } }
+    if (id === 'w-tv-skip') worldSend({ tvskip: 1 }, true);
     if (id === 'w-tv-stop') { worldSend({ tv: '' }, true); closePanels(); }
   });
   document.getElementById('w-tv-url').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('w-tv-play').click(); });

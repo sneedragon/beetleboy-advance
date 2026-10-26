@@ -142,7 +142,7 @@ async function dmSafety(u) {
   const theirs = await dmTheirKey(u);
   const el = document.getElementById('dm-safety');
   if (!el || dmState.open !== u) return;
-  if (!theirs) { el.textContent = `${dmName(u)} has not opened Layer 01 yet, so they cannot get messages.`; return; }
+  if (!theirs) { el.textContent = `${dmName(u)} has not opened Layer 777 yet, so they cannot get messages.`; return; }
   const h = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode([dmState.pub, theirs].sort().join('|'))));
   const code = [0, 1, 2, 3].map(i => String(((h[i * 3] << 16) | (h[i * 3 + 1] << 8) | h[i * 3 + 2]) % 100000).padStart(5, '0')).join(' ');
   el.textContent = `Safety code ${code}. If ${dmName(u)} sees the same, nobody is listening in.`;
@@ -163,7 +163,7 @@ async function dmSend() {
   try {
     for (let tries = 0; tries < 2; tries++) {
       const theirs = await dmTheirKey(to, tries > 0);
-      if (!theirs) { if (!tries) continue; worldToast(`${dmName(to)} has to open Layer 01 once before they can get messages.`, 4500); return; }
+      if (!theirs) { if (!tries) continue; worldToast(`${dmName(to)} has to open Layer 777 once before they can get messages.`, 4500); return; }
       const iv = crypto.getRandomValues(new Uint8Array(12));
       const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv, additionalData: new TextEncoder().encode(`${dmState.me}>${to}`) }, await dmShared(theirs), new TextEncoder().encode(JSON.stringify({ m: text })));
       const d = await dmPost({ act: 'send', to, ka: dmState.pub, kb: theirs, iv: dmB64(iv), ct: dmB64(ct), since: dmState.since });
