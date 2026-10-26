@@ -7,12 +7,12 @@
 
 require __DIR__ . '/world_lib.php';
 
-const W = 4880, H = 2840;          // the map in world units
+const W = 2820, H = 2120;          // the map in world units
 const STALE = 20;                  // seconds without a word and you have left
 const WALK = 260;                  // a little faster than a cat walks (W_SPEED in js/world.js)
 // shared ball: it rolls inside the park and slows down on its own
-const PEN = [160, 1320, 1160, 1880]; // x0, y0, x1, y1
-const GOAL = [1550, 1650];          // the goal mouths at both ends, as in js/world.js
+const PEN = [100, 1240, 470, 1460]; // x0, y0, x1, y1
+const GOAL = [1310, 1390];          // the goal mouths at both ends, as in js/world.js
 const BALL_K = 1.4;
 // coins
 const DAILY = 25;                  // first visit of the day
@@ -22,13 +22,15 @@ const CAPSULE = 30;                // the capsule machine
 const WISH = 1;                    // a coin into the well
 const FIREWORK = 2;                // a rocket over the plaza
 const GIFT_CAP = 200;              // coins you can give away a day
-const POND = [660, 1000];           // the pond on the plaza, as in js/world.js
-const STALL = [2050, 990];         // where you sell what you caught, as in js/world.js
-const BIN = [2424, 1132];           // the lost and found box
+const POND = [1185, 620];           // the pond on the plaza, as in js/world.js
+const STALL = [1500, 806];         // the buy counter in the terminal, as in js/world.js
+const BIN = [1364, 1334];           // the lost and found box
 const RUMMAGE = 90;                // seconds between two digs in the box
 const CONFETTI = 2;                // seconds between free toys (confetti, bubbles)
 // the Jade Arches kitchen: what the pantry sells, and what a plate pays (KITCHEN in js/places.js)
-const JADE = [3020, 420, 3620, 800];
+const JADE = [60, 40, 960, 330];
+const CLUB = [60, 330, 960, 910];
+const SLOT_ROOM = [1410, 40, 2310, 330];
 const PANTRY = ['patty' => 3, 'bun' => 2, 'cheese' => 2, 'lettuce' => 2, 'tomato' => 2, 'potato' => 2];
 const DISHES = ['burger' => [['bun', 'patty'], 6], 'cheeseburger' => [['bun', 'patty', 'cheese'], 9],
     'deluxe' => [['bun', 'patty', 'cheese', 'lettuce', 'tomato'], 14], 'fries' => [['potato'], 3], 'salad' => [['lettuce', 'tomato'], 5]];
@@ -39,7 +41,11 @@ function orderAt(int $i, float $t): array {
     return ['id' => "$i:$g", 'd' => $k[(int)floor(hrand($g * 17 + $i * 5) * count($k))]];
 }
 // the farm: seed price, seconds to grow, what one sells for (CROPS in js/places.js)
-const FARM = [3020, 1200, 4300, 1580];
+const FARM = [510, 1490, 960, 1780];
+// the slot parlour: what comes up how often, and what three of a kind pay (times the bet)
+const SLOT_SYMS = ['green' => 30, 'ladybug' => 25, 'pillbug' => 20, 'stag' => 14, 'goliath' => 8, 'golden' => 3];
+const SLOT_PAY = ['green' => 5, 'ladybug' => 8, 'pillbug' => 12, 'stag' => 20, 'goliath' => 50, 'golden' => 200];
+const SLOT_BETS = [1, 5, 10];
 const PLOTS = 8;
 const CROPS = ['lettuce' => [1, 120, 2], 'carrot' => [1, 150, 2], 'tomato' => [1, 180, 3], 'potato' => [1, 240, 3],
     'corn' => [2, 300, 5], 'strawberry' => [2, 420, 7], 'pumpkin' => [3, 600, 9]];
@@ -220,7 +226,7 @@ function quest(array &$r, string $day, string $ev, int $n, array &$out): void {
     foreach ($r['inv']['q'] as &$q) {
         if ($q[0] !== $ev || $q[2]) continue;
         $q[1] = min(DAILY_Q[$ev][1], $q[1] + $n);
-        if ($q[1] >= DAILY_Q[$ev][1]) { $q[2] = 1; $r['coins'] += DAILY_Q[$ev][2]; $out['quest'][] = [DAILY_Q[$ev][0], DAILY_Q[$ev][2]]; }
+        if ($q[1] >= DAILY_Q[$ev][1]) { $q[2] = 1; earn($r, DAILY_Q[$ev][2]); $out['quest'][] = [DAILY_Q[$ev][0], DAILY_Q[$ev][2]]; }
     }
     unset($q);
     if ($ev === 'touch') $r['inv']['st']['touch'] = ($r['inv']['st']['touch'] ?? 0) + $n;
@@ -234,10 +240,15 @@ function quest(array &$r, string $day, string $ev, int $n, array &$out): void {
         'dressed' => count(array_intersect(SLOTS, array_keys($r['wear']))) === count(SLOTS), 'whale' => !empty($r['inv']['fish']['whale']),
     ];
     foreach ($done as $id => $ok) if ($ok && empty($r['inv']['qd'][$id])) {
-        $r['inv']['qd'][$id] = 1; $r['coins'] += ONCE_Q[$id][1]; $out['quest'][] = [ONCE_Q[$id][0], ONCE_Q[$id][1]];
+        $r['inv']['qd'][$id] = 1; earn($r, ONCE_Q[$id][1]); $out['quest'][] = [ONCE_Q[$id][0], ONCE_Q[$id][1]];
     }
 }
 // put something in the bag, and remember that you have had one
+// stars you earn count as XP as well (gifts and selling bought things do not)
+function earn(array &$r, int $n, bool $xp = true): void {
+    $r['coins'] += $n;
+    if ($xp && $n > 0) $r['lxp'] += $n;
+}
 function gain(array &$r, string $k): void {
     $r['inv']['have'][$k] = ($r['inv']['have'][$k] ?? 0) + 1;
     $r['inv']['seen'][$k] = 1;
@@ -264,6 +275,7 @@ function loadUser(bool $test, string $u): array {
     }
     $r['owned'] = json_decode($r['owned'], true) ?: [];
     $r['bug_coins'] = (int)($r['bug_coins'] ?? 0);
+    $r['lxp'] = (int)($r['lxp'] ?? 0);
     $r['wear']  = json_decode($r['wear'], true) ?: [];
     $r['inv']   = (json_decode($r['inv'] ?? '{}', true) ?: []) + ['bugs' => [0, 0, 0], 'fish' => [], 'gday' => '', 'gsent' => 0, 'have' => [], 'seen' => [], 'st' => [], 'qd' => []];
     $r['inv']['bugs'] = array_pad(array_values($r['inv']['bugs']), count(BUGS), 0);
@@ -272,7 +284,7 @@ function loadUser(bool $test, string $u): array {
 function saveUser(bool $test, array $r): void {
     db($test)->prepare('UPDATE users SET coins=?, day=?, act_coins=?, xp_coins=?, xp=?, xp_rest=?, owned=?, wear=? WHERE u=?')
         ->execute([$r['coins'], $r['day'], $r['act_coins'], $r['xp_coins'], $r['xp'], $r['xp_rest'], json_encode(array_values($r['owned'])), json_encode((object)$r['wear']), $r['u']]);
-    db($test)->prepare('UPDATE users SET bug_coins=?, inv=? WHERE u=?')->execute([$r['bug_coins'], json_encode($r['inv']), $r['u']]);
+    db($test)->prepare('UPDATE users SET bug_coins=?, inv=?, lxp=? WHERE u=?')->execute([$r['bug_coins'], json_encode($r['inv']), $r['lxp'], $r['u']]);
 }
 
 // the ball rolls from where it was kicked, slows down and bounces off the fence;
@@ -287,7 +299,7 @@ function fold(float $p, float $a, float $b): float {
 // more people online, more beetles: two for each, at least four and at most twelve
 const BUG_N = 12, BUG_LIFE = 90;
 function bugCount(int $people): int { return max(4, min(BUG_N, 2 + 2 * $people)); }
-const BUG_AREAS = [[1800, 1260, 2880, 1900], [1800, 2100, 2880, 2740], [180, 1340, 1140, 1860], [1100, 840, 1900, 1160], [3060, 1240, 4260, 1540], [100, 840, 1200, 1180], [1800, 1260, 2880, 1900], [2960, 840, 4300, 1180]];
+const BUG_AREAS = [[560, 1240, 930, 1460], [110, 1500, 480, 1750], [120, 1250, 460, 1450], [120, 940, 920, 1170], [1450, 940, 2270, 1170], [1450, 1240, 1830, 1750], [990, 1230, 1380, 2040], [990, 120, 1380, 520]];
 function hrand(float $n): float { $v = sin($n * 12.9898) * 43758.5453; return $v - floor($v); }
 function bugAt(int $k, float $t): array {
     $g = (int)floor(($t + $k * 13) / BUG_LIFE);
@@ -323,9 +335,9 @@ if (!$fp) fail(500, 'world unavailable');
 flock($fp, LOCK_EX);
 $world = json_decode(stream_get_contents($fp) ?: '{}', true);
 if (!is_array($world)) $world = [];
-$world += ['people' => [], 'ball' => ['x' => 660, 'y' => 1600, 'vx' => 0, 'vy' => 0, 't' => 0], 'score' => [0, 0, 0, '', null], 'served' => [], 'tv' => null, 'tvq' => [], 'caught' => [], 'fx' => [], 'toss' => [], 'trades' => []];
+$world += ['people' => [], 'ball' => ['x' => 285, 'y' => 1350, 'vx' => 0, 'vy' => 0, 't' => 0], 'score' => [0, 0, 0, '', null], 'served' => [], 'tv' => null, 'tvq' => [], 'caught' => [], 'fx' => [], 'toss' => [], 'trades' => []];
 // the map grew: nobody keeps a spot from the old one, and the ball goes to the new pitch
-if (($world['map'] ?? 1) < 2) { $world['map'] = 2; $world['people'] = []; $world['ball'] = ['x' => 660, 'y' => 1600, 'vx' => 0, 'vy' => 0, 't' => 0]; }
+if (($world['map'] ?? 1) < 3) { $world['map'] = 3; $world['people'] = []; $world['ball'] = ['x' => 285, 'y' => 1350, 'vx' => 0, 'vy' => 0, 't' => 0]; }
 foreach ($world['caught'] as $id => $t) if ($t < time() - BUG_LIFE * 2) unset($world['caught'][$id]);
 $now = microtime(true); $sec = time(); $day = gmdate('Y-m-d');
 foreach ($world['people'] as $u => $p) if (($p['t'] ?? 0) < $sec - STALE) unset($world['people'][$u]);
@@ -341,7 +353,7 @@ if (($g = goalOf($world['ball'])) && $now >= $g['t'] + 1.5) {
     $by = $world['ball']['by'] ?? ''; $sc[3] = $world['people'][$by]['d'] ?? $by; $sc[4] = null;
     if (max($sc[0], $sc[1]) >= 5) { $sc[4] = [$sc[0], $sc[1]]; $sc[0] = $sc[1] = 0; }
     unset($sc);
-    $world['ball'] = ['x' => 660, 'y' => 1600, 'vx' => 0, 'vy' => 0, 't' => $now];
+    $world['ball'] = ['x' => 285, 'y' => 1350, 'vx' => 0, 'vy' => 0, 't' => $now];
 }
 // the screen moves on to the next video once this one has run out
 function tvNext(array &$world, float $now): void {
@@ -358,13 +370,13 @@ $dirty = false;
 
 if (!empty($in['leave'])) unset($world['people'][$U]);
 else {
-    $x = isset($in['x']) ? max(0, min(W, (int)$in['x'])) : ($prev['x'] ?? mt_rand(1400, 1600));
-    $y = isset($in['y']) ? max(0, min(H, (int)$in['y'])) : ($prev['y'] ?? mt_rand(1060, 1140));
+    $x = isset($in['x']) ? max(0, min(W, (int)$in['x'])) : ($prev['x'] ?? mt_rand(1110, 1260));
+    $y = isset($in['y']) ? max(0, min(H, (int)$in['y'])) : ($prev['y'] ?? mt_rand(1100, 1170));
     $p = ['d' => $me['d'], 'x' => $x, 'y' => $y, 't' => $sec,
-          'e' => $prev['e'] ?? null, 'w' => $prev['w'] ?? null, 'c' => $prev['c'] ?? null,
+          'e' => $prev['e'] ?? null, 'w' => $prev['w'] ?? null, 'c' => $prev['c'] ?? null, 'l' => $prev['l'] ?? null,
           'act' => $prev['act'] ?? 0, 'xa' => $prev['xa'] ?? 0, 'xf' => $prev['xf'] ?? 0,
           'in' => array_values(array_filter($prev['in'] ?? [], fn($i) => $i[2] > $now - 10))];
-    foreach (['wish', 'fish', 'fw', 'tz', 'gift', 'touch', 'dig', 'party', 'st', 'stt'] as $k) if (isset($prev[$k])) $p[$k] = $prev[$k];
+    foreach (['wish', 'fish', 'fw', 'tz', 'gift', 'touch', 'dig', 'party', 'st', 'stt', 'slot'] as $k) if (isset($prev[$k])) $p[$k] = $prev[$k];
     // where you can really be: the page says where you walk to, but nobody walks
     // faster than this, so catching, fishing and the rest count from here
     if (isset($prev['rx'])) {
@@ -377,13 +389,13 @@ else {
     $p['rx'] = round($rx, 1); $p['ry'] = round($ry, 1); $p['rt'] = $now;
 
     // just arrived: coins and clothes from the database, and the daily bonus
-    if (!$prev || $p['c'] === null || $p['w'] === null) {
+    if (!$prev || $p['c'] === null || $p['w'] === null || $p['l'] === null) {
         $getUser(); $r = &$user;
         if ($r['day'] !== $day) {
             $r['day'] = $day; $r['act_coins'] = 0; $r['xp_coins'] = 0; $r['bug_coins'] = 0;
-            $r['coins'] += DAILY; $out['bonus'] = DAILY; $dirty = true;
+            earn($r, DAILY); $out['bonus'] = DAILY; $dirty = true;
         }
-        $p['c'] = $r['coins']; $p['w'] = $r['wear']; $p['st'] = (string)($r['status'] ?? '');
+        $p['c'] = $r['coins']; $p['l'] = $r['lxp']; $p['w'] = $r['wear']; $p['st'] = (string)($r['status'] ?? '');
     }
 
     // a coin for each minute spent here while doing something (the tab tells us)
@@ -393,7 +405,7 @@ else {
             $p['act'] -= 60;
             $getUser(); $r = &$user;
             if ($r['day'] !== $day) { $r['day'] = $day; $r['act_coins'] = 0; $r['xp_coins'] = 0; $r['bug_coins'] = 0; }
-            if ($r['act_coins'] < ACT_CAP) { $r['act_coins']++; $r['coins']++; $dirty = true; }
+            if ($r['act_coins'] < ACT_CAP) { $r['act_coins']++; earn($r, 1); $dirty = true; }
         }
     }
 
@@ -409,7 +421,7 @@ else {
                 $gain = intdiv($xp - $r['xp'] + $r['xp_rest'], XP_PER_COIN);
                 $r['xp_rest'] = ($xp - $r['xp'] + $r['xp_rest']) % XP_PER_COIN;
                 $gain = max(0, min($gain, XP_CAP - $r['xp_coins']));
-                if ($gain) { $r['coins'] += $gain; $r['xp_coins'] += $gain; $out['xpcoins'] = $gain; }
+                if ($gain) { earn($r, $gain); $r['xp_coins'] += $gain; $out['xpcoins'] = $gain; }
             }
             if ($r['xp'] !== $xp) { $r['xp'] = $xp; $dirty = true; }
         }
@@ -479,25 +491,25 @@ else {
             $world['caught'][$b['id']] = $sec;
             $getUser(); $r = &$user;
             $kind = BUGS[$b['kind']][(int)floor(hrand($b['s'] + 9) * count(BUGS[$b['kind']]))];
-            gain($r, "b:$kind"); $r['inv']['bugs'][$b['kind']]++; $dirty = true;
+            gain($r, "b:$kind"); $r['inv']['bugs'][$b['kind']]++; $r['lxp']++; $dirty = true;
             $out['caught'] = $b['id']; $out['bug'] = $kind;
             quest($r, $day, 'catch', 1, $out);
         }
     }
     // the pond: a cast takes a few seconds, then something bites (or not)
     if (!empty($in['fish'])) {
-        if (hypot($rx - POND[0], $ry - POND[1]) > 180) $out['fish'] = 'far';
+        if (hypot($rx - POND[0], $ry - POND[1]) > 240) $out['fish'] = 'far';
         elseif ($sec - ($p['fish'] ?? 0) < 8) $out['fish'] = 'wait';
         else {
             $p['fish'] = $sec; $roll = mt_rand(1, 100);
             if ($roll <= 22) $out['fish'] = 'none';
             elseif ($roll <= 36) {
                 $getUser(); $r = &$user; $j = JUNK[mt_rand(0, count(JUNK) - 1)];
-                gain($r, "j:$j"); $dirty = true; $out['fish'] = 'junk'; $out['junk'] = $j;
+                gain($r, "j:$j"); $r['lxp']++; $dirty = true; $out['fish'] = 'junk'; $out['junk'] = $j;
                 quest($r, $day, 'fish', 1, $out);
             } else {
                 $getUser(); $r = &$user; $id = pickFish();
-                $r['inv']['fish'][$id] = ($r['inv']['fish'][$id] ?? 0) + 1; gain($r, "f:$id"); $dirty = true;
+                $r['inv']['fish'][$id] = ($r['inv']['fish'][$id] ?? 0) + 1; gain($r, "f:$id"); $r['lxp']++; $dirty = true;
                 $out['fish'] = $id; $out['fish_name'] = FISH[$id][0];
                 quest($r, $day, 'fish', 1, $out);
             }
@@ -511,7 +523,7 @@ else {
             $p['dig'] = $sec; $getUser(); $r = &$user; $dirty = true;
             if (mt_rand(1, 100) <= 12) { $t = array_rand(TRINKETS); $k = "t:$t"; }
             else $k = 'j:' . JUNK[mt_rand(0, count(JUNK) - 1)];
-            gain($r, $k); $out['dig'] = $k;
+            gain($r, $k); $r['lxp']++; $out['dig'] = $k;
             quest($r, $day, 'dig', 1, $out);
         }
         if ($out['dig'] === 'wait') $out['dig_in'] = RUMMAGE - ($sec - $p['dig']);
@@ -526,20 +538,44 @@ else {
                 $keys[$in['sell']['k']] = max(1, min($have[$in['sell']['k']], (int)($in['sell']['n'] ?? 1)));
             elseif (isset($in['sell']['all']) && in_array($in['sell']['all'], ['b', 'f', 'j', 'c'], true))
                 foreach ($have as $k => $n) if (str_starts_with($k, $in['sell']['all'] . ':')) $keys[$k] = $n;
-            $got = 0; $cnt = 0;
+            $got = 0; $cnt = 0; $lx = 0;
             foreach ($keys as $k => $n) {
                 $pr = price((string)$k);
                 if ($pr <= 0) continue;
                 $have[$k] -= $n; if ($have[$k] <= 0) unset($have[$k]);
                 $got += $pr * $n; $cnt += $n;
+                if (!str_starts_with((string)$k, 'w:')) $lx += $pr * $n;   // clothes you can buy give no XP
             }
             if ($cnt) {
-                $r['coins'] += $got; $r['inv']['st']['earned'] = ($r['inv']['st']['earned'] ?? 0) + $got; $dirty = true;
+                earn($r, $got, false); $r['lxp'] += $lx; $r['inv']['st']['earned'] = ($r['inv']['st']['earned'] ?? 0) + $got; $dirty = true;
                 $out['sell'] = ['n' => $cnt, 'coins' => $got];
                 quest($r, $day, 'sell', $cnt, $out);
             } else $out['sell'] = 'none';
         }
         unset($have);
+    }
+    // the slot machines: three reels of beetles; a pair gives the bet back, three of a kind pay out
+    if (isset($in['slot']) && is_array($in['slot'])) {
+        $getUser(); $r = &$user;
+        $bet = (int)($in['slot']['bet'] ?? 0);
+        $inSlots = $rx >= SLOT_ROOM[0] && $rx <= SLOT_ROOM[2] && $ry >= SLOT_ROOM[1] && $ry <= SLOT_ROOM[3];
+        if (!$inSlots) $out['slot'] = 'far';
+        elseif (!in_array($bet, SLOT_BETS, true)) $out['slot'] = 'bad';
+        elseif ($now - ($p['slot'] ?? 0) < 2.2) $out['slot'] = 'wait';
+        elseif ($r['coins'] < $bet) $out['slot'] = 'poor';
+        else {
+            $p['slot'] = $now; $r['coins'] -= $bet;
+            $reels = [];
+            for ($i = 0; $i < 3; $i++) {
+                $n = mt_rand(1, array_sum(SLOT_SYMS));
+                foreach (SLOT_SYMS as $k => $w) if (($n -= $w) <= 0) { $reels[] = $k; break; }
+            }
+            $c = array_count_values($reels); arsort($c); $top = array_key_first($c);
+            $win = $c[$top] === 3 ? $bet * SLOT_PAY[$top] : ($c[$top] === 2 ? ($top === 'golden' ? $bet * 5 : $bet) : 0);
+            // only what you win on top of the bet counts as XP
+            earn($r, $win, false); if ($win > $bet) $r['lxp'] += $win - $bet;
+            $dirty = true; $out['slot'] = ['reels' => $reels, 'win' => $win, 'bet' => $bet];
+        }
     }
     // confetti and bubbles: free, everyone sees them
     if (isset($in['party']) && is_array($in['party']) && is_string($in['party']['k'] ?? null)
@@ -623,7 +659,7 @@ else {
             $inv = json_decode($o['inv'] ?? '{}', true) ?: [];
             $out['prof'] = ['u' => $in['prof'], 'coins' => (int)$o['coins'], 'items' => count(json_decode($o['owned'], true) ?: []),
                 'wear' => (object)(json_decode($o['wear'], true) ?: []), 'bugs' => array_sum($inv['bugs'] ?? []),
-                'fish' => array_sum($inv['fish'] ?? []), 'quests' => count($inv['qd'] ?? []), 'since' => (int)$o['since'], 'status' => (string)($o['status'] ?? ''), 'here' => isset($world['people'][$in['prof']]),
+                'fish' => array_sum($inv['fish'] ?? []), 'quests' => count($inv['qd'] ?? []), 'since' => (int)$o['since'], 'status' => (string)($o['status'] ?? ''), 'lxp' => (int)($o['lxp'] ?? 0), 'here' => isset($world['people'][$in['prof']]),
                 'beetles' => (object)tradeable(json_decode($o['owned'], true) ?: [], $inv['have'] ?? [])];
         } else $out['prof'] = ['u' => $in['prof'], 'none' => true, 'here' => false];
     }
@@ -721,7 +757,7 @@ else {
             elseif (array_filter($need, fn($n, $k) => ($kit[$k] ?? 0) < $n, ARRAY_FILTER_USE_BOTH)) $out['serve'] = 'missing';
             else {
                 foreach ($need as $k => $n) { $kit[$k] -= $n; if ($kit[$k] <= 0) unset($kit[$k]); }
-                $pay = DISHES[$dish][1]; $r['coins'] += $pay; $world['served'][$o] = $sec;
+                $pay = DISHES[$dish][1]; earn($r, $pay); $world['served'][$o] = $sec;
                 $out['serve'] = [$dish, $pay];
             }
         }
@@ -739,7 +775,7 @@ else {
             if ($r['coins'] < CROPS[$c][0]) $out['farmerr'] = 'Not enough stars for that seed.';
             else { $r['coins'] -= CROPS[$c][0]; $f[$i] = [$c, $sec]; }
         } elseif ($i >= 0 && $i < PLOTS && !empty($in['farm']['h']) && $f[$i] && $sec - $f[$i][1] >= CROPS[$f[$i][0]][1]) {
-            gain($r, 'c:' . $f[$i][0]); $out['harvest'] = $f[$i][0]; $f[$i] = null;
+            gain($r, 'c:' . $f[$i][0]); $r['lxp']++; $out['harvest'] = $f[$i][0]; $f[$i] = null;
         }
         $r['inv']['farm'] = $f; $dirty = true;
         $out['farm'] = $f; $p['c'] = $r['coins'];
@@ -764,7 +800,7 @@ else {
 
     // the club screen: anyone standing in the club may put on a YouTube video
     if (isset($in['tv']) && is_string($in['tv'])) {
-        $inClub = $rx >= 60 && $rx <= 660 && $ry >= 40 && $ry <= 420;
+        $inClub = $rx >= CLUB[0] && $rx <= CLUB[2] && $ry >= CLUB[1] && $ry <= CLUB[3];
         $last = $world['tvset'][$U] ?? 0;
         if (!$inClub) $out['tv_err'] = 'Stand in the club to change the screen.';
         elseif ($sec - $last < 20) $out['tv_err'] = 'Wait a few seconds before changing it again.';
@@ -780,7 +816,7 @@ else {
         } else $out['tv_err'] = 'That does not look like a YouTube link.';
     }
     if (!empty($in['tvskip']) && $world['tv']) {
-        $inClub = $rx >= 60 && $rx <= 660 && $ry >= 40 && $ry <= 420;
+        $inClub = $rx >= CLUB[0] && $rx <= CLUB[2] && $ry >= CLUB[1] && $ry <= CLUB[3];
         if (!$inClub) $out['tv_err'] = 'Stand in the club to skip.';
         elseif ($sec - ($world['tvset'][$U] ?? 0) < 10) $out['tv_err'] = 'Wait a few seconds before skipping again.';
         else { tvNext($world, $now); $world['tvset'][$U] = $sec; }
@@ -792,6 +828,7 @@ else {
     }
     // a player saw the video end: move on, unless it has only just started
     if (isset($in['tvend']) && $world['tv'] && $in['tvend'] === $world['tv']['v'] && $now - $world['tv']['s'] > ($world['tv']['d'] ?? 20) - 8) tvNext($world, $now);
+    if ($user) { $p['c'] = $user['coins']; $p['l'] = $user['lxp']; }
     $world['people'][$U] = $p;
 }
 if (count($world['people']) > 80) { uasort($world['people'], fn($a, $b) => $b['t'] <=> $a['t']); $world['people'] = array_slice($world['people'], 0, 80, true); }
@@ -821,6 +858,11 @@ foreach ($world['trades'] as $o) if ($o['a'] === $U || $o['b'] === $U) $out['tra
 // the newest direct message for me, so the page knows when to fetch them
 try { $q = db($test)->prepare('SELECT MAX(id) FROM dm WHERE b = ?'); $q->execute([$U]); $out['dm'] = (int)$q->fetchColumn(); } catch (Throwable $e) {}
 $out['coins'] = $world['people'][$U]['c'] ?? ($user['coins'] ?? 0);
+$out['lxp'] = $world['people'][$U]['l'] ?? ($user['lxp'] ?? 0);
+// the notice board: who has the most XP
+if (!empty($in['board'])) {
+    try { $out['top'] = db($test)->query('SELECT u, lxp FROM users WHERE lxp > 0 ORDER BY lxp DESC LIMIT 3')->fetchAll(PDO::FETCH_NUM); } catch (Throwable $e) { $out['top'] = []; }
+}
 $out['wear'] = (object)($world['people'][$U]['w'] ?? []);
 $b = $world['ball'];
 $out['ball'] = ['x' => $b['x'], 'y' => $b['y'], 'vx' => $b['vx'], 'vy' => $b['vy'], 'age' => round(min($now - $b['t'], 86400), 3)];

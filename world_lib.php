@@ -83,6 +83,7 @@ function db(bool $test): PDO {
     try { $db->exec('ALTER TABLE users ADD COLUMN bug_coins INT NOT NULL DEFAULT 0'); } catch (PDOException $e) {}
     // what you caught and gave: {"bugs":[n,n,n],"fish":{id:n},"gday":"","gsent":0}
     try { $db->exec('ALTER TABLE users ADD COLUMN inv TEXT NOT NULL DEFAULT "{}"'); } catch (PDOException $e) {}
+    try { $db->exec('ALTER TABLE users ADD COLUMN lxp INT NOT NULL DEFAULT 0'); } catch (PDOException $e) {}
     try { $db->exec('ALTER TABLE users ADD COLUMN status TEXT NOT NULL DEFAULT ""'); } catch (PDOException $e) {}
     // direct messages: only ciphertext, gone a day after it was sent
     $db->exec('CREATE TABLE IF NOT EXISTS dmkeys (u TEXT PRIMARY KEY, pub TEXT NOT NULL, t INT NOT NULL)');

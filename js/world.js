@@ -7,42 +7,40 @@
 // the remilia sign-in cannot craft). Beetles wander about to be caught.
 // world.php keeps positions, emotes, the ball, the screen, beetles and coins.
 
-const WORLD_W = 4880, WORLD_H = 2840;
+const WORLD_W = 2820, WORLD_H = 2120;
 const W_SPEED = 170;                 // world units a second
 const W_SKATE = 255;                 // others on a board (world.php lets nobody go faster than 260)
 // my board rolls on its own: push, coast, carve, ollie (units a second, radians a second)
 const SK = { max: 250, push: 260, drag: 0.35, brake: 620, turn: 5.5, pop: 240, grav: 950, flip: 2.6 };
 const W_POLL = 1000;
 const W_ACTIVE = 180_000;            // input this recent counts as "here" for coins
-const PEN = [160, 1320, 1160, 1880];   // the park's ball pitch, as in world.php
-const GOAL = [1550, 1650];          // the goal mouths at both ends of the pitch
+const PEN = [100, 1240, 470, 1460];   // the park's ball pitch, as in world.php
+const GOAL = [1310, 1390];          // the goal mouths at both ends of the pitch
 const BALL_K = 1.4, BALL_R = 10;
 
-// walls with doorways: gaps per side as [from, to]; door: 'top' means one in the middle
+// the map is a grid of 450 x 290 blocks round the plaza; walls have doorways
+// as [from, to] per side, set a little toward the plaza
 const ZONES = [
-  { id: 'club', name: 'CYBERIA', x: 60, y: 40, w: 1200, h: 760, door: 'bottom', col: '#ff3d6e', dark: true },
-  { id: 'shop', name: 'TERMINAL', x: 1740, y: 40, w: 1200, h: 760, door: 'bottom', col: '#5b63e6' },
-  { id: 'jade', name: 'JADE ARCHES', x: 3020, y: 420, w: 600, h: 380, door: 'bottom', col: '#2fae7a' },
-  { id: 'library', name: 'LIBRARY', x: 3700, y: 420, w: 600, h: 380, door: 'bottom', col: '#b07a42' },
-  { id: 'garden', name: 'BEETLE GARDEN', x: 1740, y: 1200, w: 1200, h: 760, walls: ['left', 'bottom'], hedge: true, gaps: { left: [[1500, 1620]], bottom: [[2280, 2400]] }, col: '#2f9a5e', inner: true },
-  { id: 'skate', name: 'SKATE PARK', x: 60, y: 2040, w: 1200, h: 760, walls: [], gaps: {}, col: '#8c86a3', inner: true },
-  { id: 'park', name: 'PARK', x: 60, y: 1200, w: 2880, h: 1600, gaps: { top: [[560, 760], [1400, 1600], [2240, 2390]] }, col: '#4f9d58' },
-  { id: 'farm', name: 'FARM', x: 3020, y: 1200, w: 1280, h: 380, door: 'top', col: '#c9a13b' },
-  { id: 'church', name: 'CHURCH', x: 4380, y: 640, w: 440, h: 720, gaps: { left: [[925, 1075]] }, col: '#d9cfae' },
+  { id: 'jade', name: 'JADE ARCHES', x: 60, y: 40, w: 900, h: 290, gaps: { right: [[190, 300]] }, col: '#2fae7a' },
+  { id: 'slots', name: 'SLOTS', x: 1410, y: 40, w: 900, h: 290, gaps: { left: [[190, 300]] }, col: '#ffb43d' },
+  { id: 'club', name: 'CYBERIA', x: 60, y: 330, w: 900, h: 580, gaps: { bottom: [[610, 770]] }, col: '#ff3d6e', dark: true },
+  { id: 'shop', name: 'TERMINAL', x: 1410, y: 330, w: 900, h: 580, gaps: { bottom: [[1550, 1710]] }, col: '#5b63e6' },
+  { id: 'church', name: 'CHURCH', x: 2310, y: 910, w: 450, h: 290, gaps: { left: [[985, 1125]] }, col: '#d9cfae' },
+  { id: 'park', name: 'PARK', x: 60, y: 1200, w: 450, h: 580, walls: ['left', 'top', 'bottom'], hedge: true, gaps: { top: [[330, 470]] }, col: '#4f9d58' },
+  { id: 'garden', name: 'BEETLE GARDEN', x: 510, y: 1200, w: 450, h: 290, hedge: true, gaps: { top: [[780, 920]] }, col: '#2f9a5e' },
+  { id: 'farm', name: 'FARM', x: 510, y: 1490, w: 450, h: 290, walls: ['left', 'bottom', 'right'], hedge: true, gaps: { right: [[1530, 1650]] }, sign: 'bottom', col: '#c9a13b' },
+  { id: 'skate', name: 'SKATE PARK', x: 1410, y: 1200, w: 450, h: 580, walls: [], gaps: {}, col: '#8c86a3' },
+  { id: 'library', name: 'LIBRARY', x: 1860, y: 1200, w: 450, h: 290, gaps: { top: [[1930, 2070]] }, col: '#b07a42' },
 ];
-for (const z of ZONES) if (!z.gaps) {
-  const c = z.x + z.w / 2;
-  z.gaps = { [z.door]: [[c - 75, c + 75]] };
-}
 const PLAZA = { id: 'plaza', name: 'PLAZA' };
-const CLUB_SCREEN = { x: 420, y: 56, w: 480, h: 270 };          // the club screen, 16:9
-const DANCE = { x: 300, y: 420, w: 720, h: 240 };               // the floor that sings
-const GARDEN_GATE = { x: 2240, y: 1192, w: 150, h: 24 };
-const GARDEN_GATES = [GARDEN_GATE, { x: 1732, y: 1500, w: 24, h: 120 }, { x: 2280, y: 1952, w: 120, h: 24 }];   // the gate and the gaps in the hedge
-const WELL = { x: 1500, y: 1000 };
-const TREES = [[1900, 1360], [2780, 1340], [1880, 1860], [2800, 1830], [1960, 2220], [2560, 2160], [2840, 2560], [2060, 2660], [1760, 2300]];
-const POLES = [[1300, 560], [1700, 560], [1300, 1170], [1700, 1170], [200, 1000], [2960, 1000], [3660, 880], [2960, 1170], [4300, 1000]];
-const POND = { x: 660, y: 1000, rx: 100, ry: 46 };               // fishing, as in world.php
+const CLUB_SCREEN = { x: 290, y: 350, w: 420, h: 236 };          // the club screen, 16:9
+const DANCE = { x: 220, y: 620, w: 570, h: 180 };               // the floor that sings
+const GARDEN_GATE = { x: 780, y: 1192, w: 140, h: 24 };
+const GARDEN_GATES = [GARDEN_GATE];                               // the only way into the garden
+const WELL = { x: 1185, y: 1045 };
+const TREES = [[130, 1560], [440, 1580], [270, 1720], [560, 1270], [910, 1440], [1000, 1930], [1370, 2020], [1000, 380], [1370, 860], [2280, 1000]];
+const POLES = [[978, 320], [1392, 320], [978, 892], [1392, 892], [80, 1180], [2290, 1180], [978, 1760], [1392, 1760]];
+const POND = { x: 1185, y: 620, rx: 150, ry: 80 };               // fishing, as in world.php
 // the bit of shore nearest to me: you can fish from all round the pond
 function pondShore() {
   const me = world.cats?.get(world.me);
@@ -52,23 +50,26 @@ function pondShore() {
 const EMOTE_ICON = { wave: '👋', heart: '❤️', laugh: '😹', spark: '💫', sleep: '💤', dance: '🎵', what: '❓', hug: '🤗', high5: '🙌', gift: '🎁' };
 const FISH_ICON = { minnow: '🐟', koi: '🎏', puffer: '🐡', jelly: '🪼', eel: '🪱', angel: '🐠', boot: '👢', disk: '💾', golden: '👑',
   shrimp: '🦐', crab: '🦀', frog: '🐸', shell: '🐚', squid: '🦑', duck: '🦆', turtle: '🐢', lobster: '🦞', whale: '🐋' };
-const STALL = { x: 2000, y: 900, w: 100, h: 50, at: { x: 2050, y: 990 } };   // the stall buys what you found, as in world.php
-const BIN = { x: 2400, y: 1060, w: 48, h: 40, at: { x: 2424, y: 1132 } };  // the lost and found box
-const MAILBOX = { x: 1778, y: 1010, w: 26, h: 64, at: { x: 1791, y: 1110 } };  // walk up to it for your messages
+const STALL = { x: 1440, y: 716, w: 120, h: 50, at: { x: 1500, y: 806 } };   // the terminal's buy counter, as in world.php
+const BIN = { x: 1340, y: 1262, w: 48, h: 40, at: { x: 1364, y: 1334 } };  // the lost and found box
+const MAILBOX = { x: 1360, y: 930, w: 26, h: 64, at: { x: 1373, y: 1030 } };  // walk up to it for your messages
+const BOARD = { x: 990, y: 940, w: 130, h: 70, at: { x: 1055, y: 1040 } };    // the notice board: patch notes and the best players
+const BOUTIQUE = { x: 1450, y: 360, w: 300, h: 44 };                          // the clothes rail
+const GACHA = { x: 2190, y: 362, w: 80, h: 112 };                             // the capsule machine
+const SLOTS = [0, 1, 2, 3, 4, 5].map(i => ({ x: 1520 + i * 120, y: 62, w: 76, h: 104 }));   // the slot machines, as in world.php
 // furniture: [x, y, w, h, kind], solid and drawn in buildBackground()
 const FURNITURE = [
-  [300, 70, 56, 120, 'speaker'], [362, 96, 46, 94, 'speaker'], [912, 96, 46, 94, 'speaker'], [964, 70, 56, 120, 'speaker'],
-  [1150, 140, 94, 440, 'bar'], [80, 180, 44, 150, 'sofa'], [80, 460, 44, 150, 'sofa'], [150, 230, 50, 50, 'table'], [150, 510, 50, 50, 'table'],
-  [120, 734, 200, 40, 'couch'], [1000, 734, 200, 40, 'couch'], [180, 680, 80, 40, 'table'], [1060, 680, 80, 40, 'table'],
-  ...[170, 230, 290, 350, 410, 470, 530].map(y => [1118, y, 18, 12, 'stool']),
-  [1770, 260, 56, 150, 'rack'], [1770, 450, 56, 150, 'rack'], [2860, 240, 56, 90, 'arcade'], [2860, 360, 56, 90, 'arcade'],
-  [1800, 640, 160, 44, 'desk'], [2720, 640, 160, 44, 'desk'], [2098, 342, 24, 14, 'mannequin'], [2558, 342, 24, 14, 'mannequin'],
-  [2040, 730, 160, 40, 'couch'], [2480, 730, 160, 40, 'couch'], [2080, 670, 80, 40, 'table'], [2520, 670, 80, 40, 'table'],
-  [2100, 2420, 110, 26, 'bench'], [2620, 2420, 110, 26, 'bench'], [2040, 1700, 110, 26, 'bench'], [2700, 1700, 110, 26, 'bench'],
+  [216, 360, 56, 120, 'speaker'], [728, 360, 56, 120, 'speaker'],
+  [880, 400, 64, 300, 'bar'], ...[420, 480, 540, 600, 660].map(y => [852, y, 18, 12, 'stool']),
+  [80, 420, 44, 130, 'sofa'], [80, 600, 44, 130, 'sofa'], [140, 462, 46, 46, 'table'], [140, 642, 46, 46, 'table'],
+  [100, 852, 180, 40, 'couch'], [150, 800, 70, 34, 'table'], [800, 852, 140, 40, 'couch'],
+  [1790, 352, 70, 100, 'booth'], [1480, 470, 24, 14, 'mannequin'], [1700, 470, 24, 14, 'mannequin'], [1880, 360, 40, 96, 'mirror'],
+  [2080, 852, 180, 40, 'couch'], [2130, 790, 80, 38, 'table'],
+  [110, 1736, 110, 26, 'bench'], [330, 1736, 110, 26, 'bench'],
 ];
-const STALL_SOLID = [STALL.x, STALL.y + 14, STALL.w, 32], BIN_SOLID = [BIN.x + 2, BIN.y + 8, BIN.w - 4, BIN.h - 10];
+const STALL_SOLID = [STALL.x, STALL.y, STALL.w, STALL.h], BIN_SOLID = [BIN.x + 2, BIN.y + 8, BIN.w - 4, BIN.h - 10];
 // the place floats in the sky: you can walk on these and nowhere else
-const PLATFORMS = [[30, 780, 4400, 440], [1260, 10, 480, 790], ...ZONES.filter(z => !z.inner).map(z => [z.x, z.y, z.w, z.h])]
+const PLATFORMS = [[960, 40, 450, 2030], [60, 910, 2250, 290], ...ZONES.map(z => [z.x, z.y, z.w, z.h])]
   .map(([x, y, w, h]) => ({ x, y, w, h }));
 const GLITCH_LINES = ['PRESENT DAY', 'PRESENT TIME', 'you are connected', 'layer 777', 'who is here?', 'the network remembers', 'no carrier'];
 const FORTUNES = [
@@ -83,21 +84,23 @@ const FORTUNES = [
 
 // things you can walk up to and use: the prompt floats above them
 const SPOTS = [
-  { id: 'screen', r: CLUB_SCREEN, at: { x: 660, y: 380 }, col: '#ff3d6e', text: () => world.tv ? '▶ Watch along' : '▶ Put on a video', act: () => openScreen() },
-  { id: 'shop', r: { x: 2160, y: 330, w: 360, h: 40 }, at: { x: 2340, y: 404 }, col: '#5b63e6', text: () => '★ Wardrobe', act: () => openShop() },
-  { id: 'capsule', r: { x: 2700, y: 300, w: 56, h: 92 }, at: { x: 2690, y: 436 }, col: '#d65bb6', text: () => '★ 30 Capsule', act: () => openCapsule() },
+  { id: 'screen', r: CLUB_SCREEN, at: { x: 500, y: 610 }, zone: 'club', col: '#ff3d6e', text: () => world.tv ? '▶ Watch along' : '▶ Put on a video', act: () => openScreen() },
+  { id: 'shop', r: BOUTIQUE, at: { x: 1600, y: 440 }, col: '#5b63e6', text: () => '★ Boutique', act: () => openShop() },
+  { id: 'capsule', r: GACHA, at: { x: 2230, y: 510 }, col: '#d65bb6', text: () => '★ 30 Capsule', act: () => openCapsule() },
   { id: 'well', r: { x: WELL.x - 38, y: WELL.y - 34, w: 76, h: 56 }, at: { x: WELL.x, y: WELL.y + 60 }, col: '#7fb8ff', text: () => '✧ Wish (★ 1)', act: () => makeWish() },
-  { id: 'game', r: { x: 2260, y: 1504, w: 120, h: 56 }, at: { x: 2320, y: 1480 }, col: '#2f9a5e', text: () => '🪲 Play the beetle game', act: () => openLab(), hide: () => labLocked() },
+  { id: 'board', r: BOARD, at: BOARD.at, col: '#e8a33d', text: () => '📋 Notice board', act: () => openBoard() },
+  { id: 'game', r: { x: 675, y: 1314, w: 120, h: 56 }, at: { x: 735, y: 1296 }, col: '#2f9a5e', text: () => '🪲 Play the beetle game', act: () => openLab(), hide: () => labLocked() },
   { id: 'pond', r: { x: POND.x - POND.rx, y: POND.y - POND.ry, w: POND.rx * 2, h: POND.ry * 2 }, get at() { return pondShore(); }, col: '#3f7fdc', text: () => world.fishing ? '🎣 Reel in' : '🎣 Fish', act: () => castLine() },
   { id: 'stall', r: STALL, at: STALL.at, col: '#e8a33d', text: () => '★ Sell what you found', act: () => openBag('things') },
   { id: 'mail', r: MAILBOX, at: MAILBOX.at, col: '#d8443c', text: () => world.unread ? `✉ Mailbox (${world.unread} new)` : '✉ Mailbox', act: () => window.dmOpen?.(), hide: () => !window.dmOpen },
   { id: 'bin', r: BIN, at: BIN.at, col: '#8c86a3', text: () => '📦 Lost and found', act: () => dig() },
-  { id: 'gate', r: { x: 2240, y: 1160, w: 150, h: 60 }, at: { x: 2315, y: 1160 }, col: '#c23a4a', text: () => '🔒 Password sign-in only', act: () => labDenied(true), hide: () => !labLocked() },
+  { id: 'gate', r: { x: 780, y: 1160, w: 140, h: 60 }, at: { x: 850, y: 1172 }, col: '#c23a4a', text: () => '🔒 Password sign-in only', act: () => labDenied(true), hide: () => !labLocked() },
+  ...SLOTS.map((r, i) => ({ id: 'slot' + i, r, at: { x: r.x + r.w / 2, y: r.y + r.h + 30 }, near: 50, col: '#ffb43d', text: () => '🎰 Play the slots', act: () => openSlots(i) })),
 ];
 
 // beetles: every browser works out the same ones from the clock (bugAt() in world.php)
 const BUG_LIFE = 90;     // how many fly about comes from world.php: more when more people are here
-const BUG_AREAS = [[1800, 1260, 2880, 1900], [1800, 2100, 2880, 2740], [180, 1340, 1140, 1860], [1100, 840, 1900, 1160], [3060, 1240, 4260, 1540], [100, 840, 1200, 1180], [1800, 1260, 2880, 1900], [2960, 840, 4300, 1180]];
+const BUG_AREAS = [[560, 1240, 930, 1460], [110, 1500, 480, 1750], [120, 1250, 460, 1450], [120, 940, 920, 1170], [1450, 940, 2270, 1170], [1450, 1240, 1830, 1750], [990, 1230, 1380, 2040], [990, 120, 1380, 520]];
 // tin, bronze, mithril, adamantite, diamond (BUGS in world.php); diamond is one in 500
 const BUG_KINDS = [['green'], ['purple', 'ladybug', 'cucumber'],
   ['monarch', 'pond', 'giraffe_weevil', 'pillbug', 'imperial_tortoise', 'christmas', 'skull', 'bumblebee', 'golden_tiger', 'blue_longicorn'],
@@ -121,7 +124,7 @@ const world = {
   cam: { x: 0, y: 0 }, sprite: null, tinted: new Map(), timer: null, raf: 0, last: 0,
   target: null, pending: null, near: null, prompt: null, keys: new Set(), failing: 0, busy: false, err: '',
   coins: null, wear: {}, owned: [], catalog: null, zone: null, active: Date.now(),
-  ball: { x: 660, y: 1600, vx: 0, vy: 0, t0: 0 }, kickAt: 0, tv: null, tvAt: 0,
+  ball: { x: 285, y: 1350, vx: 0, vy: 0, t0: 0 }, kickAt: 0, tv: null, tvAt: 0,
   out: {}, bg: null, noise: [], scan: null, haze: null, glitch: null, nextGlitch: 0, solids: [],
   skew: 0, gone: new Set(), catching: new Set(), bugImg: {}, splashes: [], tile: '', dm: 0,
   tvq: [], lastSeen: new Map(), looked: false, fx: new Map(), toss: new Map(), seenIn: new Set(), aim: null, fishing: null, sky: null,
@@ -142,14 +145,15 @@ function buildSolids() {
   };
   for (const z of ZONES) for (const k of z.walls || ['top', 'bottom', 'left', 'right']) side(z, k);
   s.push([CLUB_SCREEN.x - 10, z0('club').y, CLUB_SCREEN.w + 20, CLUB_SCREEN.h + 20]);        // the screen stands against the club wall
-  s.push([1790, 86, 1100, 104]);                                              // the wall of terminal monitors
-  s.push([2160, 330, 360, 40], [2700, 300, 56, 92]);                           // the counter, the capsule machine
-  for (const r of FURNITURE) s.push([...r.slice(0, 4), 'prop']);               // sofas, the bar, racks, desks, benches
+  s.push([BOUTIQUE.x, BOUTIQUE.y, BOUTIQUE.w, BOUTIQUE.h, 'prop'], [GACHA.x, GACHA.y + 40, GACHA.w, GACHA.h - 40, 'prop']);   // the clothes rail, the capsule machine
+  s.push([BOARD.x + 6, BOARD.y + 50, BOARD.w - 12, 20, 'prop']);               // the notice board's legs
+  for (const r of SLOTS) s.push([r.x, r.y + 30, r.w, r.h - 30, 'prop']);       // the slot machines
+  for (const r of FURNITURE) s.push([...r.slice(0, 4), 'prop']);               // sofas, the bar, couches, benches
   s.push([WELL.x - 34, WELL.y - 18, 68, 36]);
   s.push([POND.x - POND.rx + 6, POND.y - POND.ry + 6, POND.rx * 2 - 12, POND.ry * 2 - 12]);
   for (const [x, y] of TREES) s.push([x - 18, y - 6, 36, 16]);
-  s.push([2260, 1520, 120, 40]);                                               // the workbench
-  s.push(STALL_SOLID, BIN_SOLID, [MAILBOX.x + 8, MAILBOX.y + 50, 10, 14]);
+  s.push([675, 1330, 120, 40, 'prop']);                                        // the workbench
+  s.push([...STALL_SOLID, 'prop'], BIN_SOLID, [MAILBOX.x + 8, MAILBOX.y + 50, 10, 14]);
   for (const [x, y] of POLES) s.push([x - 8, y - 8, 16, 16]);
   window.placeSolids?.(s);                                                     // the new places (places.js)
   world.solids = s.map(([x, y, w, h, k]) => ({ x, y, w, h, k }));
@@ -166,7 +170,9 @@ function blocked(x, y, skip) {
   const box = { x: x - 13, y: y - 8, w: 26, h: 10 };
   const hit = r => box.x < r.x + r.w && box.x + box.w > r.x && box.y < r.y + r.h && box.y + box.h > r.y;
   if (labLocked() && GARDEN_GATES.some(hit)) return 'lab';
-  if (!PLATFORMS.some(p => x > p.x + 12 && x < p.x + p.w - 12 && y > p.y + 14 && y < p.y + p.h - 4)) return true;    // the edge, and the sky below
+  // the edge, and the sky below: every corner of the cat stands on some platform
+  const on = (px, py) => PLATFORMS.some(p => px >= p.x && px <= p.x + p.w && py >= p.y && py <= p.y + p.h);
+  if (!on(x - 12, y - 14) || !on(x + 12, y - 14) || !on(x - 12, y + 4) || !on(x + 12, y + 4)) return true;
   return world.solids.some(r => r !== skip && hit(r));
 }
 
@@ -327,6 +333,7 @@ async function worldTickNow() {
   }
   if (d.dm != null && d.dm !== world.dm) { world.dm = d.dm; window.dmPoke?.(d.dm); }
   window.placesTick?.(d, extra, clock);                // the farm, the kitchen, the goals (places.js)
+  window.hubTick?.(d);                                 // levels, the board, the slots (hub.js)
 
   // the ball: my own kick stays as I predicted it until the server agrees
   if (performance.now() - world.kickAt > 1500 && d.ball) syncBall(d.ball, clock);
@@ -423,11 +430,13 @@ function worldStep(dt, clock) {
   danceCheck(me);
   fishCheck(me, clock);
   // the nearest thing to use, and walking up to the one I tapped
-  world.near = SPOTS.filter(s => !s.hide?.()).map(s => ({ s, d: Math.hypot(s.at.x - me.x, s.at.y - me.y) })).filter(o => o.d < (o.s.near || 110)).sort((a, b) => a.d - b.d)[0]?.s || null;
+  // a spot with a zone (the club screen) works from anywhere in that room
+  const inSpot = s => s.zone && z.id === s.zone;
+  world.near = SPOTS.filter(s => !s.hide?.()).map(s => ({ s, d: inSpot(s) ? 200 : Math.hypot(s.at.x - me.x, s.at.y - me.y) })).filter(o => o.d < (o.s.near || 110) || inSpot(o.s)).sort((a, b) => a.d - b.d)[0]?.s || null;
   const p = world.pending;
   if (p) {
     const d = Math.hypot(p.at.x - me.x, p.at.y - me.y);
-    if (d < 30 || (!me.moving && d < (p.near || 110))) { world.pending = null; p.act(); }
+    if (d < 30 || inSpot(p) || (!me.moving && d < (p.near || 110))) { world.pending = null; p.act(); }
     else if (!me.moving) world.pending = null;
   }
 }
@@ -710,11 +719,12 @@ function buildBackground() {
   for (let y = 0; y <= WORLD_H; y += 40) { g.beginPath(); g.moveTo(0, y + 0.5); g.lineTo(WORLD_W, y + 0.5); g.stroke(); }
   g.restore();
   g.fillStyle = D ? 'rgba(232,214,138,0.18)' : 'rgba(80,90,130,0.16)';
-  for (let x = 40; x < 4400; x += 60) if (x < 1240 || x > 1760) g.fillRect(x, 998, 30, 3);
-  for (let y = 20; y < 780; y += 60) g.fillRect(1498, y, 3, 30);
+  // the middle lines of the streets, round the plaza and the pond
+  for (let x = 90; x < 2300; x += 60) if (x < 940 || x > 1410) g.fillRect(x, 1054, 30, 3);
+  for (let y = 60; y < 2060; y += 60) if ((y < 500 || y > 720) && (y < 880 || y > 1210)) g.fillRect(1184, y, 3, 30);
   // the plaza: rings around the well
-  for (let r = 260; r > 60; r -= 40) {
-    g.strokeStyle = D ? `rgba(120,140,255,${0.03 + (260 - r) / 3600})` : `rgba(60,100,200,${0.06 + (260 - r) / 1800})`; g.lineWidth = 2;
+  for (let r = 200; r > 40; r -= 40) {
+    g.strokeStyle = D ? `rgba(120,140,255,${0.03 + (200 - r) / 3000})` : `rgba(60,100,200,${0.06 + (200 - r) / 1500})`; g.lineWidth = 2;
     g.beginPath(); g.ellipse(WELL.x, WELL.y, r, r * 0.7, 0, 0, Math.PI * 2); g.stroke();
   }
   // the pond: a hole in the platform with the sky showing through
@@ -745,12 +755,17 @@ function buildBackground() {
     g.strokeStyle = D ? 'rgba(80,200,140,0.07)' : 'rgba(40,60,140,0.08)';
     for (let x = z.x; x < z.x + z.w; x += 24) { g.beginPath(); g.moveTo(x, z.y); g.lineTo(x, z.y + z.h); g.stroke(); }
     for (let y = z.y; y < z.y + z.h; y += 24) { g.beginPath(); g.moveTo(z.x, y); g.lineTo(z.x + z.w, y); g.stroke(); }
-    // cables to the monitors
-    g.strokeStyle = D ? 'rgba(90,84,110,0.5)' : 'rgba(40,36,56,0.5)'; g.lineWidth = 2;
-    for (let i = 0; i < 7; i++) { g.beginPath(); g.moveTo(1830 + i * 68, 188); g.bezierCurveTo(1840 + i * 50, 300, rnd(1840, 1900), 380, 1826, 300 + i * 40); g.stroke(); }
-    for (let i = 0; i < 6; i++) { g.beginPath(); g.moveTo(2440 + i * 68, 188); g.bezierCurveTo(2460 + i * 60, 320, rnd(2800, 2860), 300, 2860, 270 + i * 26); g.stroke(); }
-    for (let i = 0; i < 3; i++) { g.beginPath(); g.moveTo(1826, 560 + i * 12); g.bezierCurveTo(1820, 620, 1860, 600, 1880, 640); g.stroke(); }
-    g.lineWidth = 1;
+    // the boutique's rug, and a mat at the buy counter
+    g.fillStyle = D ? 'rgba(120,90,200,0.14)' : 'rgba(199,166,255,0.3)'; roundRect(g, 1436, 350, 494, 170, 16); g.fill();
+    g.fillStyle = D ? 'rgba(232,163,61,0.12)' : 'rgba(232,163,61,0.22)'; roundRect(g, 1432, 776, 140, 60, 10); g.fill();
+  });
+  floor(z0('slots'), z => {
+    // a casino carpet: deep red with gold diamonds
+    g.fillStyle = D ? '#2a0c14' : '#7a1a2a'; g.fillRect(z.x, z.y, z.w, z.h);
+    g.fillStyle = D ? 'rgba(255,180,61,0.12)' : 'rgba(255,200,90,0.28)';
+    for (let y = z.y; y < z.y + z.h; y += 28) for (let x = z.x + ((y - z.y) / 28 % 2) * 14; x < z.x + z.w; x += 28) {
+      g.beginPath(); g.moveTo(x, y - 5); g.lineTo(x + 5, y); g.lineTo(x, y + 5); g.lineTo(x - 5, y); g.fill();
+    }
   });
   const grass = (z, base, n, flowers) => {
     g.fillStyle = base; g.fillRect(z.x, z.y, z.w, z.h);
@@ -763,28 +778,22 @@ function buildBackground() {
     }
   };
   floor(z0('park'), z => {
-    grass(z, D ? '#0c0f0a' : '#cfe6c6', 40000, 600);
-    // gravel paths between the pitch, the garden, the skate park and the meadow
-    g.fillStyle = D ? 'rgba(120,115,140,0.12)' : 'rgba(238,232,214,0.75)';
-    roundRect(g, 1300, z.y, 400, z.h, 30); g.fill();
-    roundRect(g, z.x, 1975, z.w, 50, 24); g.fill();
-    // flower beds in the meadow
-    for (const [x, y] of [[1820, 2120], [2380, 2110], [2300, 2700], [1800, 2480], [2700, 2260]]) {
-      g.fillStyle = D ? '#1a140f' : '#a0805e'; roundRect(g, x, y, 160, 60, 14); g.fill();
-      for (let i = 0; i < 26; i++) { g.fillStyle = D ? ['#5a4a70', '#6a3a4a', '#6a6040'][i % 3] : ['#ff7aa8', '#ffd34d', '#c7a6ff', '#ffffff'][i % 4]; g.fillRect(x + 10 + rnd(0, 136), y + 8 + rnd(0, 42), 5, 5); }
+    grass(z, D ? '#0c0f0a' : '#cfe6c6', 2600, 50);
+    // flower beds in the meadow below the pitch
+    for (const [x, y] of [[180, 1516], [320, 1630]]) {
+      g.fillStyle = D ? '#1a140f' : '#a0805e'; roundRect(g, x, y, 120, 44, 12); g.fill();
+      for (let i = 0; i < 18; i++) { g.fillStyle = D ? ['#5a4a70', '#6a3a4a', '#6a6040'][i % 3] : ['#ff7aa8', '#ffd34d', '#c7a6ff', '#ffffff'][i % 4]; g.fillRect(x + 8 + rnd(0, 100), y + 6 + rnd(0, 28), 5, 5); }
     }
   });
   floor(z0('garden'), z => {
-    grass(z, D ? '#0d110b' : '#cde5c4', 6000, 120);
-    // stepping stones to the workbench
+    grass(z, D ? '#0d110b' : '#cde5c4', 1400, 30);
+    // stepping stones from the gate to the workbench
     g.fillStyle = D ? 'rgba(120,115,140,0.35)' : 'rgba(255,255,255,0.7)';
-    for (let i = 0; i < 8; i++) { g.beginPath(); g.ellipse(2315 + (i % 2 ? 10 : -10), 1236 + i * 32, 16, 8, 0, 0, Math.PI * 2); g.fill(); }
-    for (let i = 0; i < 11; i++) { g.beginPath(); g.ellipse(2340 + (i % 2 ? 10 : -10), 1600 + i * 34, 16, 8, 0, 0, Math.PI * 2); g.fill(); }
-    for (let i = 0; i < 14; i++) { g.beginPath(); g.ellipse(1780 + i * 34, 1560 + (i % 2 ? 8 : -8), 16, 8, 0, 0, Math.PI * 2); g.fill(); }
+    for (let i = 0; i < 4; i++) { g.beginPath(); g.ellipse(846 - i * 26 + (i % 2 ? 8 : -8), 1232 + i * 24, 16, 8, 0, 0, Math.PI * 2); g.fill(); }
     // beds of the flowers the beetles like
-    for (const [x, y] of [[1820, 1260], [2480, 1260], [2020, 1420], [2480, 1420], [1820, 1680], [2480, 1660], [2060, 1820], [2560, 1840]]) {
-      g.fillStyle = D ? '#1a140f' : '#9b7a56'; roundRect(g, x, y, 180, 70, 16); g.fill();
-      for (let i = 0; i < 30; i++) { g.fillStyle = D ? ['#5a4a70', '#6a3a4a', '#6a6040'][i % 3] : ['#ff9fc2', '#ffe27a', '#b9a6ff', '#ffffff', '#ff7a5a'][i % 5]; g.fillRect(x + 10 + rnd(0, 156), y + 8 + rnd(0, 50), 5, 5); }
+    for (const [x, y] of [[820, 1340], [540, 1400], [690, 1412]]) {
+      g.fillStyle = D ? '#1a140f' : '#9b7a56'; roundRect(g, x, y, 110, 46, 14); g.fill();
+      for (let i = 0; i < 18; i++) { g.fillStyle = D ? ['#5a4a70', '#6a3a4a', '#6a6040'][i % 3] : ['#ff9fc2', '#ffe27a', '#b9a6ff', '#ffffff', '#ff7a5a'][i % 5]; g.fillRect(x + 8 + rnd(0, 90), y + 6 + rnd(0, 30), 5, 5); }
     }
   });
 
@@ -810,16 +819,9 @@ function buildBackground() {
     g.fillStyle = dark ? '#3a2d4a' : D ? '#2a2733' : '#ffffff'; g.fillRect(s.x, s.y, s.w, 2);
     if (!dark) { g.fillStyle = D ? '#05040a' : '#9da3b6'; g.fillRect(s.x, s.y + s.h - 2, s.w, 2); }
   }
-  // terminal: old beige monitors stacked up
-  const crt = (x, y, w, h) => {
-    g.fillStyle = '#d8d1bd'; g.fillRect(x, y, w, h);
-    g.fillStyle = '#a69f8b'; g.fillRect(x, y + h - 6, w, 6);
-    g.fillStyle = '#0d1410'; g.fillRect(x + 6, y + 6, w - 12, h - 18);
-  };
-  MONITORS.forEach(([x, y, w, h]) => crt(x, y, w, h));
-  g.fillStyle = D ? '#24212e' : '#c9c4da'; g.fillRect(2160, 330, 360, 40);
-  g.fillStyle = D ? '#3a3648' : '#f4f2fa'; g.fillRect(2160, 330, 360, 4);
-  drawFurniture(g, D, crt);
+  drawFurniture(g, D);
+  drawTerminal(g, D);
+  drawNotice(g, D);
   // the well
   g.fillStyle = 'rgba(80,80,140,0.18)'; g.beginPath(); g.ellipse(WELL.x, WELL.y + 14, 44, 16, 0, 0, Math.PI * 2); g.fill();
   g.fillStyle = D ? '#2a2733' : '#e9e7f2'; g.beginPath(); g.ellipse(WELL.x, WELL.y, 38, 22, 0, 0, Math.PI * 2); g.fill();
@@ -827,20 +829,9 @@ function buildBackground() {
   g.beginPath(); g.ellipse(WELL.x, WELL.y + 12, 38, 22, 0, 0, Math.PI); g.fill();
   // garden: tree trunks, the workbench with jars of beetles on it
   for (const [x, y] of TREES) { g.fillStyle = '#7a5a44'; g.fillRect(x - 8, y - 40, 16, 46); g.fillStyle = 'rgba(40,80,40,0.25)'; g.beginPath(); g.ellipse(x, y + 6, 40, 12, 0, 0, Math.PI * 2); g.fill(); }
-  g.fillStyle = '#b48a64'; g.fillRect(2260, 1520, 120, 40);
-  g.fillStyle = '#d4ab82'; g.fillRect(2260, 1520, 120, 5);
-  g.fillStyle = '#8a6646'; g.fillRect(2266, 1560, 6, 10); g.fillRect(2368, 1560, 6, 10);
-  // the stall: a counter under a striped awning, with a scale on it
-  const st = STALL;
-  g.fillStyle = 'rgba(30,30,60,0.25)'; g.fillRect(st.x + 4, st.y + 44, st.w, 8);
-  g.fillStyle = D ? '#5a4030' : '#b48a64'; g.fillRect(st.x, st.y + 14, st.w, 32);
-  g.fillStyle = D ? '#7a5a44' : '#d4ab82'; g.fillRect(st.x, st.y + 14, st.w, 4);
-  g.fillStyle = D ? '#3a3648' : '#9da3b6'; g.fillRect(st.x + 4, st.y - 26, 4, 40); g.fillRect(st.x + st.w - 8, st.y - 26, 4, 40);
-  for (let i = 0; i < 6; i++) { g.fillStyle = i % 2 ? (D ? '#2a2733' : '#ffffff') : '#e8a33d'; g.fillRect(st.x - 4 + i * 18, st.y - 34, 18, 12); }
-  for (let i = 0; i < 6; i++) { g.fillStyle = i % 2 ? (D ? '#2a2733' : '#ffffff') : '#e8a33d'; g.beginPath(); g.arc(st.x + 5 + i * 18, st.y - 22, 9, 0, Math.PI); g.fill(); }
-  g.fillStyle = '#ffd34d'; g.beginPath(); g.arc(st.x + 30, st.y + 10, 6, 0, Math.PI * 2); g.fill();
-  g.fillStyle = '#c99a1a'; g.fillRect(st.x + 28, st.y + 8, 4, 4);
-  g.fillStyle = D ? '#4a4460' : '#6d7389'; g.fillRect(st.x + 62, st.y + 2, 20, 12); g.fillRect(st.x + 70, st.y - 4, 4, 6);
+  g.fillStyle = '#b48a64'; g.fillRect(675, 1330, 120, 40);
+  g.fillStyle = '#d4ab82'; g.fillRect(675, 1330, 120, 5);
+  g.fillStyle = '#8a6646'; g.fillRect(681, 1370, 6, 10); g.fillRect(783, 1370, 6, 10);
   // the lost and found: a cardboard box, flaps open
   const bn = BIN;
   g.fillStyle = 'rgba(30,30,60,0.25)'; g.fillRect(bn.x + 4, bn.y + bn.h - 2, bn.w, 6);
@@ -864,7 +855,8 @@ function buildBackground() {
   world.bg = c;
 }
 // the furniture in FURNITURE, one look per kind
-function drawFurniture(g, D, crt) {
+function drawFurniture(g, D) {
+  const shop = z0('shop');
   const shade = (x, y, w, h) => { g.fillStyle = 'rgba(20,20,50,0.22)'; g.fillRect(x + 3, y + h, w, 6); };
   for (const [x, y, w, h, k] of FURNITURE) {
     if (k === 'speaker') {
@@ -884,39 +876,35 @@ function drawFurniture(g, D, crt) {
     } else if (k === 'sofa' || k === 'couch') {
       g.fillStyle = 'rgba(10,6,16,0.6)'; g.fillRect(x, y + h, w, 6);
       // the club's couches are plum, the terminal's a cool blue
-      const [c1, c2] = x > 1700 ? (D ? ['#1f2a44', '#2c3b5e'] : ['#5b63e6', '#8a90f0']) : ['#5a1838', '#7a2850'];
+      const [c1, c2] = inRect(x, y, shop) ? (D ? ['#1f2a44', '#2c3b5e'] : ['#5b63e6', '#8a90f0']) : ['#5a1838', '#7a2850'];
       g.fillStyle = c1; roundRect(g, x, y, w, h, 8); g.fill();
       g.fillStyle = c2;
       if (k === 'sofa') { roundRect(g, x + 14, y + 6, w - 18, h - 12, 6); g.fill(); g.fillStyle = c1; for (let i = 1; i < 3; i++) g.fillRect(x + 14, y + 6 + i * (h - 12) / 3, w - 18, 2); }
       else { roundRect(g, x + 6, y + 4, w - 12, h - 16, 6); g.fill(); g.fillStyle = c1; for (let i = 1; i < 4; i++) g.fillRect(x + 6 + i * (w - 12) / 4, y + 4, 2, h - 16); }
     } else if (k === 'table') {
       g.fillStyle = 'rgba(10,6,16,0.6)'; g.fillRect(x + 4, y + h, w - 8, 6);
-      g.fillStyle = x > 1700 && !D ? '#c9cbe0' : '#231a2c'; roundRect(g, x, y, w, h, 10); g.fill();
-      g.fillStyle = x > 1700 && !D ? '#e6e7f2' : '#3a2d4a'; roundRect(g, x + 3, y + 3, w - 6, 6, 3); g.fill();
+      g.fillStyle = inRect(x, y, shop) && !D ? '#c9cbe0' : '#231a2c'; roundRect(g, x, y, w, h, 10); g.fill();
+      g.fillStyle = inRect(x, y, shop) && !D ? '#e6e7f2' : '#3a2d4a'; roundRect(g, x + 3, y + 3, w - 6, 6, 3); g.fill();
       g.fillStyle = 'rgba(91,224,192,0.8)'; g.fillRect(x + w / 2 - 8, y + h / 2 - 6, 6, 10);
       g.fillStyle = 'rgba(255,61,110,0.8)'; g.fillRect(x + w / 2 + 4, y + h / 2 - 4, 6, 8);
     } else if (k === 'stool') {
       g.fillStyle = '#3a2d4a'; g.beginPath(); g.ellipse(x + w / 2, y + h / 2, w / 2, h / 2, 0, 0, Math.PI * 2); g.fill();
       g.fillStyle = '#5a4870'; g.beginPath(); g.ellipse(x + w / 2, y + h / 2 - 2, w / 2 - 2, h / 2 - 2, 0, 0, Math.PI * 2); g.fill();
-    } else if (k === 'rack') {
+    } else if (k === 'booth') {
+      // a changing booth: a frame with a curtain drawn half across
       shade(x, y, w, h);
-      g.fillStyle = D ? '#14121a' : '#2c2a36'; g.fillRect(x, y, w, h);
-      g.fillStyle = D ? '#22202c' : '#4a4858';
-      for (let sy = y + 8; sy < y + h - 8; sy += 18) g.fillRect(x + 6, sy, w - 12, 12);
-    } else if (k === 'arcade') {
+      g.fillStyle = D ? '#2a2440' : '#e9e7f2'; g.fillRect(x, y, w, h);
+      g.fillStyle = D ? '#5a5670' : '#9da3b6'; g.fillRect(x, y, w, 5); g.fillRect(x, y, 4, h); g.fillRect(x + w - 4, y, 4, h);
+      g.fillStyle = D ? '#6a2448' : '#d65bb6'; g.fillRect(x + 4, y + 5, w * 0.62, h - 5);
+      g.fillStyle = 'rgba(0,0,0,0.18)'; for (let i = 1; i < 5; i++) g.fillRect(x + 4 + i * w * 0.62 / 5, y + 5, 2, h - 5);
+      g.fillStyle = D ? '#8a86a8' : '#ffd34d'; g.beginPath(); g.arc(x + w - 14, y + h / 2, 3, 0, Math.PI * 2); g.fill();
+    } else if (k === 'mirror') {
       shade(x, y, w, h);
-      g.fillStyle = '#3a2f8a'; g.fillRect(x, y, w, h);
-      g.fillStyle = '#5b63e6'; g.fillRect(x, y, w, 10);
-      g.fillStyle = '#0d1410'; g.fillRect(x + 8, y + 16, w - 16, 34);
-      g.fillStyle = '#ff3d6e'; g.beginPath(); g.arc(x + 18, y + 64, 5, 0, Math.PI * 2); g.fill();
-      g.fillStyle = '#ffd34d'; g.beginPath(); g.arc(x + 34, y + 66, 4, 0, Math.PI * 2); g.fill(); g.beginPath(); g.arc(x + 44, y + 62, 4, 0, Math.PI * 2); g.fill();
-    } else if (k === 'desk') {
-      shade(x, y, w, h);
-      g.fillStyle = D ? '#4a3626' : '#b48a64'; g.fillRect(x, y, w, h);
-      g.fillStyle = D ? '#5a4030' : '#d4ab82'; g.fillRect(x, y, w, 5);
-      crt(x + 20, y - 38, 70, 50);
-      g.fillStyle = D ? '#2a2733' : '#e9e7f2'; g.fillRect(x + 100, y + 14, 44, 12);
-      g.fillStyle = D ? '#3a3648' : '#8c86a3'; g.beginPath(); g.ellipse(x + w / 2, y + h + 26, 16, 12, 0, 0, Math.PI * 2); g.fill();   // the chair
+      g.fillStyle = D ? '#5a5670' : '#c9a13b'; roundRect(g, x, y, w, h, w / 2); g.fill();
+      const m = g.createLinearGradient(x, y, x + w, y + h);
+      m.addColorStop(0, D ? '#3a4a66' : '#dff2ff'); m.addColorStop(1, D ? '#1d2436' : '#9cc8e8');
+      g.fillStyle = m; roundRect(g, x + 4, y + 4, w - 8, h - 8, w / 2 - 4); g.fill();
+      g.strokeStyle = 'rgba(255,255,255,0.7)'; g.lineWidth = 3; g.beginPath(); g.moveTo(x + 12, y + 30); g.lineTo(x + 26, y + 14); g.moveTo(x + 12, y + 44); g.lineTo(x + 30, y + 24); g.stroke(); g.lineWidth = 1;
     } else if (k === 'mannequin') {
       g.fillStyle = 'rgba(20,20,50,0.22)'; g.beginPath(); g.ellipse(x + w / 2, y + h, 16, 5, 0, 0, Math.PI * 2); g.fill();
       g.fillStyle = D ? '#4a4460' : '#8c86a3'; g.fillRect(x + w / 2 - 2, y - 20, 4, 30); g.fillRect(x + 2, y + h - 4, w - 4, 4);
@@ -932,7 +920,58 @@ function drawFurniture(g, D, crt) {
     }
   }
 }
-const MONITORS = Array.from({ length: 32 }, (_, i) => [1800 + (i % 16) * 68, i < 16 ? 92 : 146, 58, i < 16 ? 48 : 40]);
+
+// the terminal: the boutique's rail and sign, and the buy counter by the door
+function drawTerminal(g, D) {
+  const r = BOUTIQUE;
+  g.fillStyle = 'rgba(20,20,50,0.22)'; g.fillRect(r.x + 4, r.y + r.h, r.w, 6);
+  g.fillStyle = D ? '#5a5670' : '#9da3b6'; g.fillRect(r.x, r.y - 6, 6, r.h + 6); g.fillRect(r.x + r.w - 6, r.y - 6, 6, r.h + 6);
+  g.fillStyle = D ? '#8a86a8' : '#d8dbe6'; g.fillRect(r.x, r.y - 6, r.w, 4);
+  const cols = ['#ff3d6e', '#5b63e6', '#ffd34d', '#2fae7a', '#c7a6ff', '#ff9a3d', '#5be0c0', '#f4f2fa', '#8a2a5a'];
+  for (let i = 0; i < 13; i++) {
+    const x = r.x + 14 + i * 21, y = r.y;
+    g.strokeStyle = D ? '#8a86a8' : '#6d7389'; g.lineWidth = 1.5;
+    g.beginPath(); g.moveTo(x + 8, y - 4); g.lineTo(x + 8, y + 1); g.moveTo(x, y + 6); g.lineTo(x + 8, y + 1); g.lineTo(x + 16, y + 6); g.stroke();
+    g.fillStyle = cols[i % cols.length];
+    if (i % 3 === 2) { g.beginPath(); g.moveTo(x + 3, y + 6); g.lineTo(x + 13, y + 6); g.lineTo(x + 18, y + r.h - 2); g.lineTo(x - 2, y + r.h - 2); g.closePath(); g.fill(); }
+    else { g.fillRect(x, y + 6, 16, r.h - 14); g.fillRect(x - 3, y + 6, 3, 12); g.fillRect(x + 16, y + 6, 3, 12); }
+    g.fillStyle = 'rgba(0,0,0,0.16)'; g.fillRect(x + 7, y + 6, 2, r.h - 14);
+  }
+  g.lineWidth = 1;
+  // a sign on the wall with a coat hanger on it
+  const sign = (x, y, w, text, col) => {
+    g.fillStyle = D ? '#1b1922' : '#2a2440'; roundRect(g, x, y, w, 22, 6); g.fill();
+    g.strokeStyle = col; g.lineWidth = 1.5; roundRect(g, x + 2, y + 2, w - 4, 18, 5); g.stroke(); g.lineWidth = 1;
+    g.fillStyle = col; g.font = wf(11, 'bold'); g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, x + w / 2, y + 12);
+  };
+  sign(1530, 334, 140, '👗 BOUTIQUE', '#c7a6ff');
+  // the buy counter: wood, a till and a sign saying what it does
+  const st = STALL;
+  g.fillStyle = 'rgba(30,30,60,0.25)'; g.fillRect(st.x + 4, st.y + st.h, st.w, 8);
+  g.fillStyle = D ? '#5a4030' : '#b48a64'; g.fillRect(st.x, st.y + 10, st.w, st.h - 10);
+  g.fillStyle = D ? '#7a5a44' : '#d4ab82'; g.fillRect(st.x, st.y + 10, st.w, 6);
+  g.fillStyle = D ? '#3a2a1e' : '#8a6646'; for (let i = 1; i < 4; i++) g.fillRect(st.x + i * st.w / 4, st.y + 18, 2, st.h - 20);
+  g.fillStyle = D ? '#3a3648' : '#6d7389'; g.fillRect(st.x + 70, st.y - 6, 34, 18);          // the till
+  g.fillStyle = '#7dff9a'; g.fillRect(st.x + 74, st.y - 2, 18, 6);
+  g.fillStyle = D ? '#2a2733' : '#4a4858'; g.fillRect(st.x + 66, st.y + 8, 42, 4);
+  g.fillStyle = '#ffd34d'; g.beginPath(); g.arc(st.x + 26, st.y + 6, 6, 0, Math.PI * 2); g.fill();
+  g.beginPath(); g.arc(st.x + 40, st.y + 9, 5, 0, Math.PI * 2); g.fill();
+  g.fillStyle = '#c99a1a'; g.fillRect(st.x + 24, st.y + 4, 4, 4);
+  sign(st.x, st.y - 40, st.w, '★ WE BUY ★', '#ffd34d');
+}
+// the notice board on the plaza: cork with papers pinned to it
+function drawNotice(g, D) {
+  const b = BOARD;
+  g.fillStyle = 'rgba(30,30,60,0.25)'; g.fillRect(b.x + 8, b.y + b.h - 2, b.w - 8, 6);
+  g.fillStyle = D ? '#3a2a1e' : '#8a6646'; g.fillRect(b.x + 12, b.y + 40, 8, b.h - 40); g.fillRect(b.x + b.w - 20, b.y + 40, 8, b.h - 40);
+  g.fillStyle = D ? '#4a3626' : '#a07850'; roundRect(g, b.x, b.y, b.w, 52, 6); g.fill();
+  g.fillStyle = D ? '#5a4a36' : '#d9b27a'; roundRect(g, b.x + 5, b.y + 5, b.w - 10, 42, 4); g.fill();
+  [[10, 9, 30, 22, '#fff8e6'], [46, 12, 26, 18, '#ffe27a'], [78, 8, 40, 30, '#ffffff'], [16, 34, 24, 10, '#ffd6ea'], [52, 33, 22, 11, '#d9f2ff']].forEach(([x, y, w, h, c], i) => {
+    g.fillStyle = D ? 'rgba(200,190,170,0.5)' : c; g.fillRect(b.x + x, b.y + y, w, h);
+    g.fillStyle = 'rgba(60,60,90,0.4)'; for (let l = 0; l < h / 6 - 1; l++) g.fillRect(b.x + x + 3, b.y + y + 4 + l * 5, w - 6, 1);
+    g.fillStyle = ['#d8443c', '#5b63e6', '#2fae7a', '#ffb43d', '#d65bb6'][i]; g.beginPath(); g.arc(b.x + x + w / 2, b.y + y + 2, 2.5, 0, Math.PI * 2); g.fill();
+  });
+}
 
 function worldDraw(now) {
   const g = world.ctx, gt = world.tctx, z = world.z, s = z * world.dpr;
@@ -986,7 +1025,68 @@ function worldDraw(now) {
   if (world.tvEl) placeTv(cx, cy);
 }
 
-// the monitors, the screen, the dance floor, the well, the capsule machine
+// the capsule machine: a glass dome full of capsules on a pink stand with a crank
+function drawGacha(g, t) {
+  const M = GACHA, cx = M.x + M.w / 2, cy = M.y + 36, R = 34;
+  g.fillStyle = 'rgba(20,20,50,0.25)'; g.beginPath(); g.ellipse(cx + 4, M.y + M.h + 2, 40, 8, 0, 0, Math.PI * 2); g.fill();
+  g.fillStyle = '#e14d9c'; roundRect(g, M.x + 6, M.y + 58, M.w - 12, M.h - 58, 10); g.fill();
+  g.fillStyle = '#b8347b'; g.fillRect(M.x + 6, M.y + M.h - 10, M.w - 12, 10);
+  g.fillStyle = '#ffd34d'; roundRect(g, M.x + 2, M.y + 54, M.w - 4, 10, 5); g.fill();
+  g.fillStyle = '#3a1630'; roundRect(g, M.x + 14, M.y + 88, 24, 16, 5); g.fill();                     // the chute
+  g.fillStyle = '#fff'; roundRect(g, M.x + 46, M.y + 70, 22, 14, 4); g.fill();                         // the price
+  g.fillStyle = '#b8347b'; g.font = wf(8, 'bold'); g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('★30', M.x + 57, M.y + 77);
+  g.fillStyle = '#2a1424'; g.fillRect(M.x + 22, M.y + 72, 8, 2);                                     // the coin slot
+  const a = t * 0.8;                                                                                   // the crank turns slowly
+  g.fillStyle = '#f4f2fa'; g.beginPath(); g.arc(M.x + 57, M.y + 96, 7, 0, Math.PI * 2); g.fill();
+  g.strokeStyle = '#8c86a3'; g.lineWidth = 3; g.beginPath(); g.moveTo(M.x + 57, M.y + 96); g.lineTo(M.x + 57 + Math.cos(a) * 9, M.y + 96 + Math.sin(a) * 9); g.stroke(); g.lineWidth = 1;
+  g.save(); g.beginPath(); g.arc(cx, cy, R, 0, Math.PI * 2); g.clip();
+  g.fillStyle = 'rgba(220,235,255,0.55)'; g.fillRect(cx - R, cy - R, R * 2, R * 2);
+  const caps = [['#ffd34d', -18, 18], ['#7fd1ff', 0, 22], ['#ff8fb8', 18, 18], ['#a9f0b0', -26, 4], ['#c7a6ff', -9, 6], ['#ff9a3d', 9, 4], ['#5be0c0', 26, 6], ['#ff3d6e', -16, -10], ['#ffd34d', 2, -12], ['#7fd1ff', 18, -8], ['#c7a6ff', 0, 30], ['#ff8fb8', -30, 22], ['#a9f0b0', 30, 22]];
+  caps.forEach(([c, ox, oy], i) => {
+    const x = cx + ox, y = cy + oy + Math.sin(t * 2 + i) * 0.8;
+    g.fillStyle = '#ffffff'; g.beginPath(); g.arc(x, y, 8, 0, Math.PI * 2); g.fill();
+    g.fillStyle = c; g.beginPath(); g.arc(x, y, 8, Math.PI, 0); g.fill();
+    g.fillStyle = 'rgba(0,0,0,0.15)'; g.fillRect(x - 8, y - 1, 16, 2);
+  });
+  g.restore();
+  g.strokeStyle = 'rgba(255,255,255,0.9)'; g.lineWidth = 2; g.beginPath(); g.arc(cx, cy, R, 0, Math.PI * 2); g.stroke();
+  g.strokeStyle = 'rgba(255,255,255,0.8)'; g.lineWidth = 4; g.beginPath(); g.arc(cx, cy, R - 8, Math.PI * 1.1, Math.PI * 1.4); g.stroke(); g.lineWidth = 1;
+  g.fillStyle = '#ffd34d'; g.beginPath(); g.arc(cx, M.y, 6, 0, Math.PI * 2); g.fill();
+  g.fillStyle = '#e14d9c'; g.beginPath(); g.arc(cx, M.y, 3, 0, Math.PI * 2); g.fill();
+}
+// the slot machines: lit cabinets whose reels show beetles from the beetle game
+const SLOT_SYMS = ['green', 'ladybug', 'pillbug', 'stag', 'goliath', 'golden'];   // as in world.php
+function drawSlots(g, t) {
+  SLOTS.forEach((r, i) => {
+    const { x, y, w, h } = r, spin = world.slotSpin?.i === i && t < world.slotSpin.until;
+    g.fillStyle = 'rgba(10,0,6,0.35)'; g.fillRect(x + 4, y + h, w, 8);
+    const body = g.createLinearGradient(x, y, x + w, y);
+    body.addColorStop(0, '#5a0f22'); body.addColorStop(0.5, '#b0203e'); body.addColorStop(1, '#5a0f22');
+    g.fillStyle = body; roundRect(g, x, y, w, h, 10); g.fill();
+    g.strokeStyle = '#ffb43d'; g.lineWidth = 2; roundRect(g, x + 1, y + 1, w - 2, h - 2, 9); g.stroke(); g.lineWidth = 1;
+    // the marquee: bulbs chase round it
+    g.fillStyle = '#2a0610'; roundRect(g, x + 6, y + 6, w - 12, 16, 5); g.fill();
+    for (let b = 0; b < 7; b++) { g.fillStyle = (Math.floor(t * 6) + b + i) % 3 ? '#ffe9a8' : '#ff5a3d'; g.beginPath(); g.arc(x + 12 + b * 9, y + 14, 2.5, 0, Math.PI * 2); g.fill(); }
+    // three reels behind glass
+    g.fillStyle = '#fff8e6'; g.fillRect(x + 7, y + 28, w - 14, 34);
+    for (let k = 0; k < 3; k++) {
+      const rx = x + 8 + k * 20, sym = spin ? SLOT_SYMS[Math.floor(t * 18 + k * 2) % 6]
+        : (world.slotSpin?.i === i && world.slotSpin.reels) ? world.slotSpin.reels[k] : SLOT_SYMS[(i * 3 + k * 2 + Math.floor(t / 4 + i)) % 6];
+      const img = world.bugImg[sym];
+      g.fillStyle = k % 2 ? '#f4ecd6' : '#fffaf0'; g.fillRect(rx, y + 29, 19, 32);
+      if (img?.complete && img.naturalWidth) g.drawImage(img, rx + 1, y + 36 + (spin ? (t * 300) % 8 - 4 : 0), 17, 17);
+    }
+    g.fillStyle = 'rgba(255,255,255,0.35)'; g.fillRect(x + 7, y + 28, w - 14, 4);
+    g.fillStyle = 'rgba(255,61,110,0.8)'; g.fillRect(x + 7, y + 44, w - 14, 1);
+    // buttons and the tray
+    ['#ffd34d', '#ff3d6e', '#5be0c0'].forEach((c, b) => { g.fillStyle = c; g.fillRect(x + 12 + b * 20, y + 70, 12, 7); });
+    g.fillStyle = '#2a0610'; roundRect(g, x + 12, y + 86, w - 24, 12, 4); g.fill();
+    // the lever
+    g.fillStyle = '#c9c6dc'; g.fillRect(x + w, y + (spin ? 50 : 30), 4, spin ? 20 : 40);
+    g.fillStyle = '#ff3d6e'; g.beginPath(); g.arc(x + w + 2, y + (spin ? 50 : 28), 6, 0, Math.PI * 2); g.fill();
+  });
+}
+// the screen, the dance floor, the well, the capsule machine, the slots
 function drawLive(g, t) {
   // the mailbox flag goes up when there is something new for me
   const mb = MAILBOX, up = world.unread > 0;
@@ -994,15 +1094,6 @@ function drawLive(g, t) {
   g.fillStyle = up ? '#ffd34d' : (world.dark ? '#6a5236' : '#e8a33d');
   if (up) g.fillRect(mb.x + mb.w + 2, mb.y - 6 + Math.round(Math.sin(t * 4)), 10, 7);
   else g.fillRect(mb.x + mb.w + 2, mb.y + 20, 4, 10);
-  MONITORS.forEach(([x, y, w, h], i) => {
-    if (Math.sin(t * 0.7 + i * 1.7) < -0.8) return;
-    g.fillStyle = 'rgba(156,255,176,0.12)'; g.fillRect(x + 6, y + 6, w - 12, h - 18);
-    g.fillStyle = 'rgba(156,255,176,0.6)';
-    for (let l = 0; l < 4; l++) {
-      const len = ((Math.sin(i * 9 + l * 3 + Math.floor(t * 2 + i)) + 1) / 2) * (w - 20);
-      g.fillRect(x + 9, y + 9 + l * ((h - 22) / 4), len, 2);
-    }
-  });
   // the club screen
   const S = CLUB_SCREEN;
   g.fillStyle = '#000'; g.fillRect(S.x - 6, S.y - 6, S.w + 12, S.h + 12);
@@ -1028,11 +1119,6 @@ function drawLive(g, t) {
     const a = t * 0.6 + i * 0.7, x = DANCE.x + DANCE.w / 2 + Math.cos(a) * (120 + i * 30), y = DANCE.y + DANCE.h / 2 + Math.sin(a * 1.3) * (60 + i * 6);
     g.fillStyle = `hsla(${(i * 40 + t * 30) % 360} 90% 75% / 0.35)`; g.beginPath(); g.ellipse(x, y, 10, 5, 0, 0, Math.PI * 2); g.fill();
   }
-  // the server racks blink
-  for (const [x, y, w, h, k] of FURNITURE) if (k === 'rack') for (let sy = y + 8, n = 0; sy < y + h - 8; sy += 18, n++) for (let j = 0; j < 3; j++) {
-    const on = Math.sin(t * (2 + j) + n * 3 + x) > 0.1;
-    g.fillStyle = on ? (j === 2 ? '#ffb84d' : '#7dff9a') : '#24402c'; g.fillRect(x + 10 + j * 8, sy + 4, 4, 4);
-  }
   // the well: water with light in it
   const wg = g.createRadialGradient(WELL.x, WELL.y, 2, WELL.x, WELL.y, 30);
   wg.addColorStop(0, '#ffffff'); wg.addColorStop(0.5, '#bfe0ff'); wg.addColorStop(1, '#8fb5f0');
@@ -1040,25 +1126,17 @@ function drawLive(g, t) {
   g.strokeStyle = 'rgba(255,255,255,0.8)'; g.lineWidth = 1;
   for (let i = 0; i < 2; i++) { const r = ((t * 12 + i * 15) % 30); g.globalAlpha = 1 - r / 30; g.beginPath(); g.ellipse(WELL.x, WELL.y, r, r / 2, 0, 0, Math.PI * 2); g.stroke(); }
   g.globalAlpha = 1;
-  // the capsule machine
-  const M = { x: 2700, y: 300 };
-  g.fillStyle = '#e14d9c'; g.fillRect(M.x, M.y + 46, 56, 46);
-  g.fillStyle = '#b8347b'; g.fillRect(M.x, M.y + 86, 56, 6);
-  g.fillStyle = '#fff'; g.fillRect(M.x + 18, M.y + 62, 20, 14);
-  g.fillStyle = 'rgba(220,235,255,0.75)'; g.beginPath(); g.arc(M.x + 28, M.y + 30, 26, Math.PI, 0); g.fill(); g.fillRect(M.x + 2, M.y + 30, 52, 16);
-  [['#ffd34d', 14, 36], ['#7fd1ff', 28, 30], ['#ff8fb8', 40, 38], ['#a9f0b0', 22, 42], ['#c7a6ff', 36, 22]].forEach(([c, ox, oy], i) => {
-    g.fillStyle = c; g.beginPath(); g.arc(M.x + ox, M.y + oy + Math.sin(t * 2 + i) * 0.6, 5, 0, Math.PI * 2); g.fill();
-  });
-  g.fillStyle = 'rgba(255,255,255,0.7)'; g.fillRect(M.x + 12, M.y + 12, 4, 10);
+  drawGacha(g, t);
+  drawSlots(g, t);
   // the workbench glows when the beetle game is open to you
   if (!labLocked()) {
-    const gr = g.createRadialGradient(2320, 1530, 0, 2320, 1530, 90);
+    const gr = g.createRadialGradient(735, 1340, 0, 735, 1340, 90);
     gr.addColorStop(0, `rgba(170,255,190,${0.25 + Math.sin(t * 2) * 0.08})`); gr.addColorStop(1, 'rgba(170,255,190,0)');
-    g.fillStyle = gr; g.fillRect(2230, 1440, 180, 180);
+    g.fillStyle = gr; g.fillRect(645, 1250, 180, 180);
   }
   for (let i = 0; i < 4; i++) {        // jars on the bench
-    g.fillStyle = 'rgba(230,245,255,0.85)'; g.fillRect(2272 + i * 26, 1504, 16, 20);
-    g.fillStyle = ['#3d9e4a', '#c43a3a', '#d4a531', '#6b4fc4'][i]; g.fillRect(2277 + i * 26, 1514 + Math.round(Math.sin(t * 3 + i) * 2), 6, 5);
+    g.fillStyle = 'rgba(230,245,255,0.85)'; g.fillRect(687 + i * 26, 1314, 16, 20);
+    g.fillStyle = ['#3d9e4a', '#c43a3a', '#d4a531', '#6b4fc4'][i]; g.fillRect(692 + i * 26, 1324 + Math.round(Math.sin(t * 3 + i) * 2), 6, 5);
   }
   // the gate of the garden, closed for the remilia sign-in
   if (labLocked()) {
@@ -1500,13 +1578,13 @@ function drawWires(g, t) {
   }
   g.strokeStyle = world.dark ? 'rgba(120,112,150,0.55)' : 'rgba(54,49,74,0.7)'; g.lineWidth = 1.2;
   const sag = (x1, y1, x2, y2, d) => { g.beginPath(); g.moveTo(x1, y1); g.quadraticCurveTo((x1 + x2) / 2, (y1 + y2) / 2 + d + Math.sin(t * 0.8 + x1) * 1.5, x2, y2); g.stroke(); };
-  const links = [[0, 1], [2, 3], [0, 2], [1, 3], [4, 0], [4, 2], [1, 5], [3, 5], [5, 6], [5, 7], [6, 7], [6, 8], [7, 8]];
+  const links = [[0, 1], [0, 2], [1, 3], [2, 3], [2, 4], [3, 5], [2, 6], [3, 7], [6, 7]];
   for (const [a, b] of links) {
     const [x1, y1] = POLES[a], [x2, y2] = POLES[b];
     for (const [o, h] of [[-24, 140], [24, 140], [-18, 122], [18, 122]]) sag(x1 + o, y1 - h, x2 + o, y2 - h, 26);
   }
   // and off the edge of the map, to wherever the rest of the network is
-  for (const [i, ex, ey] of [[4, -60, 800], [4, -60, 1200], [8, 4300, -80], [8, WORLD_W + 60, 1400], [0, 1300, -80], [1, 1700, -80], [2, 1300, WORLD_H + 200], [3, 1700, WORLD_H + 200]]) {
+  for (const [i, ex, ey] of [[4, -60, 1300], [5, WORLD_W + 60, 1000], [0, 800, -80], [1, 1600, -80], [6, 900, WORLD_H + 200], [7, 1500, WORLD_H + 200]]) {
     const [x, y] = POLES[i];
     sag(x - 24, y - 140, ex, ey - 140, 40); sag(x + 24, y - 140, ex + 30, ey - 130, 40);
   }
@@ -1541,9 +1619,9 @@ function drawLights(g, t, cx, cy, vw, vh) {
   }
   g.globalAlpha = 1;
   g.globalCompositeOperation = 'lighter';
-  const gr = g.createRadialGradient(660, 420, 0, 660, 420, 520);
+  const gr = g.createRadialGradient(510, 620, 0, 510, 620, 520);
   gr.addColorStop(0, 'rgba(255,61,110,0.08)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
-  g.fillStyle = gr; g.fillRect(60, 40, 1200, 760);
+  g.fillStyle = gr; g.fillRect(60, 330, 900, 580);
   g.restore();
 }
 
@@ -1561,9 +1639,9 @@ function drawNight(g, t) {
   const wl = g.createRadialGradient(WELL.x, WELL.y, 0, WELL.x, WELL.y, 90);
   wl.addColorStop(0, `rgba(120,170,255,${0.25 + Math.sin(t * 1.3) * 0.06})`); wl.addColorStop(1, 'rgba(120,170,255,0)');
   g.fillStyle = wl; g.fillRect(WELL.x - 90, WELL.y - 90, 180, 180);
-  const gr = g.createRadialGradient(660, 420, 0, 660, 420, 520);
+  const gr = g.createRadialGradient(510, 620, 0, 510, 620, 520);
   gr.addColorStop(0, 'rgba(255,61,110,0.12)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
-  g.fillStyle = gr; g.fillRect(60, 40, 1200, 760);
+  g.fillStyle = gr; g.fillRect(60, 330, 900, 580);
   g.restore();
 }
 
@@ -1571,7 +1649,7 @@ function drawSigns(g, t) {
   g.save();
   g.textAlign = 'center'; g.textBaseline = 'middle';
   for (const z of ZONES) {
-    const sx = z.x + z.w / 2, sy = z.gaps.bottom ? z.y + z.h + 22 : z.y - 24;
+    const sx = z.x + z.w / 2, sy = z.gaps.bottom || z.sign === 'bottom' ? z.y + z.h + 22 : z.y - 24;
     const dim = Math.sin(t * 7 + z.x) > 0.97;
     g.font = wf(15, 'bold');
     g.shadowColor = world.dark ? z.col : '#ffffff'; g.shadowBlur = dim ? 0 : 8;
@@ -1741,9 +1819,9 @@ function placeTv(cx, cy) {
   el.style.width = `${CLUB_SCREEN.w * z}px`; el.style.height = `${CLUB_SCREEN.h * z}px`;
   const p = world.player, me = world.cats.get(world.me);
   if (p?.setVolume && me) {
-    // loud on the dance floor, gone by the middle of the plaza
-    const d = Math.hypot(me.x - (CLUB_SCREEN.x + CLUB_SCREEN.w / 2), me.y - 430);
-    const vol = world.zone?.id === 'club' ? 70 : Math.round(Math.max(0, Math.min(1, 1 - (d - 286) / 462)) * 42);
+    // loud in the club, still there on the plaza, gone by the far end of the map
+    const c = z0('club'), d = Math.hypot(Math.max(c.x - me.x, 0, me.x - c.x - c.w), Math.max(c.y - me.y, 0, me.y - c.y - c.h));
+    const vol = world.zone?.id === 'club' ? 70 : Math.round(Math.max(0, 1 - d / 1000) * 50);
     if (Math.abs(vol - world.tvVol) >= 4 || (vol === 0) !== (world.tvVol === 0)) {
       world.tvVol = vol;
       try { if (vol) { p.unMute(); p.setVolume(vol); } else p.mute(); } catch {}
@@ -2292,7 +2370,7 @@ function castLine() {
 function fishCheck(me, t) {
   const f = world.fishing;
   if (!f) return;
-  if (!me || Math.hypot(me.x - POND.x, me.y - POND.y) > 190) { world.fishing = null; return; }
+  if (!me || Math.hypot(me.x - POND.x, me.y - POND.y) > 240) { world.fishing = null; return; }
   if (!f.told && t >= f.bite) { f.told = true; sfx('click'); }
   if (t > f.bite + 1.6 && !f.reeled) { world.fishing = null; worldToast('It got away.'); }
 }
@@ -2620,6 +2698,7 @@ function worldKey(e, down) {
 function closePanels() {
   for (const id of ['w-shop', 'w-screen', 'w-capsule', 'w-emotes', 'w-toys', 'w-bag', 'w-card', 'w-quests', 'w-hotpick']) document.getElementById(id)?.classList.add('hidden');
   window.placesClose?.();
+  window.hubClose?.();
   if (world.aim) setAim(world.aim);
   if (!document.getElementById('w-lab').classList.contains('hidden')) closeLab();
 }

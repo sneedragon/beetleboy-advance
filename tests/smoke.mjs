@@ -360,6 +360,9 @@ async function checkWorld(label, viewport) {
     if (b.sell) { const k = b.sell.k; if (k && w.have[k]) { out.sell = { n: w.have[k], coins: 2 * w.have[k] }; w.coins += out.sell.coins; out.coins = w.coins; delete w.have[k]; } else out.sell = 'none'; }
     if (b.inv) out.inv = { owned: w.owned, bugs: [2, 1, 0], fish: w.fish ? { koi: 1 } : {}, fishnames: { minnow: 'Minnow', koi: 'Koi', golden: 'Golden fish' },
       have: w.have, seen: Object.keys(w.have), prices: Object.fromEntries(Object.keys(w.have).map(k => [k, 2])) };
+    out.lxp = 120;
+    if (b.board) out.top = [['tester', 900], ['guest', 300]];
+    if (b.slot) { w.coins -= b.slot.bet; out.slot = { reels: ['stag', 'stag', 'stag'], win: b.slot.bet * 20, bet: b.slot.bet }; w.coins += out.slot.win; out.coins = w.coins; }
     if (b.quests) out.quests = { daily: [{ name: 'Catch 3 beetles', n: 1, of: 3, coins: 10, done: false }], once: [{ name: 'Catch your first fish', coins: 10, done: true }] };
     if (b.dig) { out.dig = 't:clover'; out.quest = [['Dig through the lost and found', 10]]; }
     if (b.party) out.fx = [[b.party.x, b.party.y, 0.1, 40, b.party.k]];
@@ -395,8 +398,9 @@ async function checkWorld(label, viewport) {
   await page.waitForTimeout(300);
   if (!w.sent.some(b => b.emote === 'heart')) fail(`${label} world: emote not sent`);
   const goTo = (x, y) => page.evaluate(([x, y]) => { const me = world.cats.get(world.me); me.x = me.tx = x; me.y = me.ty = y; world.target = null; world.pending = null; }, [x, y]);
+  const goSpot = id => page.evaluate(id => { const at = SPOTS.find(s => s.id === id).at, me = world.cats.get(world.me); me.x = me.tx = at.x; me.y = me.ty = at.y; world.target = null; world.pending = null; }, id);
   // walk up to the counter in the terminal: a prompt floats over it, E opens the wardrobe
-  await goTo(2340, 404);
+  await goSpot('shop');
   await page.waitForTimeout(300);
   if (await page.evaluate(() => world.near?.id) !== 'shop') fail(`${label} world: no prompt at the counter`);
   await page.keyboard.press('e');
@@ -407,7 +411,7 @@ async function checkWorld(label, viewport) {
   await page.screenshot({ path: `${ROOT}tests/out/${label}-world-shop.png` });
   await page.keyboard.press('Escape');
   // the capsule machine
-  await goTo(2690, 436);
+  await goSpot('capsule');
   await page.waitForTimeout(300);
   await page.keyboard.press('e');
   await page.click('#w-cap-turn');
@@ -415,13 +419,13 @@ async function checkWorld(label, viewport) {
   if (!await page.isVisible('#w-cap-got')) fail(`${label} world: the capsule machine gave nothing`);
   await page.keyboard.press('Escape');
   // the well
-  await goTo(1500, 1060);
+  await goSpot('well');
   await page.waitForTimeout(300);
   await page.keyboard.press('e');
   await page.waitForTimeout(500);
   if (!w.sent.some(b => b.wish)) fail(`${label} world: the well took no wish`);
   // the club screen: tapping it walks there and opens it on arrival
-  await goTo(660, 380);
+  await goSpot('screen');
   await page.waitForTimeout(300);
   await page.evaluate(() => { world.pending = SPOTS.find(s => s.id === 'screen'); world.target = { ...world.pending.at }; });
   await page.waitForTimeout(800);
@@ -437,7 +441,7 @@ async function checkWorld(label, viewport) {
   await page.waitForTimeout(700);
   if (!w.sent.some(b => b.catch)) fail(`${label} world: walking into a beetle caught nothing`);
   // the workbench opens the game for a password login
-  await goTo(2320, 1480);
+  await goSpot('game');
   await page.waitForTimeout(300);
   await page.keyboard.press('e');
   if (!await page.$('#w-lab iframe')) fail(`${label} world: the workbench did not open the game`);
@@ -445,7 +449,7 @@ async function checkWorld(label, viewport) {
   await page.waitForTimeout(300);
   if (!w.sent.some(b => b.xp)) fail(`${label} world: closing the game asked for no coins`);
   // the pond: cast, wait for the bite, reel in
-  await goTo(660, 1080);
+  await goSpot('pond');
   await page.waitForTimeout(300);
   if (await page.evaluate(() => world.near?.id) !== 'pond') fail(`${label} world: no prompt at the pond`);
   await page.keyboard.press('e');
@@ -469,7 +473,7 @@ async function checkWorld(label, viewport) {
   // the skateboard: faster, and everyone sees it
   await page.click('#w-toy-btn');
   await page.click('#w-toys [data-toy="skate"]');
-  await goTo(1600, 1100);
+  await goTo(1600, 1450);
   await page.waitForTimeout(1200);
   if (!w.sent.some(b => b.sk)) fail(`${label} world: riding the board was not sent`);
   await page.screenshot({ path: `${ROOT}tests/out/${label}-world-skate.png` });
@@ -492,7 +496,7 @@ async function checkWorld(label, viewport) {
   if (!w.sent.some(b => b.show === 'b:green')) fail(`${label} world: holding up a beetle sent nothing`);
   await page.screenshot({ path: `${ROOT}tests/out/${label}-world-show.png` });
   // the stall buys what is in the bag
-  await goTo(2050, 990);
+  await goSpot('stall');
   await page.waitForTimeout(300);
   if (await page.evaluate(() => world.near?.id) !== 'stall') fail(`${label} world: no prompt at the stall`);
   await page.keyboard.press('e');
@@ -500,11 +504,11 @@ async function checkWorld(label, viewport) {
   await page.screenshot({ path: `${ROOT}tests/out/${label}-world-sell.png` });
   await page.click('[data-sell="b:green"]');
   await page.waitForTimeout(500);
-  if (!w.sent.some(b => b.sell?.k === 'b:green' && b.x === 2050)) fail(`${label} world: selling sent nothing from the stall`);
+  if (!w.sent.some(b => b.sell?.k === 'b:green' && Math.abs(b.x - 1500) < 60)) fail(`${label} world: selling sent nothing from the stall`);
   if (await page.$('[data-sell="b:green"]')) fail(`${label} world: the sold beetles are still in the bag`);
   await page.keyboard.press('Escape');
   // the lost and found box, and the quest list
-  await goTo(2424, 1132);
+  await goSpot('bin');
   await page.waitForTimeout(300);
   await page.keyboard.press('e');
   await page.waitForTimeout(400);
@@ -577,10 +581,37 @@ async function checkWorld(label, viewport) {
   await page.waitForTimeout(300);
   if (await page.evaluate(() => document.body.classList.contains('cp-side-open'))) fail(`${label} world: the people list does not close`);
   // the remilia sign-in finds the garden gate shut
-  if (await page.evaluate(() => { localStorage.setItem('bb_chat_rn', '1'); const r = [blocked(2315, 1204), blocked(1744, 1560), blocked(2340, 1964)].every(v => v === 'lab') ? 'lab' : 'open'; localStorage.removeItem('bb_chat_rn'); return r; }) !== 'lab') fail(`${label} world: the garden gate is open for the remilia sign-in`);
+  if (await page.evaluate(() => { localStorage.setItem('bb_chat_rn', '1'); const r = [blocked(800, 1204), blocked(850, 1204), blocked(900, 1204)].every(v => v === 'lab') ? 'lab' : 'open'; localStorage.removeItem('bb_chat_rn'); return r; }) !== 'lab') fail(`${label} world: the garden gate is open for the remilia sign-in`);
   await page.screenshot({ path: `${ROOT}tests/out/${label}-world-garden.png` });
+  // the notice board shows the best players
+  await goSpot('board');
+  await page.waitForTimeout(300);
+  await page.keyboard.press('e');
+  await page.waitForTimeout(500);
+  if (!(await page.textContent('#w-board-body')).includes('tester')) fail(`${label} world: the notice board shows no top players`);
+  if (!(await page.textContent('#w-lv')).includes('Lv 3')) fail(`${label} world: the level is not shown`);
+  await page.screenshot({ path: `${ROOT}tests/out/${label}-world-board.png` });
+  await page.keyboard.press('Escape');
+  // a slot machine in the parlour
+  await goSpot('slot2');
+  await page.waitForTimeout(300);
+  if (await page.evaluate(() => world.near?.id) !== 'slot2') fail(`${label} world: no prompt at the slot machine`);
+  await page.keyboard.press('e');
+  await page.click('#w-slots [data-bet="5"]');
+  await page.click('#w-slot-spin');
+  await page.waitForTimeout(2600);
+  if (!w.sent.some(b => b.slot?.bet === 5)) fail(`${label} world: the slot machine sent no spin`);
+  if (!(await page.textContent('#w-slot-msg')).includes('100')) fail(`${label} world: the slot win is not shown`);
+  await page.screenshot({ path: `${ROOT}tests/out/${label}-world-slots.png` });
+  await page.keyboard.press('Escape');
+  // the map
+  await page.click('#w-map-btn');
+  await page.waitForTimeout(500);
+  if (!(await page.textContent('#w-map-n')).includes('online')) fail(`${label} world: the map shows nobody`);
+  await page.screenshot({ path: `${ROOT}tests/out/${label}-world-map.png` });
+  await page.keyboard.press('Escape');
   // the mailbox opens the messages
-  await goTo(1791, 1110);
+  await goSpot('mail');
   await page.waitForTimeout(300);
   if (await page.evaluate(() => world.near?.id) !== 'mail') fail(`${label} world: no prompt at the mailbox`);
   await page.keyboard.press('e');

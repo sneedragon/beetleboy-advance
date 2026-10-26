@@ -53,6 +53,7 @@
         <div id="w-hud">
           <span id="w-coins" title="Stars: for being here, quests and selling what you find at the stall. Spend them at the terminal."></span>
           <span id="w-count" title="Who is online"></span>
+          <button type="button" id="w-lv" title="Your level">Lv 1</button>
         </div>
         <div id="w-zone"></div>
         <div id="w-note"></div>
@@ -62,6 +63,7 @@
           <button type="button" id="w-toy-btn" title="Toys">✦</button>
           <button type="button" id="w-bag-btn" title="Your bag">🎒</button>
           <button type="button" id="w-quest-btn" title="Quests">📜</button>
+          <button type="button" id="w-map-btn" title="Map">🗺</button>
           <button type="button" id="w-dark-btn" title="Turn the lights off" aria-label="Light switch"><i></i></button>
           <div id="w-held"></div>
         </div>
@@ -112,6 +114,28 @@
           </div>
         </div>
 
+        <div id="w-board" class="w-panel hidden">
+          <div class="w-box">
+            <header><h2>Notice board</h2><button type="button" id="w-board-close">✕</button></header>
+            <div id="w-board-body"></div>
+          </div>
+        </div>
+        <div id="w-slots" class="w-panel hidden">
+          <div class="w-box">
+            <header><h2>Beetle slots</h2><button type="button" id="w-slots-close">✕</button></header>
+            <div id="w-slot-reels"></div>
+            <p id="w-slot-msg"></p>
+            <div class="w-bets"><button type="button" data-bet="1">★ 1</button><button type="button" data-bet="5">★ 5</button><button type="button" data-bet="10">★ 10</button></div>
+            <button type="button" id="w-slot-spin" class="w-main">Pull the lever</button>
+            <div id="w-slot-pay"></div>
+          </div>
+        </div>
+        <div id="w-map" class="w-panel hidden">
+          <div class="w-box">
+            <header><h2>Map <small id="w-map-n"></small></h2><button type="button" id="w-map-close">✕</button></header>
+            <div id="w-map-wrap"><canvas id="w-map-cv"></canvas></div>
+          </div>
+        </div>
         <div id="w-capsule" class="w-panel hidden">
           <div class="w-box">
             <header><h2>Capsule machine</h2><button type="button" id="w-cap-close">✕</button></header>
@@ -250,6 +274,7 @@
   <script src="js/chatpage.js?v=202610260627"></script>
   <script src="js/world.js?v=202610260627"></script>
   <script src="js/places.js?v=202610260627"></script>
+  <script src="js/hub.js?v=202610260627"></script>
   <script src="js/wprofile.js?v=202610260627"></script>
   <script src="js/dm.js?v=202610260627"></script>
 </body>

@@ -58,7 +58,7 @@ function renderCard() {
     ${user?.bio ? `<p class="wc-bio">${esc(user.bio)}</p>` : card.p ? '' : '<p class="w-dim">Loading the profile…</p>'}
     <div class="wc-lcd">
       ${user ? stat(n(user.friendCount), 'friends') + stat(n(user.achievementsCount), 'achievements') : ''}
-      ${pr && !pr.none ? stat(n(pr.bugs), 'beetles caught') + stat(n(pr.fish), 'fish') + stat(n(pr.items), 'things') + stat(n(pr.quests), 'quests') : pr?.none ? '<div><span>has not been to Layer 777 yet</span></div>' : ''}
+      ${pr && !pr.none ? stat('Lv ' + (window.lvOf ? lvOf(+pr.lxp || 0).lv : 1), n(pr.lxp) + ' XP') + stat(n(pr.bugs), 'beetles caught') + stat(n(pr.fish), 'fish') + stat(n(pr.items), 'things') + stat(n(pr.quests), 'quests') : pr?.none ? '<div><span>has not been to Layer 777 yet</span></div>' : ''}
     </div>
     ${me ? '<div class="wc-acts"><button type="button" data-c="bag">🎒 Open your bag</button></div>' : `
     <div class="wc-acts">
