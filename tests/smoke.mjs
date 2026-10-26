@@ -347,7 +347,7 @@ async function checkWorld(label, viewport) {
     if (b.status != null) out.status = b.status;
     if (b.buy === 'antenna' && w.coins >= 40) { w.coins -= 40; w.owned.push('antenna'); w.wear.hat = 'antenna'; out.shop = 'bought'; out.coins = w.coins; }
     if (b.tv) w.tv = out.tv = { v: 'dQw4w9WgXcQ', age: 0, by: 'Tester' };
-    if (b.capsule) { w.wear.back = 'wings'; out.capsule = 'wings'; out.capsule_name = 'Wings'; }
+    if (b.capsule) { w.wear.back = 'wings'; out.capsule = 'wings'; out.capsule_name = 'Wings'; out.capsule_tier = 2; }
     if (b.wish) out.wish = 'ok';
     if (b.fish) { out.fish = 'koi'; out.fish_name = 'Koi'; w.fish = 1; }
     if (b.fw) { w.coins -= 2; out.coins = w.coins; out.fw = 'ok'; out.fx = [[b.fw.x, b.fw.y, 0.1, 200]]; }
@@ -364,7 +364,7 @@ async function checkWorld(label, viewport) {
     if (b.dig) { out.dig = 't:clover'; out.quest = [['Dig through the lost and found', 10]]; }
     if (b.party) out.fx = [[b.party.x, b.party.y, 0.1, 40, b.party.k]];
     if (b.catch) { out.caught = b.catch; out.bug = 'green'; out.gone = [b.catch]; }
-    if (b.shopinfo) { out.catalog = [{ id: 'antenna', slot: 'hat', name: 'Antenna', price: 40 }, { id: 'crown', slot: 'hat', name: 'Crown', price: 300 }, { id: 'wings', slot: 'back', name: 'Wings', price: 0 }]; out.owned = w.owned; }
+    if (b.shopinfo) { out.catalog = [{ id: 'antenna', slot: 'hat', name: 'Antenna', price: 40 }, { id: 'crown', slot: 'hat', name: 'Crown', price: 300 }, { id: 'wings', slot: 'back', name: 'Wings', price: 0 }, { id: 'wishhalo', slot: 'hat', name: 'Wish halo', price: -1 }, { id: 'k_hearts', slot: 'toy', name: 'Heart burst', price: 60 }, { id: 'k_snow', slot: 'toy', name: 'Snow cloud', price: 80 }]; out.owned = w.owned; }
     route.fulfill({ contentType: 'application/json', body: JSON.stringify(out) });
   });
   // dm.php: the guest's key is my own, so a message to them opens on my side too
@@ -456,6 +456,7 @@ async function checkWorld(label, viewport) {
   if (!w.sent.some(b => b.fish)) fail(`${label} world: fishing sent nothing`);
   // a firework from the toys
   await page.click('#w-toy-btn');
+  if (!await page.isVisible('#w-toys [data-unlock="hearts"]')) fail(`${label} world: locked toys do not show`);
   await page.click('#w-toys [data-toy="fw"]');
   await page.mouse.click(box.x + box.w * 0.5, box.y + box.h * 0.3);
   await page.waitForTimeout(400);

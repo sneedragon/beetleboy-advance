@@ -99,6 +99,8 @@ body.world #cp-side-close { display: block; position: sticky; top: 0; margin-lef
 .w-on { width: 8px; height: 8px; border-radius: 50%; background: #3ec46d; box-shadow: 0 0 4px #3ec46d; flex-shrink: 0; margin: 0 4px; }
 #cp-online .cp-ago { max-width: 45%; overflow: hidden; text-overflow: ellipsis; }
 #w-coins.up { animation: w-pop 0.6s; }
+#w-coins { display: flex; align-items: center; gap: 4px; }
+#w-coins svg { width: 15px; height: 15px; fill: #ffd21f; stroke: #a87400; stroke-width: 1.6; stroke-linejoin: round; }
 @keyframes w-pop { 30% { transform: scale(1.25); } }
 #w-zone {
   position: absolute; top: 12px; left: 0; right: 0; text-align: center; pointer-events: none;
@@ -332,6 +334,13 @@ body.world.w-dark .login-box h1, body.world.w-dark .w-box h3, body.world.w-dark 
 body.world.w-dark .w-item, body.world.w-dark .w-quest li { border-color: #3a3746; }
 body.world.w-dark .w-item.on { background: #22264a; }
 body.world.w-dark .w-quest li em { color: #e8c35a; }
+body.world.w-dark #dm-body { border-color: #3a3746; }
+body.world.w-dark .dm-conv, body.world.w-dark .dm-msg, body.world.w-dark #dm-body .w-quiet, body.world.w-dark .dm-banner button { background: #2a2833; border-color: #3a3746; color: var(--text); }
+body.world.w-dark .dm-conv strong { color: #b9c4ff; }
+body.world.w-dark .dm-conv.new { border-color: #6d82e6; }
+body.world.w-dark .dm-msg.mine { background: #22264a; border-color: #39408a; }
+body.world.w-dark .dm-banner { background: #3a1f26; border-color: #6b2e3b; }
+body.world.w-dark .dm-banner button { border-color: #8fa3f0; color: #c9d4ff; }
 
 /* phones: the map on top, the chat below it */
 @media (max-width: 860px) {
@@ -343,3 +352,7 @@ body.world.w-dark .w-quest li em { color: #e8c35a; }
   #w-zone { top: 40px; }
   #w-bar button { padding: 4px 10px; }
 }
+.w-toyicon { width: 64px; height: 64px; display: flex; align-items: center; justify-content: center; font-size: 34px; }
+#w-toys button.w-locked { opacity: 0.6; }
+#w-cap-got small { display: block; font-weight: bold; text-shadow: 0 1px 0 rgba(0,0,0,0.35); }
+body.world.w-dark #cp-head h1 { color: #b9c4ff; }

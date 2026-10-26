@@ -68,7 +68,32 @@ const SHOP = [
     't_bubbles' => ['trail', 'Bubble trail',  150],
     't_notes'   => ['trail', 'Music trail',   180],
     't_sparks'  => ['trail', 'Sparkle trail',   0],
+    'party'     => ['hat',   'Party hat',       0],
+    'mushroom'  => ['hat',   'Mushroom cap',    0],
+    'ufo'       => ['hat',   'Tiny UFO',        0],
+    'c_pink'    => ['col',   'Blossom fur',     0],
+    'c_rainbow' => ['col',   'Rainbow fur',     0],
+    'flower'    => ['hold',  'Flower',          0],
+    'wand'      => ['hold',  'Star wand',       0],
+    't_snow'    => ['trail', 'Snow trail',      0],
+    't_flames'  => ['trail', 'Flame trail',     0],
+    // price -1: only the well gives it, one wish in a thousand
+    'wishhalo'  => ['hat',   'Wish halo',      -1],
+    // toys to unlock: you buy them once and keep them
+    'k_hearts'  => ['toy',   'Heart burst',    60],
+    'k_snow'    => ['toy',   'Snow cloud',     80],
+    'k_notes'   => ['toy',   'Music box',      80],
+    'k_petals'  => ['toy',   'Petal storm',   120],
+    'k_lanterns'=> ['toy',   'Sky lanterns',  200],
 ];
+// the capsule machine: how rare each prize is (0 common, 1 rare, 2 epic, 3 legendary)
+const CAP_TIER = ['star' => 0, 'feather' => 0, 'c_sky' => 0, 'lantern' => 0, 'party' => 0, 'flower' => 0, 't_snow' => 0,
+    'horns' => 1, 't_feathers' => 1, 'mushroom' => 1, 'c_pink' => 1, 'wand' => 1,
+    'wings' => 2, 'jetpack' => 2, 'c_night' => 2, 't_sparks' => 2, 'ufo' => 2,
+    'c_rainbow' => 3, 't_flames' => 3];
+const CAP_ODDS = [70, 24, 5.5, 0.5];    // percent for each tier
+const CAP_DUP = 10;                     // stars back for one you already have
+const WISH_ODDS = 1000;
 const SLOTS = ['hat', 'back', 'col', 'hold', 'trail'];
 const EMOTES = ['wave', 'heart', 'laugh', 'spark', 'sleep', 'dance', 'what'];
 const TOUCH = ['hug', 'high5'];    // things you do to someone standing next to you
@@ -204,8 +229,8 @@ function fold(float $p, float $a, float $b): float {
 
 // beetles wander about; every browser works out the same ones from the clock.
 // Keep in step with bugAt() in js/world.js.
-const BUG_N = 4, BUG_LIFE = 90;
-const BUG_AREAS = [[1180, 830, 1700, 1130], [1180, 830, 1700, 1130], [140, 820, 620, 1120], [720, 480, 1080, 720]];
+const BUG_N = 6, BUG_LIFE = 90;
+const BUG_AREAS = [[1180, 830, 1700, 1130], [1180, 830, 1700, 1130], [140, 820, 620, 1120], [720, 480, 1080, 720], [140, 820, 620, 1120], [120, 440, 640, 540]];
 function hrand(float $n): float { $v = sin($n * 12.9898) * 43758.5453; return $v - floor($v); }
 function bugAt(int $k, float $t): array {
     $g = (int)floor(($t + $k * 13) / BUG_LIFE);
@@ -261,10 +286,12 @@ else {
     // where you can really be: the page says where you walk to, but nobody walks
     // faster than this, so catching, fishing and the rest count from here
     if (isset($prev['rx'])) {
-        $dx = $x - $prev['rx']; $dy = $y - $prev['ry']; $dd = hypot($dx, $dy);
+        // the page also says where the cat is right now (cx, cy); without it, where it walks to
+        $sx = isset($in['cx']) ? max(0, min(W, (int)$in['cx'])) : $x; $sy = isset($in['cy']) ? max(0, min(H, (int)$in['cy'])) : $y;
+        $dx = $sx - $prev['rx']; $dy = $sy - $prev['ry']; $dd = hypot($dx, $dy);
         $k = min(1, (WALK * max(0, $now - $prev['rt']) + 60) / max(1, $dd));
         $rx = $prev['rx'] + $dx * $k; $ry = $prev['ry'] + $dy * $k;
-    } else { $rx = $x; $ry = $y; }
+    } else { $rx = isset($in['cx']) ? max(0, min(W, (int)$in['cx'])) : $x; $ry = isset($in['cy']) ? max(0, min(H, (int)$in['cy'])) : $y; }
     $p['rx'] = round($rx, 1); $p['ry'] = round($ry, 1); $p['rt'] = $now;
 
     // just arrived: coins and clothes from the database, and the daily bonus
@@ -313,7 +340,8 @@ else {
         elseif ($r['coins'] < SHOP[$id][2]) $out['shop'] = 'poor';
         else {
             $r['coins'] -= SHOP[$id][2]; $r['owned'][] = $id;
-            $r['wear'][SHOP[$id][0]] = $id; $dirty = true; $out['shop'] = 'bought';
+            if (SHOP[$id][0] !== 'toy') $r['wear'][SHOP[$id][0]] = $id;
+            $dirty = true; $out['shop'] = 'bought';
         }
     }
     if (isset($in['wear']) && is_array($in['wear'])) {
@@ -335,13 +363,17 @@ else {
     // the capsule machine: something you do not have yet, at random
     if (!empty($in['capsule'])) {
         $getUser(); $r = &$user;
-        $left = array_values(array_filter(array_keys(SHOP), fn($id) => SHOP[$id][2] === 0 && !in_array($id, $r['owned'], true)));
-        if (!$left) $out['capsule'] = 'all';
-        elseif ($r['coins'] < CAPSULE) $out['capsule'] = 'poor';
+        if ($r['coins'] < CAPSULE) $out['capsule'] = 'poor';
         else {
-            $id = $left[mt_rand(0, count($left) - 1)];
-            $r['coins'] -= CAPSULE; $r['owned'][] = $id; $r['wear'][SHOP[$id][0]] = $id;
-            $dirty = true; $out['capsule'] = $id; $out['capsule_name'] = SHOP[$id][1];
+            // first how rare, then which one of that kind; one you have gives a few stars back
+            $roll = mt_rand(0, 99999) / 1000; $tier = 0;
+            for ($i = count(CAP_ODDS) - 1; $i > 0; $i--) { if ($roll < array_sum(array_slice(CAP_ODDS, $i))) { $tier = $i; break; } }
+            $pool = array_keys(array_filter(CAP_TIER, fn($v) => $v === $tier));
+            $id = $pool[mt_rand(0, count($pool) - 1)];
+            $r['coins'] -= CAPSULE; $dirty = true;
+            if (in_array($id, $r['owned'], true)) { $r['coins'] += CAP_DUP; $out['capsule_dup'] = CAP_DUP; }
+            else { $r['owned'][] = $id; $r['wear'][SHOP[$id][0]] = $id; }
+            $out['capsule'] = $id; $out['capsule_name'] = SHOP[$id][1]; $out['capsule_tier'] = $tier;
         }
     }
     // a coin into the well, at most one every few seconds
@@ -349,7 +381,12 @@ else {
         $getUser(); $r = &$user;
         if ($sec - ($prev['wish'] ?? 0) < 4) $out['wish'] = 'wait';
         elseif ($r['coins'] < WISH) $out['wish'] = 'poor';
-        else { $r['coins'] -= WISH; $dirty = true; $out['wish'] = 'ok'; $p['wish'] = $sec; quest($r, $day, 'wish', 1, $out); }
+        else {
+            $r['coins'] -= WISH; $dirty = true; $out['wish'] = 'ok'; $p['wish'] = $sec; quest($r, $day, 'wish', 1, $out);
+            if (mt_rand(1, WISH_ODDS) === 1 && !in_array('wishhalo', $r['owned'], true)) {
+                $r['owned'][] = 'wishhalo'; $r['wear']['hat'] = 'wishhalo'; $out['wishgift'] = 'wishhalo';
+            }
+        }
     }
     // catching a beetle: it has to be there, close to you, and nobody got it first
     if (isset($in['catch']) && is_string($in['catch']) && preg_match('/^(\d):(\d+)$/', $in['catch'], $m) && (int)$m[1] < BUG_N) {
@@ -367,7 +404,7 @@ else {
     }
     // the pond: a cast takes a few seconds, then something bites (or not)
     if (!empty($in['fish'])) {
-        if (hypot($rx - POND[0], $ry - POND[1]) > 140) $out['fish'] = 'far';
+        if (hypot($rx - POND[0], $ry - POND[1]) > 180) $out['fish'] = 'far';
         elseif ($sec - ($p['fish'] ?? 0) < 8) $out['fish'] = 'wait';
         else {
             $p['fish'] = $sec; $roll = mt_rand(1, 100);
@@ -423,7 +460,8 @@ else {
         unset($have);
     }
     // confetti and bubbles: free, everyone sees them
-    if (isset($in['party']) && is_array($in['party']) && in_array($in['party']['k'] ?? '', ['confetti', 'bubbles'], true)) {
+    if (isset($in['party']) && is_array($in['party']) && is_string($in['party']['k'] ?? null)
+        && (in_array($in['party']['k'], ['confetti', 'bubbles'], true) || (isset(SHOP['k_' . $in['party']['k']]) && in_array('k_' . $in['party']['k'], $getUser()['owned'] ?? [], true)))) {
         if ($now - ($p['party'] ?? 0) >= CONFETTI) {
             $p['party'] = $now;
             $world['fx'][] = [max(0, min(W, (int)($in['party']['x'] ?? $x))), max(0, min(H, (int)($in['party']['y'] ?? $y))), $now, mt_rand(0, 359), $U, $in['party']['k']];
@@ -431,6 +469,8 @@ else {
             $getUser(); $r = &$user; $dirty = true; quest($r, $day, 'party', 1, $out);
         }
     }
+    // what you own changed: the client keeps its list in step
+    if (isset($out['shop']) || isset($out['capsule']) || isset($out['wishgift'])) $out['owned'] = $user['owned'] ?? [];
     // your quests for today, and the ones you do once
     if (!empty($in['quests'])) {
         $getUser(); $r = &$user;
