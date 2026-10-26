@@ -11,7 +11,7 @@ const WORLD_W = 1800, WORLD_H = 1200;
 const W_SPEED = 170;                 // world units a second
 const W_SKATE = 255;                 // others on a board (world.php lets nobody go faster than 260)
 // my board rolls on its own: push, coast, carve, ollie (units a second, radians a second)
-const SK = { max: 250, push: 240, drag: 0.35, brake: 560, turn: 3.2, pop: 240, grav: 950, flip: 2.6 };
+const SK = { max: 250, push: 260, drag: 0.35, brake: 620, turn: 5.5, pop: 240, grav: 950, flip: 2.6 };
 const W_POLL = 1000;
 const W_ACTIVE = 180_000;            // input this recent counts as "here" for coins
 const PEN = [120, 860, 600, 1100];   // the park's ball pen, as in world.php
@@ -31,6 +31,12 @@ const WELL = { x: 900, y: 600 };
 const TREES = [[1250, 892], [1650, 892]];
 const POLES = [[700, 450], [1100, 450], [700, 750], [1100, 750], [300, 600], [1500, 600]];
 const POND = { x: 460, y: 610, rx: 100, ry: 46 };               // fishing, as in world.php
+// the bit of shore nearest to me: you can fish from all round the pond
+function pondShore() {
+  const me = world.cats?.get(world.me);
+  const a = me ? Math.atan2((me.y - POND.y) / POND.ry, (me.x - POND.x) / POND.rx) : Math.PI / 2;
+  return { x: Math.round(POND.x + Math.cos(a) * (POND.rx + 26)), y: Math.round(POND.y + Math.sin(a) * (POND.ry + 26)) };
+}
 const EMOTE_ICON = { wave: '👋', heart: '❤️', laugh: '😹', spark: '💫', sleep: '💤', dance: '🎵', what: '❓', hug: '🤗', high5: '🙌', gift: '🎁' };
 const FISH_ICON = { minnow: '🐟', koi: '🎏', puffer: '🐡', jelly: '🪼', eel: '🪱', angel: '🐠', boot: '👢', disk: '💾', golden: '👑',
   shrimp: '🦐', crab: '🦀', frog: '🐸', shell: '🐚', squid: '🦑', duck: '🦆', turtle: '🐢', lobster: '🦞', whale: '🐋' };
@@ -59,7 +65,7 @@ const SPOTS = [
   { id: 'capsule', r: { x: 1650, y: 214, w: 56, h: 92 }, at: { x: 1640, y: 350 }, col: '#d65bb6', text: () => '★ 30 Capsule', act: () => openCapsule() },
   { id: 'well', r: { x: 862, y: 566, w: 76, h: 56 }, at: { x: 900, y: 660 }, col: '#7fb8ff', text: () => '✧ Wish (★ 1)', act: () => makeWish() },
   { id: 'game', r: { x: 1380, y: 984, w: 120, h: 56 }, at: { x: 1440, y: 960 }, col: '#2f9a5e', text: () => '🪲 Play the beetle game', act: () => openLab(), hide: () => labLocked() },
-  { id: 'pond', r: { x: POND.x - POND.rx, y: POND.y - POND.ry, w: POND.rx * 2, h: POND.ry * 2 }, at: { x: POND.x, y: POND.y + POND.ry + 26 }, col: '#3f7fdc', text: () => world.fishing ? '🎣 Reel in' : '🎣 Fish', act: () => castLine() },
+  { id: 'pond', r: { x: POND.x - POND.rx, y: POND.y - POND.ry, w: POND.rx * 2, h: POND.ry * 2 }, get at() { return pondShore(); }, col: '#3f7fdc', text: () => world.fishing ? '🎣 Reel in' : '🎣 Fish', act: () => castLine() },
   { id: 'stall', r: STALL, at: STALL.at, col: '#e8a33d', text: () => '★ Sell what you found', act: () => openBag('things') },
   { id: 'mail', r: MAILBOX, at: MAILBOX.at, col: '#d8443c', text: () => world.unread ? `✉ Mailbox (${world.unread} new)` : '✉ Mailbox', act: () => window.dmOpen?.(), hide: () => !window.dmOpen },
   { id: 'bin', r: BIN, at: BIN.at, col: '#8c86a3', text: () => '📦 Lost and found', act: () => dig() },
@@ -419,11 +425,13 @@ function skateStep(me, dt, t) {
     if (b.z === 0) land(me, t);
   } else if (want != null) {
     const da = angDiff(want, b.h);
-    if (Math.abs(da) > 2.2 && b.v > 50) { b.v = Math.max(0, b.v - SK.brake * dt); b.slide = t; }
+    // the arrows point where you want to go: back against the roll powerslides,
+    // and once slow you kick the board round; anything else carves over
+    if (Math.abs(da) > 2.4 && b.v > 70) { b.v = Math.max(0, b.v - SK.brake * dt); b.slide = t; }
     else {
-      const r = SK.turn * (b.v < 40 ? 3 : 1) * dt;          // standing, you just point the board
-      b.h += Math.max(-r, Math.min(r, da));
-      if (gas && Math.abs(da) < 1.3) { b.v = Math.min(SK.max, b.v + SK.push * dt); b.kick = t; }
+      if (b.v < 70 && Math.abs(da) > 1.6) b.h = want;
+      else { const r = SK.turn * (b.v < 70 ? 2 : 1) * dt; b.h += Math.max(-r, Math.min(r, da)); }
+      if (gas && Math.abs(angDiff(want, b.h)) < Math.PI / 2) { b.v = Math.min(SK.max, b.v + SK.push * dt); b.kick = t; }
     }
   }
   if (!b.z) { b.v -= b.v * SK.drag * dt; if (b.v < 6 && !gas) b.v = 0; }
@@ -444,11 +452,12 @@ function skateStep(me, dt, t) {
   if (me.w?.trail && me.moving && Math.random() < dt * trailOf(me)[0]) me.trail.push({ x: me.x + (Math.random() - 0.5) * 16, y: me.y - 6 - Math.random() * 18, t, r: Math.random() });
 }
 const TRICKS = { flip: 'Kickflip', shove: 'Pop shove-it' };
-function ollie() {
+// Space / ⤴ ollies and flips, Shift / ↻ shoves it; either one pops you up from the ground
+function ollie(trick = 'flip') {
   const b = world.sb, t = performance.now() / 1000;
   if (!world.skate || t < b.bail) return;
-  if (!b.z && b.vz <= 0) { b.vz = SK.pop; b.z = 0.1; b.trick = ''; b.spin = 0; sfx('click'); return; }
-  if (!b.trick && b.vz > -60) { b.trick = world.keys.has('left') || world.keys.has('right') ? 'shove' : 'flip'; b.spin = 0; }
+  if (!b.z && b.vz <= 0) { b.vz = SK.pop; b.z = 0.1; b.trick = trick === 'shove' ? 'shove' : ''; b.spin = 0; sfx('click'); return; }
+  if (!b.trick && b.vz > -60) { b.trick = trick; b.spin = 0; }
 }
 function land(me, t) {
   const b = world.sb;
@@ -1829,7 +1838,7 @@ function setSkate(on) {
   world.skate = on;
   const m = world.cats.get(world.me);
   world.sb = { v: 0, h: m?.flip ? Math.PI : 0, z: 0, vz: 0, spin: 0, trick: '', bail: 0, combo: 0 };
-  if (on && !world.toldSkate) { world.toldSkate = true; worldToast('Steer where you want to roll. Space or ⤴ to ollie, again in the air for a kickflip (hold ← or → for a shove-it).', 6000); }
+  if (on && !world.toldSkate) { world.toldSkate = true; worldToast('Arrows or a tap: where you want to roll. Space or ⤴ to ollie, again in the air for a kickflip. Shift or ↻ for a shove-it.', 6000); }
   const me = world.cats.get(world.me);
   if (me) me.sk = on;
   worldSend({}, true);
@@ -1841,7 +1850,7 @@ function showHeld() {
   document.getElementById('w-toy-btn').classList.toggle('on', !!(world.aim || world.skate));
   document.getElementById('w-held').innerHTML =
     (world.aim ? `<button type="button" data-drop="aim" title="Put it away">${TOY_NAME[world.aim]} <b>✕</b></button>` : '') +
-    (world.skate ? '<button type="button" data-ollie title="Ollie (Space), again in the air for a trick">⤴ Ollie</button><button type="button" data-drop="skate" title="Get off the board">🛹 <b>✕</b></button>' : '');
+    (world.skate ? '<button type="button" data-ollie title="Ollie (Space), again in the air for a kickflip">⤴ Ollie</button><button type="button" data-shove title="Pop shove-it (Shift)">↻</button><button type="button" data-drop="skate" title="Get off the board">🛹 <b>✕</b></button>' : '');
 }
 function useToy(x, y) {
   const me = world.cats.get(world.me);
@@ -2311,6 +2320,7 @@ function worldKey(e, down) {
   world.active = Date.now();
   if (down && key === 'e') { worldAct(); return; }
   if (key === ' ' && world.skate) { e.preventDefault(); if (down && !e.repeat) ollie(); return; }
+  if (key === 'Shift' && world.skate) { if (down && !e.repeat) ollie('shove'); return; }
   if (down && key === 'Escape') { closePanels(); return; }
   const k = W_KEYS[key];
   if (!k) return;
@@ -2407,6 +2417,7 @@ function setupWorld() {
   });
   document.getElementById('w-held').addEventListener('click', e => {
     if (e.target.closest('[data-ollie]')) return ollie();
+    if (e.target.closest('[data-shove]')) return ollie('shove');
     const k = e.target.closest('[data-drop]')?.dataset.drop;
     if (k === 'aim') setAim(world.aim);
     if (k === 'skate') setSkate(false);
