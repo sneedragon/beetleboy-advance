@@ -15,16 +15,21 @@ const ROOM  = 'bbroom_v1.json';
 function fail(int $code, string $msg): void { http_response_code($code); echo json_encode(['error' => $msg]); exit; }
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') fail(405, 'POST only');
 
-// 120 requests a minute per address is two a second, more than the client sends
-$ip = $_SERVER['REMOTE_ADDR'] ?? 'x';
-$rk = sys_get_temp_dir() . '/bbroomrl_' . md5($ip) . '_' . floor(time() / 60);
-$n  = (int)@file_get_contents($rk);
-if ($n >= 120) fail(429, 'slow down');
-@file_put_contents($rk, $n + 1);
-if (mt_rand(0, 199) === 0) foreach (glob(sys_get_temp_dir() . '/bbroomrl_*') ?: [] as $f) if (filemtime($f) < time() - 180) @unlink($f);
-
 $in    = json_decode(file_get_contents('php://input', false, null, 0, 20000), true) ?? [];
 $token = (string)($in['token'] ?? '');
+
+// two a second per login is more than the client sends; an address may carry
+// several logins (a household, two tabs), so it gets more room
+function limit(string $key, int $max): void {
+    $rk = sys_get_temp_dir() . '/bbroomrl_' . md5($key) . '_' . floor(time() / 60);
+    $n  = (int)@file_get_contents($rk);
+    if ($n >= $max) fail(429, 'slow down');
+    @file_put_contents($rk, $n + 1);
+}
+limit('ip' . ($_SERVER['REMOTE_ADDR'] ?? 'x'), 600);
+limit('tk' . $token, 120);
+if (mt_rand(0, 199) === 0) foreach (glob(sys_get_temp_dir() . '/bbroomrl_*') ?: [] as $f) if (filemtime($f) < time() - 180) @unlink($f);
+
 if ($token === '' || strlen($token) > 16000 || preg_match('/[\x00-\x20;]/', $token)) fail(400, 'missing token');
 
 // ── who is this? (asked once, then remembered for 10 minutes) ──

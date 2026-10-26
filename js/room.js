@@ -53,17 +53,23 @@ async function roomPost(body) {
     // only renew a token that has run out: refreshing on every refused tick
     // would burn through the single-use refresh tokens once a second
     if (r.status === 401 && jwtExp(access) * 1000 < Date.now() + 30000) { await tryRefresh(access); return null; }
+    if (!r.ok) room.err = `${r.status} ${(await r.text()).slice(0, 60)}`;
     return r.ok ? await r.json() : null;
-  } catch { return null; }
+  } catch (e) { room.err = e.message; return null; }
 }
 
 async function roomTick() {
-  if (!room.open || document.hidden) return;
+  if (!room.open || document.hidden || room.busy) return;
+  room.busy = true;
+  try { await roomTickNow(); } finally { room.busy = false; }
+}
+
+async function roomTickNow() {
   const me = room.cats.get(room.me);
   const at = room.target || me;
   const body = at ? { x: Math.round(at.x), y: Math.round(at.y) } : {};
   const d = await roomPost(body);
-  if (!d?.people) { if (++room.failing === 5) roomNote('The room is not answering right now.'); return; }
+  if (!d?.people) { if (++room.failing === 5) roomNote(`The room is not answering right now (${room.err || '?'}).`); return; }
   if (room.failing >= 5) roomNote('');
   room.failing = 0;
   room.me = d.me;
