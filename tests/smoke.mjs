@@ -352,8 +352,14 @@ async function checkWorld(label, viewport) {
     if (b.fw) { w.coins -= 2; out.coins = w.coins; out.fw = 'ok'; out.fx = [[b.fw.x, b.fw.y, 0.1, 200]]; }
     if (b.gift) { w.coins -= b.gift.n; out.coins = w.coins; out.gift = 'ok'; }
     if (b.prof) out.prof = { u: b.prof, coins: 5, items: 1, wear: { hat: 'crown' }, bugs: 3, fish: 2, since: 1, here: true };
-    if (b.inv) out.inv = { owned: w.owned, bugs: [2, 1, 0], fish: w.fish ? { koi: 1 } : {}, fishnames: { minnow: 'Minnow', koi: 'Koi', golden: 'Golden fish' } };
-    if (b.catch) { out.caught = b.catch; out.bug_coins = 1; out.gone = [b.catch]; }
+    w.have ||= { 'b:green': 2, 'j:bottle_cap': 1 };
+    if (b.sell) { const k = b.sell.k; if (k && w.have[k]) { out.sell = { n: w.have[k], coins: 2 * w.have[k] }; w.coins += out.sell.coins; out.coins = w.coins; delete w.have[k]; } else out.sell = 'none'; }
+    if (b.inv) out.inv = { owned: w.owned, bugs: [2, 1, 0], fish: w.fish ? { koi: 1 } : {}, fishnames: { minnow: 'Minnow', koi: 'Koi', golden: 'Golden fish' },
+      have: w.have, seen: Object.keys(w.have), prices: Object.fromEntries(Object.keys(w.have).map(k => [k, 2])) };
+    if (b.quests) out.quests = { daily: [{ name: 'Catch 3 beetles', n: 1, of: 3, coins: 10, done: false }], once: [{ name: 'Catch your first fish', coins: 10, done: true }] };
+    if (b.dig) { out.dig = 't:clover'; out.quest = [['Dig through the lost and found', 10]]; }
+    if (b.party) out.fx = [[b.party.x, b.party.y, 0.1, 40, b.party.k]];
+    if (b.catch) { out.caught = b.catch; out.bug = 'green'; out.gone = [b.catch]; }
     if (b.shopinfo) { out.catalog = [{ id: 'antenna', slot: 'hat', name: 'Antenna', price: 40 }, { id: 'crown', slot: 'hat', name: 'Crown', price: 300 }, { id: 'wings', slot: 'back', name: 'Wings', price: 0 }]; out.owned = w.owned; }
     route.fulfill({ contentType: 'application/json', body: JSON.stringify(out) });
   });
@@ -460,6 +466,40 @@ async function checkWorld(label, viewport) {
   if (!(await page.textContent('#w-bag-list')).includes('Koi')) fail(`${label} world: the bag does not show the fish`);
   await page.screenshot({ path: `${ROOT}tests/out/${label}-world-bag.png` });
   await page.keyboard.press('Escape');
+  // the stall buys what is in the bag
+  await goTo(1300, 560);
+  await page.waitForTimeout(300);
+  if (await page.evaluate(() => world.near?.id) !== 'stall') fail(`${label} world: no prompt at the stall`);
+  await page.keyboard.press('e');
+  await page.waitForSelector('[data-sell="b:green"]', { timeout: 3000 }).catch(() => fail(`${label} world: the stall offers nothing to sell`));
+  await page.screenshot({ path: `${ROOT}tests/out/${label}-world-sell.png` });
+  await page.click('[data-sell="b:green"]');
+  await page.waitForTimeout(500);
+  if (!w.sent.some(b => b.sell?.k === 'b:green' && b.x === 1300)) fail(`${label} world: selling sent nothing from the stall`);
+  if (await page.$('[data-sell="b:green"]')) fail(`${label} world: the sold beetles are still in the bag`);
+  await page.keyboard.press('Escape');
+  // the lost and found box, and the quest list
+  await goTo(1624, 740);
+  await page.waitForTimeout(300);
+  await page.keyboard.press('e');
+  await page.waitForTimeout(400);
+  if (!w.sent.some(b => b.dig)) fail(`${label} world: the lost and found box was not searched`);
+  await page.click('#w-quest-btn');
+  await page.waitForTimeout(400);
+  if (!(await page.textContent('#w-quests-list')).includes('Catch 3 beetles')) fail(`${label} world: the quest list is empty`);
+  await page.screenshot({ path: `${ROOT}tests/out/${label}-world-quests.png` });
+  await page.keyboard.press('Escape');
+  // confetti, and the night
+  await page.click('#w-toy-btn');
+  await page.click('#w-toys [data-toy="confetti"]');
+  await page.mouse.click(box.x + box.w * 0.5, box.y + box.h * 0.5);
+  await page.waitForTimeout(400);
+  if (!w.sent.some(b => b.party?.k === 'confetti')) fail(`${label} world: no confetti`);
+  await page.click('#w-dark-btn');
+  await page.waitForTimeout(600);
+  if (!await page.evaluate(() => document.body.classList.contains('w-dark'))) fail(`${label} world: night mode did not turn on`);
+  await page.screenshot({ path: `${ROOT}tests/out/${label}-world-night.png` });
+  await page.click('#w-dark-btn');
   // someone's card: from a name, with things to do together
   await page.evaluate(() => openProfile('guest'));
   await page.waitForTimeout(500);

@@ -123,6 +123,8 @@ body.world #cp-side-close { display: block; position: sticky; top: 0; margin-lef
 #w-emote-btn { background: linear-gradient(#ffe7f1, #f6b9d3) !important; }
 #w-toy-btn { background: linear-gradient(#fff8d6, #f1dc84) !important; }
 #w-bag-btn { background: linear-gradient(#e2fbe8, #a9dfb9) !important; }
+#w-quest-btn { background: linear-gradient(#fff0dc, #f0c48a) !important; }
+#w-dark-btn { background: linear-gradient(#e6e2ff, #b4abe6) !important; }
 #w-bar button.on { background: linear-gradient(#c9d4ff, #8fa3f0) !important; }
 #w-emotes, #w-toys {
   position: absolute; bottom: 70px; left: 12px; display: flex; gap: 4px; flex-wrap: wrap; max-width: calc(100% - 24px); padding: 6px;
@@ -165,6 +167,17 @@ body.world #cp-side-close { display: block; position: sticky; top: 0; margin-lef
 .w-row { display: flex; gap: 8px; margin-top: 8px; }
 .w-row input { flex: 1; min-width: 0; }
 .w-end { justify-content: flex-end; }
+.w-row.w-end { flex-wrap: wrap; }
+.w-item small { font-size: 12px; margin: 0; }
+
+/* quests: a short list with a tick, the name and what it pays */
+.w-quest { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.w-quest li { display: flex; align-items: center; gap: 10px; padding: 6px 8px; background: var(--screen-bg); border: 1px solid #a2a2a2; border-radius: 5px; font-size: 14px; }
+.w-quest li span { font-family: var(--pixel); min-width: 30px; color: var(--navy2); }
+.w-quest li b { flex: 1; font-weight: normal; }
+.w-quest li em { font-style: normal; font-family: var(--pixel); color: #8a6a10; }
+.w-quest li.done { background: var(--lcd); color: var(--lcd-ink); border-color: #7d8473; }
+.w-quest li.done b { text-decoration: line-through; opacity: 0.7; }
 
 /* the club screen and its queue */
 #w-tv-consent { padding: 10px; background: var(--screen-bg); border: 1px solid #a2a2a2; border-radius: 6px; margin-bottom: 10px; }
@@ -249,6 +262,34 @@ body.world .login-box { background: var(--plastic); border: 1px solid var(--bord
 body.world .login-box h1 { font-family: var(--serif); font-style: italic; font-weight: normal; font-size: 2rem; color: var(--navy2); letter-spacing: 0.02em; }
 body.world .login-box input { font-family: var(--pixel); background: var(--lcd); color: var(--lcd-ink); border: 1px solid #7d8473; box-shadow: inset 0 2px 3px rgba(0,0,0,0.25); }
 body.world #login-rn { font-family: var(--pixel); background: linear-gradient(#ffffff, #d6d6d6); border: 1px solid var(--border2); border-radius: 6px; color: var(--text); }
+
+/* night: the dark street of the first version, the devices in smoked plastic */
+body.world.w-dark {
+  --chassis: #24222c; --chassis2: #1d1b24; --chassis3: #17151d;
+  --chassis-grad-1: #2c2a35; --chassis-grad-2: #1a1820;
+  --panel: #1f1d26; --panel2: #191720; --panel-bg-1: #24222c; --panel-bg-2: #17151d;
+  --ctrl-bg-1: #2a2833; --ctrl-bg-2: #211f29;
+  --border: #3a3746; --border2: #4a4658;
+  --screen-bg: #141219;
+  --text: #e4e1ee; --dim: #9a96aa;
+  --lcd: #2f3a28; --lcd-ink: #c6e0a8;
+  --plastic: linear-gradient(#2c2a35, #201e28 55%, #1a1820);
+  --bevel: inset 0 1px 0 rgba(255,255,255,0.08), inset 0 -1px 0 #000, 0 1px 0 rgba(0,0,0,0.4);
+  --lift: 0 2px 0 #000, 0 10px 28px rgba(0,0,0,0.6);
+  color-scheme: dark;
+  background-color: #050407;
+}
+body.world.w-dark .w-panel { background: rgba(0,0,0,0.45); }
+body.world.w-dark #cp-head button, body.world.w-dark #cp-head a#cp-game, body.world.w-dark .w-box button, body.world.w-dark #w-emotes button, body.world.w-dark #w-toys button,
+body.world.w-dark #w-lab-close, body.world.w-dark #w-dm header button, body.world.w-dark #cp-side-close, body.world.w-dark #chat-attach {
+  background: linear-gradient(#3a3746, #2a2733 60%, #211f29); box-shadow: inset 0 1px 0 rgba(255,255,255,0.1), 0 2px 0 #000;
+}
+body.world.w-dark .w-box .w-main, body.world.w-dark .w-tabs button.on { background: linear-gradient(#4a63cf, var(--navy) 55%, var(--navy2)); }
+body.world.w-dark #w-bar button { color: #1d1f2a; }
+body.world.w-dark .w-box h3, body.world.w-dark .w-item b, body.world.w-dark .w-quest li span { color: #b9c4ff; }
+body.world.w-dark .w-item, body.world.w-dark .w-quest li { border-color: #3a3746; }
+body.world.w-dark .w-item.on { background: #22264a; }
+body.world.w-dark .w-quest li em { color: #e8c35a; }
 
 /* phones: the map on top, the chat below it */
 @media (max-width: 860px) {

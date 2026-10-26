@@ -29,7 +29,11 @@ const TREES = [[1250, 892], [1650, 892]];
 const POLES = [[700, 450], [1100, 450], [700, 750], [1100, 750], [300, 600], [1500, 600]];
 const POND = { x: 460, y: 610 };                                // fishing, as in world.php
 const EMOTE_ICON = { wave: '👋', heart: '❤️', laugh: '😹', spark: '💫', sleep: '💤', dance: '🎵', what: '❓', hug: '🤗', high5: '🙌', gift: '🎁' };
-const FISH_ICON = { minnow: '🐟', koi: '🎏', puffer: '🐡', jelly: '🪼', eel: '🪱', angel: '🐠', boot: '👢', disk: '💾', golden: '👑' };
+const FISH_ICON = { minnow: '🐟', koi: '🎏', puffer: '🐡', jelly: '🪼', eel: '🪱', angel: '🐠', boot: '👢', disk: '💾', golden: '👑',
+  shrimp: '🦐', crab: '🦀', frog: '🐸', shell: '🐚', squid: '🦑', duck: '🦆', turtle: '🐢', lobster: '🦞', whale: '🐋' };
+const STALL = { x: 1250, y: 470, w: 100, h: 50, at: { x: 1300, y: 560 } };   // the stall buys what you found, as in world.php
+const BIN = { x: 1600, y: 668, w: 48, h: 40, at: { x: 1624, y: 740 } };      // the lost and found box
+const STALL_SOLID = [STALL.x, STALL.y + 14, STALL.w, 32], BIN_SOLID = [BIN.x + 2, BIN.y + 8, BIN.w - 4, BIN.h - 10];
 // the place floats in the sky: you can walk on these and nowhere else
 const PLATFORMS = [[30, 400, 1740, 400], [680, 10, 440, 1180], ...[[60, 40], [1140, 40], [60, 780], [1140, 780]].map(([x, y]) => [x, y, 600, 380])]
   .map(([x, y, w, h]) => ({ x, y, w, h }));
@@ -52,6 +56,8 @@ const SPOTS = [
   { id: 'well', r: { x: 862, y: 566, w: 76, h: 56 }, at: { x: 900, y: 660 }, col: '#7fb8ff', text: () => '✧ Wish (◉ 1)', act: () => makeWish() },
   { id: 'game', r: { x: 1380, y: 984, w: 120, h: 56 }, at: { x: 1440, y: 960 }, col: '#2f9a5e', text: () => '🪲 Play the beetle game', act: () => openLab(), hide: () => labLocked() },
   { id: 'pond', r: { x: POND.x - 56, y: POND.y - 26, w: 112, h: 52 }, at: { x: POND.x, y: POND.y + 52 }, col: '#3f7fdc', text: () => world.fishing ? '🎣 Reel in' : '🎣 Fish', act: () => castLine() },
+  { id: 'stall', r: STALL, at: STALL.at, col: '#e8a33d', text: () => '◉ Sell what you found', act: () => openBag('things') },
+  { id: 'bin', r: BIN, at: BIN.at, col: '#8c86a3', text: () => '📦 Lost and found', act: () => dig() },
   { id: 'gate', r: { x: 1370, y: 740, w: 140, h: 60 }, at: { x: 1440, y: 740 }, col: '#c23a4a', text: () => '🔒 Password sign-in only', act: () => labDenied(true), hide: () => !labLocked() },
 ];
 
@@ -59,7 +65,6 @@ const SPOTS = [
 const BUG_N = 4, BUG_LIFE = 90;
 const BUG_AREAS = [[1180, 830, 1700, 1130], [1180, 830, 1700, 1130], [140, 820, 620, 1120], [720, 480, 1080, 720]];
 const BUG_KINDS = [['green', 'ladybug', 'pillbug', 'cucumber'], ['stag', 'purple', 'harlequin', 'blue_longicorn'], ['golden', 'golden_tiger']];
-const BUG_COINS = [1, 2, 5];
 const hrand = n => { const v = Math.sin(n * 12.9898) * 43758.5453; return v - Math.floor(v); };
 function bugAt(k, t) {
   const g = Math.floor((t + k * 13) / BUG_LIFE), s = g * 31 + k * 7;
@@ -99,6 +104,7 @@ function buildSolids() {
   s.push([POND.x - 52, POND.y - 22, 104, 44]);
   for (const [x, y] of TREES) s.push([x - 18, y - 6, 36, 16]);
   s.push([1380, 990, 120, 40]);                                                // the workbench
+  s.push(STALL_SOLID, BIN_SOLID);
   for (const [x, y] of POLES) s.push([x - 8, y - 8, 16, 16]);
   world.solids = s.map(([x, y, w, h]) => ({ x, y, w, h }));
 }
@@ -134,6 +140,9 @@ function furOf(c, t) {
     case 'c_ghost': return [220, 0.15, 0.9];
     case 'c_sky': return [205, 0.7, 0.78];
     case 'c_glitch': return [Math.floor(t * 2) % 12 * 30, 0.8, 0.6];
+    case 'c_mint': return [160, 0.55, 0.7];
+    case 'c_gold': return [45, 0.9, 0.55 + Math.round(Math.sin(t * 3) * 2) / 40];
+    case 'c_night': return [235, 0.45, 0.22];
     default: return [nameHue(c.d || c.u), 0.7, c.ghost ? 0.7 : 0.6];
   }
 }
@@ -184,8 +193,8 @@ async function worldTickNow() {
   const me = world.cats.get(world.me);
   const at = world.target || me;
   const extra = world.out; world.out = {};
-  // a catch counts where I am now, not where I am walking to
-  const pos = extra.catch && me ? me : at;
+  // a catch, a sale or a dig counts where I am now, not where I am walking to
+  const pos = (extra.catch || extra.sell || extra.dig) && me ? me : at;
   const body = { ...(pos ? { x: Math.round(pos.x), y: Math.round(pos.y) } : {}), ...extra };
   if (Date.now() - world.active < W_ACTIVE) body.a = 1;
   const d = await worldPost(body);
@@ -232,6 +241,10 @@ async function worldTickNow() {
   if (d.touch === 'far') worldToast('Walk up to them first.');
   if (d.touch === 'gone') worldToast('They are not here right now.');
   if (d.gift) giftResult(d.gift);
+  if (d.dig) digResult(d);
+  if (d.sell) sellResult(d.sell);
+  if (d.quests) renderQuests(d.quests);
+  if (d.quest) d.quest.forEach(([name, n], i) => setTimeout(() => { worldToast(`📜 ${name}: +${n} coins`, 4000); sfx('claim'); }, 1200 + i * 4200));
   if (d.inv || d.catalog) window.renderBag?.(d.inv);
   if (d.prof) window.cardStats?.(d.prof);
   for (const i of d.in || []) gotIn(i, clock);
@@ -241,17 +254,17 @@ async function worldTickNow() {
   if (extra.catch) {
     world.catching.delete(extra.catch);
     if (d.caught === extra.catch) {
-      const b = bugAt(+extra.catch.split(':')[0], netNow());
       world.gone.add(extra.catch);
-      const what = ['a beetle', 'a rare beetle', 'a golden beetle'][b.kind];
-      worldToast(d.bug_coins ? `Caught ${what}: +${d.bug_coins}` : `Caught ${what}! (no more beetle coins today)`);
+      worldToast(`Caught ${aName(itemName('b:' + d.bug))}! It is in your bag.`);
+      const me = world.cats.get(world.me);
+      if (me) world.splashes.push({ x: me.x, y: me.y - 56, t: clock, text: '+1 🪲', col: '#2f9a5e' });
       sfx('claim');
     }
   }
   if (d.dm != null && d.dm !== world.dm) { world.dm = d.dm; window.dmPoke?.(d.dm); }
 
   // the ball: my own kick stays as I predicted it until the server agrees
-  if (performance.now() - world.kickAt > 1500 && d.ball) world.ball = { x: d.ball.x, y: d.ball.y, vx: d.ball.vx, vy: d.ball.vy, t0: clock - d.ball.age };
+  if (performance.now() - world.kickAt > 1500 && d.ball) syncBall(d.ball, clock);
   tvUpdate(d.tv ? { v: d.tv.v, at: clock - d.tv.age, by: d.tv.by } : null);
   worldCount();
 }
@@ -327,7 +340,7 @@ function worldStep(dt, clock) {
       if ([bx, by, bb].includes('lab')) labDenied();
     } else { c.x += mx; c.y += my; }          // someone else, or me stuck inside something: let them out
     if (Math.abs(dx) > Math.abs(dy)) { c.dir = 'side'; c.flip = dx < 0; } else c.dir = dy < 0 ? 'up' : 'down';
-    if (c.w?.trail && Math.random() < dt * (c.w.trail === 't_feathers' ? 5 : 14)) c.trail.push({ x: c.x + (Math.random() - 0.5) * 16, y: c.y - 6 - Math.random() * 18, t: clock, r: Math.random() });
+    if (c.w?.trail && Math.random() < dt * trailOf(c)[0]) c.trail.push({ x: c.x + (Math.random() - 0.5) * 16, y: c.y - 6 - Math.random() * 18, t: clock, r: Math.random() });
   }
   if (!me) return;
   const z = zoneAt(me.x, me.y);
@@ -367,7 +380,22 @@ function fold(p, a, b) { const l = b - a; let q = (p - a) % (2 * l); if (q < 0) 
 function ballAt(clock) {
   const b = world.ball, d = (1 - Math.exp(-BALL_K * Math.max(0, clock - b.t0))) / BALL_K;
   const speed = Math.hypot(b.vx, b.vy) * Math.exp(-BALL_K * Math.max(0, clock - b.t0));
-  return { x: fold(b.x + b.vx * d, PEN[0], PEN[2]), y: fold(b.y + b.vy * d, PEN[1], PEN[3]), speed };
+  const k = b.ox || b.oy ? Math.max(0, 1 - (clock - b.oAt) / 0.35) : 0;
+  return { x: fold(b.x + b.vx * d, PEN[0], PEN[2]) + (b.ox || 0) * k, y: fold(b.y + b.vy * d, PEN[1], PEN[3]) + (b.oy || 0) * k, speed };
+}
+// a kick from the server: start from where the ball is drawn now and let the
+// difference melt away, and leave it alone when only the network jitters
+function syncBall(s, clock) {
+  const b = world.ball, t0 = clock - s.age;
+  const same = b.sx === s.x && b.sy === s.y && b.svx === s.vx && b.svy === s.vy;
+  if (same && Math.abs(b.t0 - t0) < 0.25) return;
+  const was = ballAt(clock);
+  world.ball = { x: s.x, y: s.y, vx: s.vx, vy: s.vy, t0, sx: s.x, sy: s.y, svx: s.vx, svy: s.vy, ox: 0, oy: 0, oAt: clock };
+  if (!same) {
+    const now = ballAt(clock);
+    const ox = was.x - now.x, oy = was.y - now.y;
+    if (Math.hypot(ox, oy) < 160) Object.assign(world.ball, { ox, oy });
+  }
 }
 function kickCheck(me, clock) {
   if (!me.moving || performance.now() - world.kickAt < 450) return;
@@ -377,7 +405,7 @@ function kickCheck(me, clock) {
   const v = 420 + Math.random() * 160;
   const vx = dx / (dist || 1) * v, vy = dy / (dist || 1) * v;
   world.kickAt = performance.now();
-  world.ball = { x: b.x, y: b.y, vx, vy, t0: clock };
+  world.ball = { x: b.x, y: b.y, vx, vy, t0: clock, sx: world.ball.sx, sy: world.ball.sy, svx: world.ball.svx, svy: world.ball.svy };
   worldSend({ kick: { vx: Math.round(vx), vy: Math.round(vy) } }, true);
   sfx('click');
 }
@@ -432,10 +460,11 @@ function noiseTile(alpha) {
 
 // the sky, as on remilia.net: blue with clouds, dithered down to a few colours
 const SKY = ['#2b62c4', '#3a74d6', '#4d88e3', '#68a0ec', '#8cbaf3', '#b6d4f8', '#dfecfc', '#ffffff'];
+const NIGHT = ['#05040a', '#0a0918', '#111028', '#1a1838', '#26234a', '#35305c', '#4a4470', '#6a6290'];
 function buildSky(w, h) {
   const c = document.createElement('canvas'); c.width = w; c.height = h;
   const g = c.getContext('2d'), d = g.createImageData(w, h);
-  const pal = SKY.map(x => [1, 3, 5].map(i => parseInt(x.slice(i, i + 2), 16)));
+  const pal = (world.dark ? NIGHT : SKY).map(x => [1, 3, 5].map(i => parseInt(x.slice(i, i + 2), 16)));
   const B = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
   const seed = 7.31;
   const vn = (x, y) => {          // value noise
@@ -449,12 +478,16 @@ function buildSky(w, h) {
     let f = 0, a = 0.5, k = 1;
     for (let o = 0; o < 5; o++) { f += vn(nx * k, ny * k * 1.8) * a; a /= 2; k *= 2.03; }
     const cloud = Math.max(0, Math.min(1, (f - 0.5) / 0.2));
-    const v = 0.08 + (y / h) * 0.32 + cloud * 0.75;
+    const v = world.dark ? 0.04 + (y / h) * 0.2 + cloud * 0.55 : 0.08 + (y / h) * 0.32 + cloud * 0.75;
     const i = Math.max(0, Math.min(pal.length - 1, Math.floor(v * (pal.length - 1) + B[(y & 3) * 4 + (x & 3)] / 16)));
     const o = (y * w + x) * 4, col = pal[i];
     d.data[o] = col[0]; d.data[o + 1] = col[1]; d.data[o + 2] = col[2]; d.data[o + 3] = 255;
   }
   g.putImageData(d, 0, 0);
+  if (world.dark) for (let i = 0; i < w * h / 900; i++) {
+    g.fillStyle = hrand(i) < 0.15 ? '#fff3c4' : '#c9c6e8';
+    g.fillRect((hrand(i * 3.1) * w) | 0, (hrand(i * 7.7) * h) | 0, 1, 1);
+  }
   return c;
 }
 
@@ -470,31 +503,32 @@ function buildBackground() {
   try { document.body.style.setProperty('--sky', `url(${sky.toDataURL()})`); } catch {}
   // the platforms: grey plastic slabs with a lit edge, a side and a shadow on the clouds
   const P = PLATFORMS;
-  g.fillStyle = 'rgba(16,40,110,0.28)';
+  const D = world.dark;
+  g.fillStyle = D ? 'rgba(0,0,0,0.5)' : 'rgba(16,40,110,0.28)';
   for (const p of P) roundRect(g, p.x + 14, p.y + 36, p.w, p.h, 14), g.fill();
   for (const p of P) {
     const side = g.createLinearGradient(0, p.y + p.h - 10, 0, p.y + p.h + 22);
-    side.addColorStop(0, '#9da3b6'); side.addColorStop(1, '#6d7389');
+    side.addColorStop(0, D ? '#2a2733' : '#9da3b6'); side.addColorStop(1, D ? '#05040a' : '#6d7389');
     g.fillStyle = side; roundRect(g, p.x, p.y + 10, p.w, p.h + 12, 12); g.fill();
   }
   for (const p of P) {
     const top = g.createLinearGradient(0, p.y, 0, p.y + p.h);
-    top.addColorStop(0, '#eceef4'); top.addColorStop(1, '#cdd1de');
+    top.addColorStop(0, D ? '#1b1922' : '#eceef4'); top.addColorStop(1, D ? '#141219' : '#cdd1de');
     g.fillStyle = top; roundRect(g, p.x, p.y, p.w, p.h, 12); g.fill();
   }
   // seams in the plastic, and the lit rim
   g.save();
   g.beginPath(); for (const p of P) g.rect(p.x + 6, p.y + 6, p.w - 12, p.h - 12); g.clip();
-  g.strokeStyle = 'rgba(70,80,120,0.13)'; g.lineWidth = 1;
+  g.strokeStyle = D ? 'rgba(255,255,255,0.03)' : 'rgba(70,80,120,0.13)'; g.lineWidth = 1;
   for (let x = 0; x <= WORLD_W; x += 40) { g.beginPath(); g.moveTo(x + 0.5, 0); g.lineTo(x + 0.5, WORLD_H); g.stroke(); }
   for (let y = 0; y <= WORLD_H; y += 40) { g.beginPath(); g.moveTo(0, y + 0.5); g.lineTo(WORLD_W, y + 0.5); g.stroke(); }
   g.restore();
-  g.fillStyle = 'rgba(80,90,130,0.16)';
+  g.fillStyle = D ? 'rgba(232,214,138,0.18)' : 'rgba(80,90,130,0.16)';
   for (let x = 40; x < WORLD_W - 40; x += 60) if (x < 640 || x > 1160) g.fillRect(x, 598, 30, 3);
   for (let y = 20; y < WORLD_H - 20; y += 60) if (y < 420 || y > 780) g.fillRect(898, y, 3, 30);
   // the plaza: rings around the well
   for (let r = 260; r > 60; r -= 40) {
-    g.strokeStyle = `rgba(60,100,200,${0.06 + (260 - r) / 1800})`; g.lineWidth = 2;
+    g.strokeStyle = D ? `rgba(120,140,255,${0.03 + (260 - r) / 3600})` : `rgba(60,100,200,${0.06 + (260 - r) / 1800})`; g.lineWidth = 2;
     g.beginPath(); g.ellipse(WELL.x, WELL.y, r, r * 0.7, 0, 0, Math.PI * 2); g.stroke();
   }
   // the pond: a hole in the platform with the sky showing through
@@ -502,8 +536,8 @@ function buildBackground() {
   g.beginPath(); g.ellipse(POND.x, POND.y, 56, 26, 0, 0, Math.PI * 2); g.clip();
   g.drawImage(sky, (POND.x - 60) / 2, (POND.y + 80) / 2, 60, 30, POND.x - 60, POND.y - 30, 120, 60);
   g.restore();
-  g.strokeStyle = '#9da3b6'; g.lineWidth = 4; g.beginPath(); g.ellipse(POND.x, POND.y, 56, 26, 0, 0, Math.PI * 2); g.stroke();
-  g.strokeStyle = '#ffffff'; g.lineWidth = 1.5; g.beginPath(); g.ellipse(POND.x, POND.y - 2, 58, 27, 0, Math.PI * 1.05, Math.PI * 1.95); g.stroke();
+  g.strokeStyle = D ? '#2a2733' : '#9da3b6'; g.lineWidth = 4; g.beginPath(); g.ellipse(POND.x, POND.y, 56, 26, 0, 0, Math.PI * 2); g.stroke();
+  g.strokeStyle = D ? '#4a4460' : '#ffffff'; g.lineWidth = 1.5; g.beginPath(); g.ellipse(POND.x, POND.y - 2, 58, 27, 0, Math.PI * 1.05, Math.PI * 1.95); g.stroke();
 
   // floors
   const floor = (z, fn) => { g.save(); g.beginPath(); roundRect(g, z.x, z.y, z.w, z.h, 12); g.clip(); fn(z); g.restore(); };
@@ -514,30 +548,30 @@ function buildBackground() {
     }
   });
   floor(z0('shop'), z => {
-    g.fillStyle = '#e4e5ea'; g.fillRect(z.x, z.y, z.w, z.h);
-    g.strokeStyle = 'rgba(40,60,140,0.08)';
+    g.fillStyle = D ? '#0b0e0e' : '#e4e5ea'; g.fillRect(z.x, z.y, z.w, z.h);
+    g.strokeStyle = D ? 'rgba(80,200,140,0.07)' : 'rgba(40,60,140,0.08)';
     for (let x = z.x; x < z.x + z.w; x += 24) { g.beginPath(); g.moveTo(x, z.y); g.lineTo(x, z.y + z.h); g.stroke(); }
     for (let y = z.y; y < z.y + z.h; y += 24) { g.beginPath(); g.moveTo(z.x, y); g.lineTo(z.x + z.w, y); g.stroke(); }
     // cables to the monitors
-    g.strokeStyle = 'rgba(40,36,56,0.5)'; g.lineWidth = 2;
+    g.strokeStyle = D ? 'rgba(90,84,110,0.5)' : 'rgba(40,36,56,0.5)'; g.lineWidth = 2;
     for (let i = 0; i < 7; i++) { g.beginPath(); g.moveTo(1230 + i * 40, 180); g.bezierCurveTo(1240 + i * 30, 300, rnd(1160, 1300), 340, 1156, 360 + i * 6); g.stroke(); }
     g.lineWidth = 1;
   });
   const grass = (z, base, n, flowers) => {
     g.fillStyle = base; g.fillRect(z.x, z.y, z.w, z.h);
-    for (let i = 0; i < n; i++) { g.fillStyle = `rgba(${rnd(70, 120) | 0},${rnd(140, 180) | 0},${rnd(80, 110) | 0},${rnd(0.12, 0.3)})`; g.fillRect(rnd(z.x, z.x + z.w) | 0, rnd(z.y, z.y + z.h) | 0, 2, 4); }
+    for (let i = 0; i < n; i++) { g.fillStyle = D ? `rgba(${rnd(30, 50) | 0},${rnd(60, 90) | 0},${rnd(30, 50) | 0},${rnd(0.2, 0.4)})` : `rgba(${rnd(70, 120) | 0},${rnd(140, 180) | 0},${rnd(80, 110) | 0},${rnd(0.12, 0.3)})`; g.fillRect(rnd(z.x, z.x + z.w) | 0, rnd(z.y, z.y + z.h) | 0, 2, 4); }
     for (let i = 0; i < flowers; i++) {
       const x = rnd(z.x + 20, z.x + z.w - 20), y = rnd(z.y + 20, z.y + z.h - 20);
-      g.fillStyle = ['#ffffff', '#ffd6ea', '#fff3b0', '#d9d4ff'][i % 4];
+      g.fillStyle = D ? ['#8a86a8', '#7a5a70', '#8a8050', '#6a6290'][i % 4] : ['#ffffff', '#ffd6ea', '#fff3b0', '#d9d4ff'][i % 4];
       for (const [ox, oy] of [[-2, 0], [2, 0], [0, -2], [0, 2]]) g.fillRect(x + ox, y + oy, 2, 2);
       g.fillStyle = '#e8b84a'; g.fillRect(x, y, 2, 2);
     }
   };
-  floor(z0('park'), z => grass(z, '#cfe6c6', 2600, 40));
+  floor(z0('park'), z => grass(z, D ? '#0c0f0a' : '#cfe6c6', 2600, 40));
   floor(z0('garden'), z => {
-    grass(z, '#cde5c4', 3600, 70);
+    grass(z, D ? '#0d110b' : '#cde5c4', 3600, 70);
     // stepping stones to the workbench
-    g.fillStyle = 'rgba(255,255,255,0.7)';
+    g.fillStyle = D ? 'rgba(120,115,140,0.35)' : 'rgba(255,255,255,0.7)';
     for (let i = 0; i < 5; i++) { g.beginPath(); g.ellipse(1440 + (i % 2 ? 10 : -10), 810 + i * 34, 16, 8, 0, 0, Math.PI * 2); g.fill(); }
   });
 
@@ -547,10 +581,11 @@ function buildBackground() {
     if (s.w === 16 && s.h === 16) continue;               // poles are drawn with the wires
     if (s.x === POND.x - 52 && s.y === POND.y - 22) continue;
     const dark = inRect(s.x + 1, s.y + 1, club);
-    g.fillStyle = dark ? 'rgba(10,6,16,0.6)' : 'rgba(40,50,90,0.22)'; g.fillRect(s.x, s.y + s.h, s.w, 8);
-    g.fillStyle = dark ? '#221a2e' : '#c3c6d2'; g.fillRect(s.x, s.y, s.w, s.h);
-    g.fillStyle = dark ? '#3a2d4a' : '#ffffff'; g.fillRect(s.x, s.y, s.w, 2);
-    if (!dark) { g.fillStyle = '#9da3b6'; g.fillRect(s.x, s.y + s.h - 2, s.w, 2); }
+    if ([STALL_SOLID, BIN_SOLID].some(([x, y]) => s.x === x && s.y === y)) continue;
+    g.fillStyle = dark ? 'rgba(10,6,16,0.6)' : D ? 'rgba(0,0,0,0.5)' : 'rgba(40,50,90,0.22)'; g.fillRect(s.x, s.y + s.h, s.w, 8);
+    g.fillStyle = dark ? '#221a2e' : D ? '#1b1922' : '#c3c6d2'; g.fillRect(s.x, s.y, s.w, s.h);
+    g.fillStyle = dark ? '#3a2d4a' : D ? '#2a2733' : '#ffffff'; g.fillRect(s.x, s.y, s.w, 2);
+    if (!dark) { g.fillStyle = D ? '#05040a' : '#9da3b6'; g.fillRect(s.x, s.y + s.h - 2, s.w, 2); }
   }
   // terminal: old beige monitors stacked up
   const crt = (x, y, w, h) => {
@@ -559,12 +594,12 @@ function buildBackground() {
     g.fillStyle = '#0d1410'; g.fillRect(x + 6, y + 6, w - 12, h - 18);
   };
   MONITORS.forEach(([x, y, w, h]) => crt(x, y, w, h));
-  g.fillStyle = '#c9c4da'; g.fillRect(1300, 236, 280, 40);
-  g.fillStyle = '#f4f2fa'; g.fillRect(1300, 236, 280, 4);
+  g.fillStyle = D ? '#24212e' : '#c9c4da'; g.fillRect(1300, 236, 280, 40);
+  g.fillStyle = D ? '#3a3648' : '#f4f2fa'; g.fillRect(1300, 236, 280, 4);
   // the well
   g.fillStyle = 'rgba(80,80,140,0.18)'; g.beginPath(); g.ellipse(WELL.x, WELL.y + 14, 44, 16, 0, 0, Math.PI * 2); g.fill();
-  g.fillStyle = '#e9e7f2'; g.beginPath(); g.ellipse(WELL.x, WELL.y, 38, 22, 0, 0, Math.PI * 2); g.fill();
-  g.fillStyle = '#c9c6dc'; g.fillRect(WELL.x - 38, WELL.y, 76, 12);
+  g.fillStyle = D ? '#2a2733' : '#e9e7f2'; g.beginPath(); g.ellipse(WELL.x, WELL.y, 38, 22, 0, 0, Math.PI * 2); g.fill();
+  g.fillStyle = D ? '#1b1922' : '#c9c6dc'; g.fillRect(WELL.x - 38, WELL.y, 76, 12);
   g.beginPath(); g.ellipse(WELL.x, WELL.y + 12, 38, 22, 0, 0, Math.PI); g.fill();
   // garden: tree trunks, the workbench with jars of beetles on it
   for (const [x, y] of TREES) { g.fillStyle = '#7a5a44'; g.fillRect(x - 8, y - 40, 16, 46); g.fillStyle = 'rgba(40,80,40,0.25)'; g.beginPath(); g.ellipse(x, y + 6, 40, 12, 0, 0, Math.PI * 2); g.fill(); }
@@ -572,7 +607,7 @@ function buildBackground() {
   g.fillStyle = '#d4ab82'; g.fillRect(1380, 990, 120, 5);
   g.fillStyle = '#8a6646'; g.fillRect(1386, 1030, 6, 10); g.fillRect(1488, 1030, 6, 10);
   // park fence posts
-  g.fillStyle = '#b9b2c9';
+  g.fillStyle = D ? '#3a3648' : '#b9b2c9';
   for (let x = PEN[0] - 12; x <= PEN[2] + 12; x += 40) { g.fillRect(x, PEN[1] - 22, 4, 10); g.fillRect(x, PEN[3] + 12, 4, 10); }
   // Cyberia: a speaker stack either side of the screen, a bar along the right
   g.fillStyle = '#07050a';
@@ -580,6 +615,27 @@ function buildBackground() {
   g.fillStyle = '#1d1a22';
   for (const x of [162, 558]) for (const y of [92, 132]) { g.beginPath(); g.arc(x, y, 14, 0, Math.PI * 2); g.fill(); }
   g.fillStyle = '#2a1f33'; g.fillRect(600, 80, 30, 260);
+  // the stall: a counter under a striped awning, with a scale on it
+  const st = STALL;
+  g.fillStyle = 'rgba(30,30,60,0.25)'; g.fillRect(st.x + 4, st.y + 44, st.w, 8);
+  g.fillStyle = D ? '#5a4030' : '#b48a64'; g.fillRect(st.x, st.y + 14, st.w, 32);
+  g.fillStyle = D ? '#7a5a44' : '#d4ab82'; g.fillRect(st.x, st.y + 14, st.w, 4);
+  g.fillStyle = D ? '#3a3648' : '#9da3b6'; g.fillRect(st.x + 4, st.y - 26, 4, 40); g.fillRect(st.x + st.w - 8, st.y - 26, 4, 40);
+  for (let i = 0; i < 6; i++) { g.fillStyle = i % 2 ? (D ? '#2a2733' : '#ffffff') : '#e8a33d'; g.fillRect(st.x - 4 + i * 18, st.y - 34, 18, 12); }
+  for (let i = 0; i < 6; i++) { g.fillStyle = i % 2 ? (D ? '#2a2733' : '#ffffff') : '#e8a33d'; g.beginPath(); g.arc(st.x + 5 + i * 18, st.y - 22, 9, 0, Math.PI); g.fill(); }
+  g.fillStyle = '#ffd34d'; g.beginPath(); g.arc(st.x + 30, st.y + 10, 6, 0, Math.PI * 2); g.fill();
+  g.fillStyle = '#c99a1a'; g.fillRect(st.x + 28, st.y + 8, 4, 4);
+  g.fillStyle = D ? '#4a4460' : '#6d7389'; g.fillRect(st.x + 62, st.y + 2, 20, 12); g.fillRect(st.x + 70, st.y - 4, 4, 6);
+  // the lost and found: a cardboard box, flaps open
+  const bn = BIN;
+  g.fillStyle = 'rgba(30,30,60,0.25)'; g.fillRect(bn.x + 4, bn.y + bn.h - 2, bn.w, 6);
+  g.fillStyle = D ? '#6a5236' : '#c9a06a'; g.fillRect(bn.x, bn.y + 8, bn.w, bn.h - 8);
+  g.fillStyle = D ? '#4a3a26' : '#a87f4c'; g.fillRect(bn.x, bn.y + 8, bn.w, 4);
+  g.fillStyle = D ? '#7a6042' : '#dcb47e';
+  g.beginPath(); g.moveTo(bn.x, bn.y + 8); g.lineTo(bn.x - 8, bn.y); g.lineTo(bn.x + 14, bn.y); g.lineTo(bn.x + 18, bn.y + 8); g.fill();
+  g.beginPath(); g.moveTo(bn.x + bn.w, bn.y + 8); g.lineTo(bn.x + bn.w + 8, bn.y); g.lineTo(bn.x + bn.w - 14, bn.y); g.lineTo(bn.x + bn.w - 18, bn.y + 8); g.fill();
+  g.fillStyle = '#ff8fb8'; g.fillRect(bn.x + 12, bn.y + 4, 6, 6);
+  g.fillStyle = '#7fd1ff'; g.fillRect(bn.x + 26, bn.y + 2, 5, 8);
   world.bg = c;
 }
 const MONITORS = [[1226, 96, 58, 48], [1290, 96, 58, 48], [1354, 96, 58, 48], [1418, 96, 58, 48], [1546, 96, 40, 48], [1588, 96, 40, 48], [1546, 150, 40, 48], [1588, 150, 40, 48],
@@ -597,7 +653,7 @@ function worldDraw(now) {
   const cx = Math.round(world.cam.x * s) / s, cy = Math.round(world.cam.y * s) / s;
   // the floor goes on the bottom canvas, under the club video
   g.setTransform(1, 0, 0, 1, 0, 0);
-  g.fillStyle = '#4d88e3'; g.fillRect(0, 0, world.canvas.width, world.canvas.height);
+  g.fillStyle = world.dark ? '#050407' : '#4d88e3'; g.fillRect(0, 0, world.canvas.width, world.canvas.height);
   g.setTransform(s, 0, 0, s, -cx * s, -cy * s);
   g.imageSmoothingEnabled = false;
   g.drawImage(world.bg, 0, 0);
@@ -621,7 +677,7 @@ function worldDraw(now) {
   things.sort((a, b2) => a.y - b2.y);
   for (const t of things) t.ball ? drawBall(gt, t.ball, clock) : drawCat(gt, t.c, clock);
   drawTrees(gt, me);
-  drawWires(gt, clock, cx, cy);
+  drawWires(gt, clock);
   drawLights(gt, clock, cx, cy, vw, vh);
   drawSigns(gt, clock);
   drawToys(gt, clock);
@@ -703,10 +759,21 @@ function drawLive(g, t) {
   }
   // trails fade where they were dropped
   for (const c of world.cats.values()) {
-    c.trail = c.trail.filter(p => t - p.t < (c.w?.trail === 't_feathers' ? 2.2 : 1.2));
+    const life = trailOf(c)[1], kind = c.w?.trail;
+    c.trail = c.trail.filter(p => t - p.t < life);
     for (const p of c.trail) {
       const age = t - p.t;
-      if (c.w?.trail === 't_hearts') { g.globalAlpha = 1 - age / 1.2; g.font = wf(9); g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#ff5a78'; g.fillText('♥', p.x, p.y - age * 12); }
+      if (kind === 't_bubbles') {
+        g.globalAlpha = 1 - age / life; g.strokeStyle = '#9fd4ff'; g.lineWidth = 1;
+        g.beginPath(); g.arc(p.x + Math.sin(age * 4 + p.r * 6) * 3, p.y - age * 16, 2 + p.r * 2.5, 0, Math.PI * 2); g.stroke();
+      } else if (kind === 't_notes') {
+        g.globalAlpha = 1 - age / life; g.font = wf(10); g.textAlign = 'center'; g.textBaseline = 'middle';
+        g.fillStyle = `hsl(${(p.r * 360) | 0} 70% 55%)`; g.fillText(p.r < 0.5 ? '♪' : '♫', p.x + Math.sin(age * 3) * 4, p.y - age * 14);
+      } else if (kind === 't_sparks') {
+        g.globalAlpha = 1 - age / life; g.fillStyle = p.r < 0.3 ? '#ffffff' : '#ffe36a';
+        const r = 3 * (1 - age / life);
+        g.fillRect(p.x - r, p.y, r * 2 + 1, 1); g.fillRect(p.x, p.y - r, 1, r * 2 + 1);
+      } else if (kind === 't_hearts') { g.globalAlpha = 1 - age / 1.2; g.font = wf(9); g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#ff5a78'; g.fillText('♥', p.x, p.y - age * 12); }
       else if (c.w?.trail === 't_feathers') {
         g.globalAlpha = 1 - age / 2.2; g.save(); g.translate(p.x + Math.sin(age * 3 + p.r * 6) * 6, p.y + age * 10); g.rotate(Math.sin(age * 2 + p.r) * 0.8);
         g.fillStyle = '#ffffff'; g.beginPath(); g.ellipse(0, 0, 2, 5, 0, 0, Math.PI * 2); g.fill(); g.fillStyle = '#c9c6dc'; g.fillRect(-0.5, -4, 1, 8); g.restore();
@@ -764,14 +831,18 @@ function drawCat(g, c, t) {
     for (const [ox, oy, r] of [[-6, 0, 1.6], [4, -1, 1.2], [8, 1, 1]]) { g.beginPath(); g.arc(x + ox, y + oy, r, 0, Math.PI * 2); g.fill(); }
   }
   if (c.w?.back === 'wings') drawWings(g, x, y - hop, t + c.t0, c.moving);
+  if (c.w?.back && c.w.back !== 'wings' && dir !== 'up') drawBack(g, c.w.back, x, y - hop, dir, flip, t + c.t0, c.moving);
   if (c.w?.hold === 'balloon') drawBalloon(g, x, y - hop, t + c.t0);
+  if (c.w?.hold === 'umbrella') drawUmbrella(g, x, y - hop, t + c.t0);
   g.save();
   g.translate(x, y - hop);
   if (flip) g.scale(-1, 1);
   g.drawImage(sheet, sx, sy, 48, 48, -24, -46, 48, 48);
   g.restore();
-  if (c.w?.hat) drawHat(g, c.w.hat, x, y - hop - 38, dir, t);
-  if (c.w?.hold && c.w.hold !== 'balloon') drawHold(g, c.w.hold, x, y - hop, flip, t);
+  if (c.w?.back && c.w.back !== 'wings' && dir === 'up') drawBack(g, c.w.back, x, y - hop, dir, flip, t + c.t0, c.moving);
+  if (c.w?.back && dir === 'down') drawStraps(g, c.w.back, x, y - hop);
+  if (c.w?.hat) drawHat(g, c.w.hat, x, y - hop - 38, dir, t, flip);
+  if (c.w?.hold && c.w.hold !== 'balloon' && c.w.hold !== 'umbrella') drawHold(g, c.w.hold, x, y - hop, flip, t);
   label(g, c, x, y);
   if (c.splat && t - c.splat < 1.5) { const a = t - c.splat; for (let i = 0; i < 4; i++) cloudPuff(g, x - 9 + i * 6, y - 30 - hop + Math.sin(i * 2) * 5, 5, 1 - a / 1.5); }
   g.globalAlpha = 1;
@@ -794,9 +865,93 @@ function drawWings(g, x, y, t, moving) {
   }
 }
 
-function drawHat(g, id, x, y, dir, t) {
+// a cape, a backpack or a jetpack: behind the cat, in front when it walks away
+function drawBack(g, id, x, y, dir, flip, t, moving) {
+  const bx = dir === 'side' ? x + (flip ? 8 : -8) : x;
+  g.save();
+  if (id === 'cape') {
+    const sway = Math.sin(t * (moving ? 9 : 2)) * (moving ? 3 : 1), back = dir === 'side' ? (flip ? 6 : -6) : 0, wide = dir === 'down' ? 6 : 0;
+    g.fillStyle = '#c23a4a';
+    g.beginPath(); g.moveTo(x - 10, y - 26); g.lineTo(x + 10, y - 26); g.lineTo(x + 13 + wide + back + sway, y - 3); g.lineTo(x - 13 - wide + back + sway, y - 3); g.closePath(); g.fill();
+    g.fillStyle = '#8e2433'; g.fillRect(x - 10, y - 27, 20, 3);
+  } else if (id === 'backpack') {
+    g.fillStyle = '#e8a33d'; roundRect(g, bx - 8, y - 30, 16, 18, 4); g.fill();
+    g.fillStyle = '#c4822a'; g.fillRect(bx - 6, y - 20, 12, 5);
+    g.fillStyle = '#fff3d0'; g.fillRect(bx - 1, y - 19, 2, 2);
+  } else if (id === 'jetpack') {
+    for (const o of dir === 'down' ? [-16, 16] : [-5, 5]) {
+      g.fillStyle = '#9da3b6'; roundRect(g, bx + o - 4, y - 34, 8, 20, 3); g.fill();
+      g.fillStyle = '#6d7389'; g.fillRect(bx + o - 3, y - 15, 6, 3);
+      if (moving) {
+        const fl = 6 + Math.abs(Math.sin(t * 30 + o)) * 6;
+        g.fillStyle = '#ffb347'; g.beginPath(); g.moveTo(bx + o - 3, y - 12); g.lineTo(bx + o + 3, y - 12); g.lineTo(bx + o, y - 12 + fl); g.closePath(); g.fill();
+        g.fillStyle = '#fff3b0'; g.beginPath(); g.moveTo(bx + o - 1.5, y - 12); g.lineTo(bx + o + 1.5, y - 12); g.lineTo(bx + o, y - 12 + fl * 0.5); g.closePath(); g.fill();
+      }
+    }
+  }
+  g.restore();
+}
+// what of a back item shows on a cat facing you
+function drawStraps(g, id, x, y) {
+  if (id === 'backpack') {
+    g.fillStyle = '#c4822a';
+    g.fillRect(x - 9, y - 19, 3, 11); g.fillRect(x + 6, y - 19, 3, 11);
+  } else if (id === 'cape') {
+    g.fillStyle = '#8e2433'; g.fillRect(x - 9, y - 19, 18, 3);
+    g.fillStyle = '#ffd34d'; g.beginPath(); g.arc(x, y - 17.5, 2.2, 0, Math.PI * 2); g.fill();
+  } else if (id === 'jetpack') {
+    g.fillStyle = '#6d7389'; g.fillRect(x - 12, y - 18, 24, 3);
+  }
+}
+function drawUmbrella(g, x, y, t) {
+  const ux = x + 4, uy = y - 64 + Math.sin(t * 1.5) * 1;
+  g.strokeStyle = '#4a4560'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(ux, uy); g.lineTo(x + 12, y - 14); g.stroke();
+  g.fillStyle = '#7b5be6'; g.beginPath(); g.arc(ux, uy + 4, 26, Math.PI, 0); g.closePath(); g.fill();
+  g.fillStyle = '#a58cf5';
+  for (const o of [-13, 13]) { g.beginPath(); g.moveTo(ux, uy - 22); g.quadraticCurveTo(ux + o * 0.6, uy - 10, ux + o, uy + 4); g.lineTo(ux + o * 0.4, uy + 4); g.closePath(); g.fill(); }
+  g.fillStyle = '#4a4560'; g.fillRect(ux - 1, uy - 26, 2, 4);
+}
+
+function drawHat(g, id, x, y, dir, t, flip = false) {
   g.save();
   switch (id) {
+    case 'cap':
+      g.fillStyle = '#3b6fe0'; g.beginPath(); g.arc(x, y + 8, 13, Math.PI, 0); g.fill();
+      g.fillStyle = '#2a52b0';
+      if (dir === 'side') g.fillRect(flip ? x - 20 : x + 6, y + 5, 14, 3);
+      else if (dir === 'down') { g.beginPath(); g.ellipse(x, y + 8, 14, 3.5, 0, 0, Math.PI * 2); g.fill(); }
+      g.fillStyle = '#fff'; g.fillRect(x - 1, y - 6, 2, 2);
+      break;
+    case 'beanie':
+      g.fillStyle = '#e04a5a'; g.beginPath(); g.arc(x, y + 9, 14, Math.PI, 0); g.fill();
+      g.fillStyle = '#b5303f'; g.fillRect(x - 14, y + 5, 28, 5);
+      g.fillStyle = '#fff'; g.beginPath(); g.arc(x, y - 6, 3.5, 0, Math.PI * 2); g.fill();
+      break;
+    case 'shades':
+      if (dir === 'up') break;
+      g.fillStyle = '#15131b';
+      if (dir === 'side') g.fillRect(x + (flip ? -12 : 4), y + 14, 9, 5);
+      else { g.fillRect(x - 13, y + 14, 10, 5); g.fillRect(x + 3, y + 14, 10, 5); g.fillRect(x - 3, y + 15, 6, 1); }
+      g.fillStyle = 'rgba(255,255,255,0.6)'; g.fillRect(x + (dir === 'side' ? (flip ? -10 : 6) : -11), y + 15, 2, 1);
+      break;
+    case 'flowers':
+      for (let i = -2; i <= 2; i++) {
+        const fx = x + i * 6, fy = y + 4 - (2 - Math.abs(i)) * 1.5;
+        g.fillStyle = ['#ff8fb8', '#fff3b0', '#c7a6ff', '#ffffff', '#ff8fb8'][i + 2];
+        for (const [ox, oy] of [[-2, 0], [2, 0], [0, -2], [0, 2]]) { g.beginPath(); g.arc(fx + ox, fy + oy, 1.8, 0, Math.PI * 2); g.fill(); }
+        g.fillStyle = '#e8b84a'; g.fillRect(fx - 1, fy - 1, 2, 2);
+      }
+      break;
+    case 'tophat':
+      g.fillStyle = '#1d1a24'; g.fillRect(x - 13, y + 3, 26, 3);
+      g.fillStyle = '#2a2633'; g.fillRect(x - 8, y - 14, 16, 18);
+      g.fillStyle = '#c23a4a'; g.fillRect(x - 8, y - 1, 16, 3);
+      g.fillStyle = 'rgba(255,255,255,0.15)'; g.fillRect(x - 6, y - 12, 2, 10);
+      break;
+    case 'horns':
+      g.fillStyle = '#d23b4f';
+      for (const s of [-1, 1]) { g.beginPath(); g.moveTo(x + s * 4, y + 5); g.quadraticCurveTo(x + s * 12, y + 2, x + s * 10, y - 8); g.lineTo(x + s * 11, y + 5); g.closePath(); g.fill(); }
+      break;
     case 'antenna':
       g.strokeStyle = '#3a3445'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(x + 3, y + 4); g.lineTo(x + 7, y - 10); g.stroke();
       g.fillStyle = Math.sin(t * 6) > 0 ? '#ff2a3a' : '#7a121c'; g.beginPath(); g.arc(x + 7, y - 11, 2.5, 0, Math.PI * 2); g.fill();
@@ -860,6 +1015,15 @@ function drawHold(g, id, x, y, flip, t = 0) {
     g.fillStyle = '#9a7652';
     g.beginPath(); g.arc(hx, hy - 6, 5, 0, Math.PI * 2); g.arc(hx, hy + 2, 6, 0, Math.PI * 2); g.fill();
     g.beginPath(); g.arc(hx - 4, hy - 10, 2, 0, Math.PI * 2); g.arc(hx + 4, hy - 10, 2, 0, Math.PI * 2); g.fill();
+  } else if (id === 'rod') {
+    const tx = hx + (flip ? -14 : 14), ty = hy - 30;
+    g.strokeStyle = '#7a5a44'; g.lineWidth = 2; g.beginPath(); g.moveTo(hx, hy + 4); g.lineTo(tx, ty); g.stroke();
+    g.strokeStyle = 'rgba(40,36,60,0.6)'; g.lineWidth = 0.8; g.beginPath(); g.moveTo(tx, ty); g.lineTo(tx + Math.sin(t * 2) * 2, ty + 22); g.stroke();
+    g.fillStyle = '#ff3d6e'; g.fillRect(tx - 1 + Math.sin(t * 2) * 2, ty + 22, 3, 3);
+  } else if (id === 'icecream') {
+    g.fillStyle = '#d9a35c'; g.beginPath(); g.moveTo(hx - 4, hy - 4); g.lineTo(hx + 4, hy - 4); g.lineTo(hx, hy + 6); g.closePath(); g.fill();
+    g.fillStyle = '#ffc6dc'; g.beginPath(); g.arc(hx, hy - 6, 4.5, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#fff'; g.fillRect(hx - 2, hy - 9, 2, 2);
   } else if (id === 'lantern') {
     const gr = g.createRadialGradient(hx, hy, 0, hx, hy, 26);
     gr.addColorStop(0, `rgba(255,220,140,${0.45 + Math.sin(t * 5) * 0.05})`); gr.addColorStop(1, 'rgba(255,220,140,0)');
@@ -869,6 +1033,10 @@ function drawHold(g, id, x, y, flip, t = 0) {
     g.fillStyle = '#ffd98a'; g.fillRect(hx - 3, hy - 5, 6, 10);
   }
 }
+
+// how often a trail drops something, and how long it stays
+const TRAILS = { t_feathers: [5, 2.2], t_notes: [4, 1.6], t_bubbles: [6, 1.6], t_sparks: [18, 0.9] };
+const trailOf = c => TRAILS[c.w?.trail] || [14, 1.2];
 
 // text keeps at least its size on screen when the world is drawn small (phones)
 const wf = (px, weight = '') => `${weight} ${Math.round(px / Math.min(1, world.z))}px "Pixelify Sans", ui-monospace, Menlo, monospace`;
@@ -915,26 +1083,25 @@ function drawTrees(g, me) {
   for (const [x, y] of TREES) {
     const under = me && Math.abs(me.x - x) < 60 && me.y < y + 10 && me.y > y - 110;
     g.globalAlpha = under ? 0.45 : 0.95;
-    for (const [ox, oy, r, c] of [[0, -70, 46, '#5fae6a'], [-26, -52, 30, '#4f9d5c'], [28, -54, 32, '#58a764'], [6, -88, 28, '#76c27f']]) {
+    const cols = world.dark ? ['#1d3a24', '#16301d', '#1a3521', '#24462c'] : ['#5fae6a', '#4f9d5c', '#58a764', '#76c27f'];
+    for (const [ox, oy, r, c] of [[0, -70, 46, cols[0]], [-26, -52, 30, cols[1]], [28, -54, 32, cols[2]], [6, -88, 28, cols[3]]]) {
       g.fillStyle = c; g.beginPath(); g.arc(x + ox, y + oy, r, 0, Math.PI * 2); g.fill();
     }
-    g.fillStyle = 'rgba(255,255,255,0.25)'; g.beginPath(); g.arc(x - 10, y - 92, 14, 0, Math.PI * 2); g.fill();
+    g.fillStyle = world.dark ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.25)'; g.beginPath(); g.arc(x - 10, y - 92, 14, 0, Math.PI * 2); g.fill();
   }
   g.globalAlpha = 1;
 }
 
-// power lines overhead: they sit a little above the world, so they drift
-// slower than the ground when the camera moves
-function drawWires(g, t, camX, camY) {
-  const px = camX * 0.06, py = camY * 0.06;
-  g.save(); g.translate(px, py);
+// power lines overhead, from pole to pole and off the edge of the map
+function drawWires(g, t) {
+  g.save();
   for (const [x, y] of POLES) {
-    g.fillStyle = 'rgba(40,40,80,0.18)'; g.fillRect(x - px - 4, y - py - 2, 30, 6);     // shadow on the ground
-    g.fillStyle = '#36314a'; g.fillRect(x - 3, y - 150, 6, 150);
+    g.fillStyle = 'rgba(40,40,80,0.18)'; g.fillRect(x - 4, y - 2, 30, 6);              // shadow on the ground
+    g.fillStyle = world.dark ? '#4a4460' : '#36314a'; g.fillRect(x - 3, y - 150, 6, 150);
     g.fillRect(x - 26, y - 140, 52, 4); g.fillRect(x - 20, y - 122, 40, 3);
     g.fillRect(x + 6, y - 112, 12, 16);                                              // transformer
   }
-  g.strokeStyle = 'rgba(54,49,74,0.7)'; g.lineWidth = 1.2;
+  g.strokeStyle = world.dark ? 'rgba(120,112,150,0.55)' : 'rgba(54,49,74,0.7)'; g.lineWidth = 1.2;
   const sag = (x1, y1, x2, y2, d) => { g.beginPath(); g.moveTo(x1, y1); g.quadraticCurveTo((x1 + x2) / 2, (y1 + y2) / 2 + d + Math.sin(t * 0.8 + x1) * 1.5, x2, y2); g.stroke(); };
   const links = [[0, 1], [2, 3], [0, 2], [1, 3], [4, 0], [4, 2], [1, 5], [3, 5]];
   for (const [a, b] of links) {
@@ -951,6 +1118,7 @@ function drawWires(g, t, camX, camY) {
 
 // light from above: soft shafts that sway, motes drifting up, Cyberia's glow
 function drawLights(g, t, cx, cy, vw, vh) {
+  if (world.dark) return drawNight(g, t);
   g.save();
   g.globalCompositeOperation = 'screen';
   for (let i = 0; i < 5; i++) {
@@ -982,6 +1150,26 @@ function drawLights(g, t, cx, cy, vw, vh) {
   g.restore();
 }
 
+// at night the poles carry street lamps, and the well glows
+function drawNight(g, t) {
+  g.save();
+  g.globalCompositeOperation = 'lighter';
+  for (const [i, [x, y]] of POLES.entries()) {
+    const f = Math.sin(t * 13 + i * 5) > 0.97 ? 0.4 : 1;
+    const gr = g.createRadialGradient(x, y + 4, 0, x, y + 4, 120);
+    gr.addColorStop(0, `rgba(255,214,140,${0.22 * f})`); gr.addColorStop(1, 'rgba(255,214,140,0)');
+    g.fillStyle = gr; g.fillRect(x - 120, y - 116, 240, 240);
+    g.fillStyle = `rgba(255,236,190,${0.9 * f})`; g.fillRect(x - 5, y - 152, 10, 4);
+  }
+  const wl = g.createRadialGradient(WELL.x, WELL.y, 0, WELL.x, WELL.y, 90);
+  wl.addColorStop(0, `rgba(120,170,255,${0.25 + Math.sin(t * 1.3) * 0.06})`); wl.addColorStop(1, 'rgba(120,170,255,0)');
+  g.fillStyle = wl; g.fillRect(WELL.x - 90, WELL.y - 90, 180, 180);
+  const gr = g.createRadialGradient(360, 260, 0, 360, 260, 260);
+  gr.addColorStop(0, 'rgba(255,61,110,0.12)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = gr; g.fillRect(100, 40, 520, 380);
+  g.restore();
+}
+
 function drawSigns(g, t) {
   g.save();
   g.textAlign = 'center'; g.textBaseline = 'middle';
@@ -989,7 +1177,7 @@ function drawSigns(g, t) {
     const sx = z.x + z.w / 2, sy = z.door === 'bottom' ? z.y + z.h + 22 : z.y - 24;
     const dim = Math.sin(t * 7 + z.x) > 0.97;
     g.font = wf(15, 'bold');
-    g.shadowColor = '#ffffff'; g.shadowBlur = dim ? 0 : 8;
+    g.shadowColor = world.dark ? z.col : '#ffffff'; g.shadowBlur = dim ? 0 : 8;
     g.fillStyle = dim ? '#b9b5cc' : z.col;
     g.fillText(z.name.split('').join(' '), sx, sy);
   }
@@ -1079,7 +1267,7 @@ function worldFit() {
   world.scan = g.createPattern(sc, 'repeat');
   const W = world.top.width, H = world.top.height;
   const v = g.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.4, W / 2, H / 2, Math.max(W, H) * 0.75);
-  v.addColorStop(0, 'rgba(255,255,255,0)'); v.addColorStop(1, 'rgba(214,232,255,0.5)');
+  v.addColorStop(0, 'rgba(255,255,255,0)'); v.addColorStop(1, world.dark ? 'rgba(5,4,10,0.6)' : 'rgba(214,232,255,0.5)');
   world.haze = v;
 }
 
@@ -1154,7 +1342,7 @@ function placeTv(cx, cy) {
   if (p?.setVolume && me) {
     // loud on the dance floor, gone by the middle of the plaza
     const d = Math.hypot(me.x - (CLUB_SCREEN.x + CLUB_SCREEN.w / 2), me.y - 260);
-    const vol = world.zone?.id === 'club' ? 100 : Math.round(Math.max(0, Math.min(1, 1 - (d - 260) / 420)) * 60);
+    const vol = world.zone?.id === 'club' ? 70 : Math.round(Math.max(0, Math.min(1, 1 - (d - 286) / 462)) * 42);
     if (Math.abs(vol - world.tvVol) >= 4 || (vol === 0) !== (world.tvVol === 0)) {
       world.tvVol = vol;
       try { if (vol) { p.unMute(); p.setVolume(vol); } else p.mute(); } catch {}
@@ -1238,11 +1426,16 @@ function previewCat(cv, extra) {
 function drawCatPreview(g, c) {
   const sheet = catSheet(furOf(c, 0));
   if (c.w.back === 'wings') drawWings(g, 32, 58, 0, false);
+  else if (c.w.back) drawBack(g, c.w.back, 32, 58, 'side', true, 0, c.w.back === 'jetpack');
   if (c.w.hold === 'balloon') drawBalloon(g, 26, 62, 0);
+  if (c.w.hold === 'umbrella') { g.save(); g.translate(32, 58); g.scale(0.8, 0.8); drawUmbrella(g, 0, 0, 0); g.restore(); }
   g.drawImage(sheet, 48, 0, 48, 48, 8, 12, 48, 48);
   if (c.w.hat) drawHat(g, c.w.hat, 32, 20, 'down', 0);
-  if (c.w.hold && c.w.hold !== 'balloon') drawHold(g, c.w.hold, 32, 58, false);
-  if (c.w.trail) { g.fillStyle = c.w.trail === 't_hearts' ? '#ff5a78' : c.w.trail === 't_feathers' ? '#b9b5d2' : '#6b6680'; for (let i = 0; i < 6; i++) g.fillRect(4 + i * 3, 30 + (i % 3) * 7, 2, 2); }
+  if (c.w.hold && c.w.hold !== 'balloon' && c.w.hold !== 'umbrella') drawHold(g, c.w.hold, 32, 58, false);
+  if (c.w.trail) {
+    const col = { t_hearts: '#ff5a78', t_feathers: '#b9b5d2', t_bubbles: '#9fd4ff', t_notes: '#a58cf5', t_sparks: '#ffd34d' }[c.w.trail] || '#6b6680';
+    g.fillStyle = col; for (let i = 0; i < 6; i++) g.fillRect(4 + i * 3, 30 + (i % 3) * 7, 2, 2);
+  }
 }
 
 function openCapsule() {
@@ -1344,7 +1537,7 @@ function touch(u, k) {
 function gift(u, n) { worldSend({ gift: { to: u, n } }, true); }
 
 // ── toys: cloudballs to throw, fireworks for everyone ───────────────────────
-const TOYS = { toss: 'Tap where to throw the cloudball', fw: 'Tap the sky for a firework (◉ 2)' };
+const TOYS = { toss: 'Tap where to throw the cloudball', fw: 'Tap the sky for a firework (◉ 2)', confetti: 'Tap where the confetti goes', bubbles: 'Tap where to blow bubbles' };
 function setAim(k) {
   world.aim = world.aim === k ? null : k;
   document.querySelectorAll('#w-toys [data-toy]').forEach(b => b.classList.toggle('on', b.dataset.toy === world.aim));
@@ -1364,13 +1557,17 @@ function useToy(x, y) {
   } else if (world.aim === 'fw') {
     if (world.coins != null && world.coins < 2) return worldToast('A firework costs 2 coins.');
     worldSend({ fw: { x: Math.round(x), y: Math.round(y) } }, true);
+  } else if (world.aim === 'confetti' || world.aim === 'bubbles') {
+    worldSend({ party: { k: world.aim, x: Math.round(x), y: Math.round(y) } }, true);
   }
 }
 function syncFx(list, clock) {
   const keep = new Set();
-  for (const [x, y, age, hue] of list) {
-    const k = `${x},${y},${hue}`; keep.add(k);
-    if (!world.fx.has(k)) { world.fx.set(k, { x, y, hue, t0: clock - age }); if (age < 1) setTimeout(() => chime(7 + (hue % 5)), Math.max(0, (0.8 - age) * 1000)); }
+  for (const [x, y, age, hue, kind = 'fw'] of list) {
+    const k = `${x},${y},${hue},${kind}`; keep.add(k);
+    if (world.fx.has(k)) continue;
+    world.fx.set(k, { x, y, hue, kind, t0: clock - age });
+    if (age < 1) setTimeout(() => chime(kind === 'fw' ? 7 + (hue % 5) : kind === 'bubbles' ? 12 + (hue % 3) : 4 + (hue % 4)), Math.max(0, ((kind === 'fw' ? 0.8 : 0) - age) * 1000));
   }
   for (const k of world.fx.keys()) if (!keep.has(k) && clock - world.fx.get(k).t0 > 4) world.fx.delete(k);
 }
@@ -1391,6 +1588,32 @@ function drawToys(g, t) {
   for (const f of world.fx.values()) {
     const a = t - f.t0;
     if (a < 0 || a > 3.6) continue;
+    if (f.kind === 'confetti') {
+      for (let i = 0; i < 40; i++) {
+        const ang = -Math.PI / 2 + (hrand(i + f.hue) - 0.5) * 2.4, sp = 90 + hrand(i * 7 + f.hue) * 110;
+        const r = sp * (1 - Math.exp(-a * 3));
+        const x = f.x + Math.cos(ang) * r + Math.sin(a * 5 + i) * 4, y = f.y + Math.sin(ang) * r + a * a * 18;
+        g.globalAlpha = Math.max(0, 1 - a / 3.6);
+        g.fillStyle = `hsl(${(f.hue + i * 47) % 360} 90% 62%)`;
+        g.fillRect(x, y, Math.abs(Math.sin(a * 8 + i)) * 4 + 1, 3);
+      }
+      g.globalAlpha = 1;
+      continue;
+    }
+    if (f.kind === 'bubbles') {
+      g.lineWidth = 1;
+      for (let i = 0; i < 14; i++) {
+        const st = hrand(i + f.hue) * 0.8, b = a - st, life = 2.2 + hrand(i * 3) * 0.8;
+        if (b < 0 || b > life) continue;
+        const x = f.x + (hrand(i * 5 + f.hue) - 0.5) * 50 + Math.sin(b * 3 + i) * 6, y = f.y - b * (30 + hrand(i * 9) * 25);
+        const r = 3 + hrand(i * 11) * 5;
+        g.globalAlpha = b > life - 0.15 ? 0.3 : 0.85;
+        g.strokeStyle = `hsl(${(f.hue + i * 25) % 360} 80% 80%)`; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.stroke();
+        g.fillStyle = 'rgba(255,255,255,0.7)'; g.fillRect(x - r * 0.5, y - r * 0.5, 2, 2);
+      }
+      g.globalAlpha = 1;
+      continue;
+    }
     if (a < 0.8) {
       const y = f.y + 260 * (1 - a / 0.8);
       g.fillStyle = '#fff6c0'; g.fillRect(f.x - 1, y, 3, 8);
@@ -1453,7 +1676,7 @@ function castLine() {
     return;
   }
   const now = performance.now() / 1000;
-  if (now - (world.lastCast || 0) < 5) return worldToast('Let the water settle a moment.');
+  if (now - (world.lastCast || 0) < 8) return worldToast('Let the water settle a moment.');
   world.lastCast = now;
   me.dir = 'up';
   world.fishing = { t0: now, bite: now + 2.5 + Math.random() * 3, x: POND.x + (Math.random() - 0.5) * 60, y: POND.y + (Math.random() - 0.5) * 20 };
@@ -1471,6 +1694,11 @@ function fishResult(d) {
   const t = performance.now() / 1000;
   if (d.fish === 'none') return worldToast('It got away.');
   if (d.fish === 'wait' || d.fish === 'far') return;
+  if (d.fish === 'junk') {
+    world.splashes.push({ x: POND.x, y: POND.y - 20, t, text: '?', col: '#fff' });
+    worldToast(`You fished up ${aName(itemName('j:' + d.junk))}. It is in your bag.`, 4000);
+    return sfx('click');
+  }
   world.splashes.push({ x: POND.x, y: POND.y - 20, t, text: FISH_ICON[d.fish] || '🐟', col: '#fff' });
   worldToast(`You caught ${/^[AEIOU]/.test(d.fish_name) ? 'an' : 'a'} ${d.fish_name}! ${FISH_ICON[d.fish] || ''}`, 4000);
   sfx('claim');
@@ -1491,10 +1719,62 @@ function drawFishing(g, t) {
   g.fillStyle = '#fff'; g.beginPath(); g.arc(f.x, f.y + dip - 2, 3, 0, Math.PI); g.fill();
 }
 
-// ── your bag: what you wear, the beetles you caught, the fish you pulled out ─
-const BAG = { tab: 'wear', d: null };
-function openBag() {
+// ── things you find: names and pictures for beetles, fish, junk and trinkets ─
+const pretty = k => k.replace(/_/g, ' ').replace(/^./, c => c.toUpperCase());
+function itemName(k) {
+  const [t, id] = [k.slice(0, 1), k.slice(2)];
+  if (t === 'f') return BAG.d?.fishnames?.[id] || pretty(id);
+  return (typeof NAMES !== 'undefined' && NAMES[id]) || pretty(id);
+}
+const aName = n => `${/^[aeiou]/i.test(n) ? 'an' : 'a'} ${n}`;
+function itemIcon(k) {
+  const [t, id] = [k.slice(0, 1), k.slice(2)];
+  if (t === 'f') return `<i class="w-fish">${FISH_ICON[id] || '🐟'}</i>`;
+  const src = t === 'b' ? `icons/beetles/${id}.png` : typeof IMAGES !== 'undefined' && IMAGES[id];
+  return src ? `<img src="${esc(src)}" alt="">` : '<i class="w-fish">?</i>';
+}
+
+// the lost and found box: once every while there is something in it
+function dig() {
+  const me = world.cats.get(world.me);
+  if (!me) return;
+  worldSend({ dig: 1 }, true);
+}
+function digResult(d) {
+  if (d.dig === 'far') return;
+  if (d.dig === 'wait') return worldToast(`Nothing new in the box yet. Come back in ${Math.ceil(d.dig_in / 60)} min.`);
+  worldToast(`You found ${aName(itemName(d.dig))} in the box. It is in your bag.`, 4000);
+  sfx('claim');
+}
+function sellResult(r) {
+  if (r === 'far') return worldToast('Walk up to the stall to sell.');
+  if (r === 'none') return worldToast('Nothing to sell there.');
+  worldToast(`Sold ${r.n} for ◉ ${r.coins}`);
+  sfx('claim');
+}
+
+// ── quests: three for today, and some you do once ───────────────────────────
+function openQuests() {
   closePanels();
+  document.getElementById('w-quests').classList.remove('hidden');
+  if (!world.quests) document.getElementById('w-quests-list').innerHTML = '<p class="w-dim">Looking…</p>';
+  worldSend({ quests: 1 }, true);
+}
+function renderQuests(q) {
+  world.quests = q;
+  const box = document.getElementById('w-quests-list');
+  if (!box) return;
+  const row = (name, coins, done, n, of) => `<li class="${done ? 'done' : ''}"><span>${done ? '✓' : of > 1 ? `${n}/${of}` : '·'}</span><b>${esc(name)}</b><em>◉ ${coins}</em></li>`;
+  box.innerHTML = `<h3>Today</h3><ul class="w-quest">${q.daily.map(x => row(x.name, x.coins, x.done, x.n, x.of)).join('')}</ul>
+    <h3>Once</h3><ul class="w-quest">${q.once.map(x => row(x.name, x.coins, x.done, 0, 1)).join('')}</ul>
+    <p class="w-dim">New ones for today every morning.</p>`;
+}
+
+// ── your bag: what you wear, what you found, the beetles and fish you know ─
+const BAG = { tab: 'wear', d: null };
+function openBag(tab) {
+  closePanels();
+  if (typeof tab === 'string') BAG.tab = tab;
   document.getElementById('w-bag').classList.remove('hidden');
   if (!world.catalog) worldSend({ shopinfo: 1 });
   worldSend({ inv: 1 }, true);
@@ -1502,6 +1782,7 @@ function openBag() {
 }
 window.openBag = openBag;
 window.renderBag = d => { if (d) { BAG.d = d; world.owned = d.owned || world.owned; } drawBag(BAG.d); };
+const nearStall = () => { const me = world.cats.get(world.me); return me && Math.hypot(me.x - STALL.at.x, me.y - STALL.at.y) < 120; };
 function drawBag(d) {
   const box = document.getElementById('w-bag-list');
   if (!box || document.getElementById('w-bag').classList.contains('hidden')) return;
@@ -1511,23 +1792,46 @@ function drawBag(d) {
     const items = (world.catalog || []).filter(it => world.owned.includes(it.id));
     box.innerHTML = items.length ? `<div class="w-items">${items.map(it => {
       const on = world.wear[it.slot] === it.id;
-      return `<div class="w-item${on ? ' on' : ''}"><canvas width="64" height="64" data-prev="${it.id}" data-slot="${it.slot}"></canvas><span>${esc(it.name)}</span>
-        ${on ? `<button type="button" data-off="${it.slot}">Take off</button>` : `<button type="button" data-wear="${it.id}" data-slot="${it.slot}">Wear</button>`}</div>`;
+      return `<div class="w-item${on ? ' on' : ''}"><canvas width="64" height="64" data-prev="${esc(it.id)}" data-slot="${esc(it.slot)}"></canvas><span>${esc(it.name)}</span>
+        ${on ? `<button type="button" data-off="${esc(it.slot)}">Take off</button>` : `<button type="button" data-wear="${esc(it.id)}" data-slot="${esc(it.slot)}">Wear</button>`}</div>`;
     }).join('')}</div>` : '<p class="w-dim">Nothing yet. The terminal in the shop and the capsule machine have things to wear.</p>';
     box.querySelectorAll('canvas[data-prev]').forEach(cv => previewCat(cv, { [cv.dataset.slot]: cv.dataset.prev }));
+  } else if (BAG.tab === 'things') {
+    const near = nearStall(), keys = Object.keys(d.have).filter(k => d.have[k] > 0);
+    const order = { b: 0, f: 1, t: 2, j: 3 };
+    keys.sort((a, b) => order[a[0]] - order[b[0]] || itemName(a).localeCompare(itemName(b)));
+    const all = [['b', 'beetles'], ['f', 'fish'], ['j', 'junk']].filter(([t]) => keys.some(k => k[0] === t));
+    box.innerHTML = keys.length ? `<div class="w-items">${keys.map(k => `<div class="w-item">${itemIcon(k)}<span>${esc(itemName(k))}</span><b>× ${d.have[k]}</b>
+      ${near ? `<button type="button" data-sell="${esc(k)}">Sell ◉ ${(d.prices[k] || 0) * d.have[k]}</button>` : `<small class="w-dim">◉ ${d.prices[k] || 0} each</small>`}</div>`).join('')}</div>
+      ${near && all.length ? `<div class="w-row w-end">${all.map(([t, n]) => `<button type="button" data-sellall="${t}">Sell all ${n}</button>`).join('')}</div>` : ''}
+      ${near ? '' : '<p class="w-dim">The stall east of the well buys all of it.</p>'}`
+      : '<p class="w-dim">Nothing yet. Catch beetles in the park and the garden, fish at the pond, look in the lost and found box.</p>';
   } else if (BAG.tab === 'bugs') {
-    const names = ['Common', 'Rare', 'Golden'];
-    box.innerHTML = `<div class="w-items">${BUG_KINDS.map((k, i) => `<div class="w-item${d.bugs[i] ? '' : ' locked'}">
-      <img src="${esc(world.bugImg[k[0]]?.src || `icons/beetles/${k[0]}.png`)}" alt=""><span>${names[i]} beetles</span><b>${d.bugs[i] || 0}</b></div>`).join('')}</div>
-      <p class="w-dim">Beetles fly around the park and the garden. Tap one to catch it.</p>`;
+    const seen = new Set(d.seen), all = BUG_KINDS.flat(), got = all.filter(k => seen.has('b:' + k)).length;
+    box.innerHTML = `<div class="w-items">${all.map(k => seen.has('b:' + k)
+      ? `<div class="w-item"><img src="${esc(`icons/beetles/${k}.png`)}" alt=""><span>${esc(itemName('b:' + k))}</span></div>`
+      : `<div class="w-item locked"><img src="${esc(`icons/beetles/${k}.png`)}" alt=""><span>???</span></div>`).join('')}</div>
+      <p class="w-dim">${got} of ${all.length} found. Beetles fly around the park and the garden. Tap one to catch it.</p>`;
   } else {
     const ids = Object.keys(d.fishnames);
     const got = ids.filter(id => d.fish[id]).length;
     box.innerHTML = `<div class="w-items">${ids.map(id => d.fish[id]
-      ? `<div class="w-item"><i class="w-fish">${FISH_ICON[id]}</i><span>${esc(d.fishnames[id])}</span><b>× ${d.fish[id]}</b></div>`
+      ? `<div class="w-item"><i class="w-fish">${FISH_ICON[id] || '🐟'}</i><span>${esc(d.fishnames[id])}</span><b>× ${d.fish[id]}</b></div>`
       : `<div class="w-item locked"><i class="w-fish">?</i><span>???</span></div>`).join('')}</div>
       <p class="w-dim">${got} of ${ids.length} found. The pond is west of the well.</p>`;
   }
+}
+
+// ── dark mode: the night street from the first version ──────────────────────
+function setDark(on) {
+  world.dark = on;
+  try { localStorage.setItem('bb_world_dark', on ? '1' : ''); } catch {}
+  document.body.classList.toggle('w-dark', on);
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', on ? '#050407' : '#4d88e3');
+  const b = document.getElementById('w-dark-btn');
+  if (b) b.textContent = on ? '☀' : '☾';
+  if (world.bg) buildBackground();
+  worldFit();
 }
 
 // ── the capsule machine: the handle turns, a capsule drops, wobbles and pops ─
@@ -1608,7 +1912,7 @@ function worldKey(e, down) {
   if (down) world.keys.add(k); else world.keys.delete(k);
 }
 function closePanels() {
-  for (const id of ['w-shop', 'w-screen', 'w-capsule', 'w-emotes', 'w-toys', 'w-bag', 'w-card']) document.getElementById(id)?.classList.add('hidden');
+  for (const id of ['w-shop', 'w-screen', 'w-capsule', 'w-emotes', 'w-toys', 'w-bag', 'w-card', 'w-quests']) document.getElementById(id)?.classList.add('hidden');
   if (world.aim) setAim(world.aim);
   if (!document.getElementById('w-lab').classList.contains('hidden')) closeLab();
 }
@@ -1664,6 +1968,8 @@ function setupWorld() {
   for (const k of BUG_KINDS.flat()) { const i = new Image(); i.src = `icons/beetles/${k}.png`; world.bugImg[k] = i; }
   for (let i = 0; i < 4; i++) world.noise.push(noiseTile(255));
   buildSolids();
+  try { world.dark = !!localStorage.getItem('bb_world_dark'); } catch {}
+  setDark(world.dark);
   buildBackground();
   world.top.addEventListener('pointerdown', worldPointer);
   world.top.addEventListener('pointermove', worldHover);
@@ -1686,7 +1992,10 @@ function setupWorld() {
     if (k === 'fish') { const s = SPOTS.find(x => x.id === 'pond'); world.pending = s; world.target = { ...s.at }; return; }
     setAim(k);
   });
-  document.getElementById('w-bag-btn').addEventListener('click', openBag);
+  document.getElementById('w-bag-btn').addEventListener('click', () => openBag());
+  document.getElementById('w-dark-btn').addEventListener('click', () => setDark(!world.dark));
+  document.getElementById('w-quest-btn').addEventListener('click', openQuests);
+  document.getElementById('w-quests').addEventListener('click', e => { if (e.target.id === 'w-quests' || e.target.closest('#w-quests-close')) closePanels(); });
   document.getElementById('w-bag').addEventListener('click', e => {
     const b = e.target.closest('button');
     if (e.target.id === 'w-bag') return closePanels();
@@ -1695,6 +2004,8 @@ function setupWorld() {
     if (b.dataset.tab) { BAG.tab = b.dataset.tab; drawBag(BAG.d); }
     if (b.dataset.wear) { world.wear[b.dataset.slot] = b.dataset.wear; worldSend({ wear: { [b.dataset.slot]: b.dataset.wear } }, true); drawBag(BAG.d); }
     if (b.dataset.off) { delete world.wear[b.dataset.off]; worldSend({ wear: { [b.dataset.off]: null } }, true); drawBag(BAG.d); }
+    if (b.dataset.sell) { b.disabled = true; worldSend({ sell: { k: b.dataset.sell, n: BAG.d.have[b.dataset.sell] }, inv: 1 }, true); }
+    if (b.dataset.sellall) { b.disabled = true; worldSend({ sell: { all: b.dataset.sellall }, inv: 1 }, true); }
   });
   document.getElementById('w-shop').addEventListener('click', e => {
     const b = e.target.closest('button');
