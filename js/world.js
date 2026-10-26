@@ -73,7 +73,7 @@ const SPOTS = [
 ];
 
 // beetles: every browser works out the same ones from the clock (bugAt() in world.php)
-const BUG_N = 6, BUG_LIFE = 90;
+const BUG_LIFE = 90;     // how many fly about comes from world.php: more when more people are here
 const BUG_AREAS = [[1180, 830, 1700, 1130], [1180, 830, 1700, 1130], [140, 820, 620, 1120], [720, 480, 1080, 720], [140, 820, 620, 1120], [120, 440, 640, 540]];
 // tin, bronze, mithril, adamantite, diamond (BUGS in world.php); diamond is one in 500
 const BUG_KINDS = [['green'], ['purple', 'ladybug', 'cucumber'],
@@ -85,7 +85,7 @@ const bugTier = r => r < 0.002 ? 4 : r < 0.02 ? 3 : r < 0.12 ? 2 : r < 0.42 ? 1 
 const hrand = n => { const v = Math.sin(n * 12.9898) * 43758.5453; return v - Math.floor(v); };
 function bugAt(k, t) {
   const g = Math.floor((t + k * 13) / BUG_LIFE), s = g * 31 + k * 7;
-  const [x0, y0, x1, y1] = BUG_AREAS[k], r = hrand(s + 3);
+  const [x0, y0, x1, y1] = BUG_AREAS[k % BUG_AREAS.length], r = hrand(s + 3);
   return {
     id: `${k}:${g}`, kind: bugTier(r), s,
     x: x0 + hrand(s + 1) * (x1 - x0) + 36 * Math.sin(t * (0.3 + hrand(s + 4) * 0.4) + s),
@@ -227,6 +227,7 @@ async function worldTickNow() {
   world.failing = 0;
   world.me = d.me;
   if (d.now) world.skew = d.now - Date.now() / 1000;
+  if (d.bn) world.bn = d.bn;
   const clock = performance.now() / 1000;
   const here = new Set();
   if (clock - (world.lastTick ?? -1e9) > 30) world.looked = false;     // back from a hidden tab: just look around
@@ -255,7 +256,7 @@ async function worldTickNow() {
 
   setCoins(d.coins);
   world.wear = d.wear || {};
-  if (d.catalog) { world.catalog = d.catalog; world.owned = d.owned || []; if (!document.getElementById('w-shop').classList.contains('hidden')) renderShop(); if (!document.getElementById('w-toys').classList.contains('hidden')) renderToys(); }
+  if (d.catalog) { world.catalog = d.catalog; world.owned = d.owned || []; if (!document.getElementById('w-shop').classList.contains('hidden')) renderShop(); if (!document.getElementById('w-toys').classList.contains('hidden')) renderToys(); renderHot(); renderHotPick(); }
   if (d.bonus) worldToast(`+${d.bonus} stars for showing up today`);
   if (d.xpcoins) worldToast(`+${d.xpcoins} stars from the beetle game`);
   if (d.owned && !d.catalog) world.owned = d.owned;
@@ -536,7 +537,7 @@ function kickCheck(me, clock) {
 // ── beetles to catch ─────────────────────────────────────────────────────────
 function liveBugs() {
   const t = netNow(), out = [];
-  for (let k = 0; k < BUG_N; k++) {
+  for (let k = 0; k < (world.bn || 6); k++) {
     const b = bugAt(k, t);
     if (!world.gone.has(b.id)) out.push(b);
   }
@@ -1007,7 +1008,14 @@ function drawCat(g, c, t) {
   label(g, c, x, y);
   if (c.splat && t - c.splat < 1.5) { const a = t - c.splat; for (let i = 0; i < 4; i++) cloudPuff(g, x - 9 + i * 6, y - 30 - hop + Math.sin(i * 2) * 5, 5, 1 - a / 1.5); }
   g.globalAlpha = 1;
-  if (em) {
+  if (em?.startsWith('show:')) {
+    // held up high for a moment: it goes up, stays, and goes back in the bag
+    const age = t - c.emote.at, p = itemPic(em.slice(5)), up = Math.min(1, age * 5) * 12;
+    g.globalAlpha = Math.min(1, (4 - age) * 2);
+    if (p.img?.complete && p.img.naturalWidth) g.drawImage(p.img, x - 16, y - 78 - hop - up, 32, 32);
+    else if (p.txt) { g.font = wf(24); g.textAlign = 'center'; g.textBaseline = 'bottom'; g.fillText(p.txt, x, y - 48 - hop - up); }
+    g.globalAlpha = 1;
+  } else if (em) {
     const age = t - c.emote.at;
     g.globalAlpha = Math.min(1, (4 - age) * 2);
     g.font = wf(18); g.textAlign = 'center'; g.textBaseline = 'bottom';
@@ -1852,6 +1860,88 @@ function showHeld() {
     (world.aim ? `<button type="button" data-drop="aim" title="Put it away">${TOY_NAME[world.aim]} <b>✕</b></button>` : '') +
     (world.skate ? '<button type="button" data-ollie title="Ollie (Space), again in the air for a kickflip">⤴ Ollie</button><button type="button" data-shove title="Pop shove-it (Shift)">↻</button><button type="button" data-drop="skate" title="Get off the board">🛹 <b>✕</b></button>' : '');
 }
+function pickToy(k) {
+  if (TOY_ICON[k] && !world.owned.includes('k_' + k)) return worldToast('Unlock it at the terminal in the shop.');
+  if (k === 'fish') { const s = SPOTS.find(x => x.id === 'pond'); world.pending = s; world.target = { ...s.at }; return; }
+  if (k === 'skate') return setSkate(!world.skate);
+  setAim(k);
+}
+function emote(k) {
+  world.active = Date.now();
+  const me = world.cats.get(world.me);
+  if (me) me.emote = { k, at: performance.now() / 1000 };
+  worldSend({ emote: k }, true);
+}
+// hold a thing up so everyone sees it; it stays in the bag
+function showItem(k) {
+  const own = k.startsWith('w:') ? world.owned.includes(k.slice(2)) || BAG.d?.have?.[k] > 0 : !BAG.d || BAG.d.have?.[k] > 0;
+  if (!own) return worldToast(`You have no ${itemName(k)} any more.`);
+  world.active = Date.now();
+  const me = world.cats.get(world.me);
+  if (me) me.emote = { k: 'show:' + k, at: performance.now() / 1000 };
+  worldSend({ show: k }, true);
+}
+
+// ── the hotbar: six slots for toys, emotes and things, on the keys 1 to 6 ────
+const LS_HOT = 'bb_world_hot', HOT_N = 6;
+const EMOTE_KEYS = ['wave', 'heart', 'laugh', 'spark', 'dance', 'sleep', 'what'];   // EMOTES in world.php
+const HOT_TOY = { toss: '☁', fw: '🎆', confetti: '🎉', bubbles: '🫧', skate: '🛹', fish: '🎣', ...TOY_ICON };
+const HOT = (() => {
+  let h = null;
+  try { h = JSON.parse(localStorage.getItem(LS_HOT)); } catch {}
+  if (!Array.isArray(h)) h = ['toy:skate', 'toy:toss', 'em:wave', 'em:heart'];
+  return Array.from({ length: HOT_N }, (_, i) => typeof h[i] === 'string' ? h[i] : null);
+})();
+function saveHot() { try { localStorage.setItem(LS_HOT, JSON.stringify(HOT)); } catch {} }
+const hotKind = s => s.slice(0, s.indexOf(':')), hotId = s => s.slice(s.indexOf(':') + 1);
+function hotFace(s) {
+  const t = hotKind(s), k = hotId(s);
+  if (t === 'toy') return esc(HOT_TOY[k] || '?');
+  if (t === 'em') return esc(EMOTE_ICON[k] || '?');
+  return itemIcon(k);
+}
+function hotTitle(s) {
+  const t = hotKind(s), k = hotId(s);
+  return t === 'toy' ? (TOY_NAME[k] || { skate: '🛹 Skateboard', fish: '🎣 Go fishing' }[k] || k) : t === 'em' ? k : `Hold up ${itemName(k)}`;
+}
+function renderHot() {
+  const el = document.getElementById('w-hot');
+  if (!el) return;
+  el.classList.toggle('edit', !!world.hotEdit);
+  el.innerHTML = HOT.map((s, i) => `<button type="button" data-hot="${i}" class="${s ? '' : 'empty'}${s && s === 'toy:skate' && world.skate ? ' on' : ''}" title="${s ? esc(hotTitle(s)) : 'Empty: tap to fill'} (${i + 1})"><sub>${i + 1}</sub>${s ? hotFace(s) : '+'}</button>`).join('')
+    + `<button type="button" data-hotedit class="w-hot-edit${world.hotEdit ? ' on' : ''}" title="Change what is in the slots">${world.hotEdit ? '✓' : '✎'}</button>`;
+}
+function useHot(i) {
+  const s = HOT[i];
+  if (!s) return openHotPick(i);
+  const t = hotKind(s), k = hotId(s);
+  if (t === 'toy') pickToy(k);
+  else if (t === 'em') emote(k);
+  else showItem(k);
+  renderHot();
+}
+function openHotPick(i) {
+  world.hotSlot = i;
+  document.getElementById('w-hotpick').classList.remove('hidden');
+  if (!BAG.d || !world.catalog) worldSend(world.catalog ? { inv: 1 } : { inv: 1, shopinfo: 1 }, true);
+  renderHotPick();
+}
+function renderHotPick() {
+  const el = document.getElementById('w-hotpick');
+  if (el.classList.contains('hidden')) return;
+  const toys = Object.keys(HOT_TOY).filter(k => !TOY_ICON[k] || world.owned.includes('k_' + k));
+  const d = BAG.d, things = d ? [...new Set([...Object.keys(d.have).filter(k => d.have[k] > 0 && k[0] !== 'w'),
+    ...(world.catalog || []).filter(it => it.slot !== 'toy' && world.owned.includes(it.id)).map(it => 'w:' + it.id)])] : null;
+  const label = s => hotKind(s) === 'toy' ? hotTitle(s).replace(/^\S+ /, '') : hotKind(s) === 'em' ? pretty(hotId(s)) : itemName(hotId(s));
+  const opt = s => `<button type="button" data-put="${esc(s)}" class="${HOT[world.hotSlot] === s ? 'on' : ''}">${hotFace(s)}<span>${esc(label(s))}</span></button>`;
+  el.querySelector('.w-box').innerHTML = `
+    <header><h2>Slot ${world.hotSlot + 1}</h2><button type="button" data-c="close">✕</button></header>
+    <h3>Toys</h3><div class="w-hotgrid">${toys.map(k => opt('toy:' + k)).join('')}</div>
+    <h3>Emotes</h3><div class="w-hotgrid">${Object.keys(EMOTE_ICON).filter(k => EMOTE_KEYS.includes(k)).map(k => opt('em:' + k)).join('')}</div>
+    <h3>Hold up for everyone to see</h3>${things ? things.length ? `<div class="w-hotgrid">${things.map(k => opt('i:' + k)).join('')}</div>` : '<p class="w-dim">Your bag is empty.</p>' : '<p class="w-dim">Opening your bag…</p>'}
+    <div class="wc-acts"><button type="button" data-put="">Leave it empty</button></div>`;
+}
+
 function useToy(x, y) {
   const me = world.cats.get(world.me);
   if (!me) return;
@@ -2107,6 +2197,18 @@ function itemIcon(k) {
   return src ? `<img src="${esc(src)}" alt="">` : '<i class="w-fish">?</i>';
 }
 
+// a picture of a thing for the canvas: held up over a cat's head
+const ITEM_PIC = {};
+function itemPic(k) {
+  if (ITEM_PIC[k]) return ITEM_PIC[k];
+  const [t, id] = [k.slice(0, 1), k.slice(2)];
+  if (t === 'f') return (ITEM_PIC[k] = { txt: FISH_ICON[id] || '🐟' });
+  const src = t === 'w' ? (world.catalog ? cosIcon(id) : null) : t === 'b' ? `icons/beetles/${id}.png` : typeof IMAGES !== 'undefined' && IMAGES[id];
+  if (!src) return { txt: '?' };
+  const img = new Image(); img.src = src;
+  return (ITEM_PIC[k] = { img });
+}
+
 // something to wear, drawn on your cat, kept once the cat sprite is there
 const COS_ICON = {};
 function cosIcon(id) {
@@ -2121,6 +2223,7 @@ function cosIcon(id) {
 const COS_TIER = ['common', 'rare', 'epic', 'legendary'];
 const itemRar = k => {
   if (k.startsWith('b:')) return bugRar(k.slice(2));
+  if (!k.startsWith('w:')) { const r = BAG.d?.rar?.[k]; return r ? `<small style="color:${RARITY_HEX[r] || 'var(--dim)'}">${esc(RARITY_NAMES[r] || '')}</small>` : ''; }
   const t = world.catalog?.find(i => i.id === k.slice(2))?.tier;
   return t != null ? `<small style="color:${CAP_COL[t]}">${esc(COS_TIER[t])}</small>` : '';
 };
@@ -2172,7 +2275,10 @@ function openBag(tab) {
   drawBag(BAG.d);
 }
 window.openBag = openBag;
-window.renderBag = d => { if (d) { BAG.d = d; world.owned = d.owned || world.owned; } drawBag(BAG.d); window.cardInv?.(); };
+window.renderBag = d => { if (d) { BAG.d = d; world.owned = d.owned || world.owned; } drawBag(BAG.d); window.cardInv?.(); renderHot(); renderHotPick(); };
+const RAR_ORDER = ['jnk', 'tin', 'brz', 'mth', 'adm', 'dia'];
+const BAG_GROUPS = [['w', 'Spare clothes'], ['b', 'Beetles'], ['f', 'Fish'], ['t', 'Trinkets'], ['j', 'Junk']];
+const bugTierOf = k => BUG_TIER[BUG_KINDS.findIndex(ks => ks.includes(k))];
 const bugRar = k => { const r = BUG_TIER[BUG_KINDS.findIndex(ks => ks.includes(k))]; return `<small style="color:${RARITY_HEX[r]}">${esc(RARITY_NAMES[r] || '')}</small>`; };
 const nearStall = () => { const me = world.cats.get(world.me); return me && Math.hypot(me.x - STALL.at.x, me.y - STALL.at.y) < 120; };
 function drawBag(d) {
@@ -2184,33 +2290,32 @@ function drawBag(d) {
     const items = (world.catalog || []).filter(it => it.slot !== 'toy' && world.owned.includes(it.id));
     box.innerHTML = items.length ? `<div class="w-items">${items.map(it => {
       const on = world.wear[it.slot] === it.id;
-      return `<div class="w-item${on ? ' on' : ''}"><canvas width="64" height="64" data-prev="${esc(it.id)}" data-slot="${esc(it.slot)}"></canvas><span>${esc(it.name)}</span>
+      return `<div class="w-item${on ? ' on' : ''}"><canvas width="64" height="64" data-prev="${esc(it.id)}" data-slot="${esc(it.slot)}"></canvas><span>${esc(it.name)}</span>${itemRar('w:' + it.id)}
         ${on ? `<button type="button" data-off="${esc(it.slot)}">Take off</button>` : `<button type="button" data-wear="${esc(it.id)}" data-slot="${esc(it.slot)}">Wear</button>`}</div>`;
     }).join('')}</div>` : '<p class="w-dim">Nothing yet. The terminal in the shop and the capsule machine have things to wear.</p>';
     box.querySelectorAll('canvas[data-prev]').forEach(cv => previewCat(cv, { [cv.dataset.slot]: cv.dataset.prev }));
   } else if (BAG.tab === 'things') {
+    // only what you have right now, in groups, the rarest first
     const near = nearStall(), keys = Object.keys(d.have).filter(k => d.have[k] > 0);
-    const order = { w: 0, b: 1, f: 2, t: 3, j: 4 };
-    keys.sort((a, b) => order[a[0]] - order[b[0]] || itemName(a).localeCompare(itemName(b)));
-    const all = [['b', 'beetles'], ['f', 'fish'], ['j', 'junk']].filter(([t]) => keys.some(k => k[0] === t));
-    box.innerHTML = keys.length ? `<div class="w-items">${keys.map(k => `<div class="w-item">${itemIcon(k)}<span>${esc(itemName(k))}</span><b>× ${d.have[k]}</b>
-      ${near ? `<button type="button" data-sell="${esc(k)}">Sell ★ ${(d.prices[k] || 0) * d.have[k]}</button>` : `<small class="w-dim">★ ${d.prices[k] || 0} each</small>`}</div>`).join('')}</div>
-      ${near && all.length ? `<div class="w-row w-end">${all.map(([t, n]) => `<button type="button" data-sellall="${t}">Sell all ${n}</button>`).join('')}</div>` : ''}
-      ${near ? '' : '<p class="w-dim">The stall east of the well buys all of it.</p>'}`
-      : '<p class="w-dim">Nothing yet. Catch beetles in the park and the garden, fish at the pond, look in the lost and found box.</p>';
-  } else if (BAG.tab === 'bugs') {
-    const seen = new Set(d.seen), all = BUG_KINDS.flat(), got = all.filter(k => seen.has('b:' + k)).length;
-    box.innerHTML = `<div class="w-items">${all.map(k => seen.has('b:' + k)
-      ? `<div class="w-item"><img src="${esc(`icons/beetles/${k}.png`)}" alt=""><span>${esc(itemName('b:' + k))}</span>${bugRar(k)}${d.have['b:' + k] ? `<b>× ${d.have['b:' + k]}</b>` : ''}</div>`
-      : `<div class="w-item locked"><img src="${esc(`icons/beetles/${k}.png`)}" alt=""><span>???</span>${bugRar(k)}</div>`).join('')}</div>
-      <p class="w-dim">${got} of ${all.length} found. Beetles fly around the park and the garden. Tap one to catch it.</p>`;
+    const rank = k => k[0] === 'w' ? (world.catalog?.find(i => i.id === k.slice(2))?.tier ?? -1) : RAR_ORDER.indexOf(d.rar?.[k] || (k[0] === 'b' ? bugTierOf(k.slice(2)) : ''));
+    const groups = BAG_GROUPS.map(([t, h]) => [t, h, keys.filter(k => k[0] === t).sort((a, b) => rank(b) - rank(a) || itemName(a).localeCompare(itemName(b)))]).filter(g => g[2].length);
+    box.innerHTML = groups.length ? groups.map(([t, h, ks]) => `<div class="w-bag-h"><h3>${h}</h3>${near && t !== 'w' && t !== 't' ? `<button type="button" data-sellall="${t}">Sell all</button>` : ''}</div>
+      <div class="w-items">${ks.map(k => `<div class="w-item">${itemIcon(k)}<span>${esc(itemName(k))}</span>${itemRar(k)}<b>× ${d.have[k]}</b>
+      ${near ? `<button type="button" data-sell="${esc(k)}">Sell ★ ${(d.prices[k] || 0) * d.have[k]}</button>` : `<small class="w-dim">★ ${d.prices[k] || 0} each</small>`}</div>`).join('')}</div>`).join('')
+      + (near ? '' : '<p class="w-dim">The stall east of the well buys all of it.</p>')
+      : '<p class="w-dim">Your bag is empty. Catch beetles in the park and the garden, fish at the pond, look in the lost and found box.</p>';
   } else {
-    const ids = Object.keys(d.fishnames);
-    const got = ids.filter(id => d.fish[id]).length;
-    box.innerHTML = `<div class="w-items">${ids.map(id => d.fish[id]
-      ? `<div class="w-item"><i class="w-fish">${FISH_ICON[id] || '🐟'}</i><span>${esc(d.fishnames[id])}</span><b>× ${d.fish[id]}</b></div>`
-      : `<div class="w-item locked"><i class="w-fish">?</i><span>???</span></div>`).join('')}</div>
-      <p class="w-dim">${got} of ${ids.length} found. The pond is west of the well.</p>`;
+    // the album: everything you have ever found, and shadows of what is still out there
+    const seen = new Set(d.seen), bugs = BUG_KINDS.flat(), fish = Object.keys(d.fishnames);
+    const gotB = bugs.filter(k => seen.has('b:' + k)).length, gotF = fish.filter(id => d.fish[id]).length;
+    const rarTag = r => r ? `<small style="color:${RARITY_HEX[r] || 'var(--dim)'}">${esc(RARITY_NAMES[r] || '')}</small>` : '';
+    box.innerHTML = `<div class="w-bag-h"><h3>Beetles</h3><span class="w-dim">${gotB} of ${bugs.length}</span></div>
+      <div class="w-items">${bugs.map(k => `<div class="w-item${seen.has('b:' + k) ? '' : ' locked'}"><img src="${esc(`icons/beetles/${k}.png`)}" alt=""><span>${seen.has('b:' + k) ? esc(itemName('b:' + k)) : '???'}</span>${bugRar(k)}</div>`).join('')}</div>
+      <div class="w-bag-h"><h3>Fish</h3><span class="w-dim">${gotF} of ${fish.length}</span></div>
+      <div class="w-items">${fish.map(id => d.fish[id]
+        ? `<div class="w-item"><i class="w-fish">${FISH_ICON[id] || '🐟'}</i><span>${esc(d.fishnames[id])}</span>${rarTag(d.fishrar?.[id])}<small class="w-dim">caught ${d.fish[id]}</small></div>`
+        : `<div class="w-item locked"><i class="w-fish">?</i><span>???</span>${rarTag(d.fishrar?.[id])}</div>`).join('')}</div>
+      <p class="w-dim">Beetles fly around the park and the garden, fish live in the pond west of the well.</p>`;
   }
 }
 
@@ -2342,13 +2447,14 @@ function worldKey(e, down) {
   if (key === ' ' && world.skate) { e.preventDefault(); if (down && !e.repeat) ollie(); return; }
   if (key === 'Shift' && world.skate) { if (down && !e.repeat) ollie('shove'); return; }
   if (down && key === 'Escape') { closePanels(); return; }
+  if (/^[1-6]$/.test(key)) { if (down && !e.repeat) useHot(+key - 1); return; }
   const k = W_KEYS[key];
   if (!k) return;
   e.preventDefault();
   if (down) world.keys.add(k); else world.keys.delete(k);
 }
 function closePanels() {
-  for (const id of ['w-shop', 'w-screen', 'w-capsule', 'w-emotes', 'w-toys', 'w-bag', 'w-card', 'w-quests']) document.getElementById(id)?.classList.add('hidden');
+  for (const id of ['w-shop', 'w-screen', 'w-capsule', 'w-emotes', 'w-toys', 'w-bag', 'w-card', 'w-quests', 'w-hotpick']) document.getElementById(id)?.classList.add('hidden');
   if (world.aim) setAim(world.aim);
   if (!document.getElementById('w-lab').classList.contains('hidden')) closeLab();
 }
@@ -2416,10 +2522,7 @@ function setupWorld() {
   document.getElementById('w-emotes').addEventListener('click', e => {
     const k = e.target.closest('button')?.dataset.emote;
     if (!k) return;
-    world.active = Date.now();
-    const me = world.cats.get(world.me);
-    if (me) me.emote = { k, at: performance.now() / 1000 };
-    worldSend({ emote: k }, true);
+    emote(k);
     document.getElementById('w-emotes').classList.add('hidden');
   });
   document.getElementById('w-toy-btn').addEventListener('click', () => {
@@ -2431,9 +2534,24 @@ function setupWorld() {
     const k = e.target.closest('[data-toy]')?.dataset.toy;
     if (!k) return;
     document.getElementById('w-toys').classList.add('hidden');
-    if (k === 'fish') { const s = SPOTS.find(x => x.id === 'pond'); world.pending = s; world.target = { ...s.at }; return; }
-    if (k === 'skate') return setSkate(!world.skate);
-    setAim(k);
+    pickToy(k);
+  });
+  renderHot();
+  document.getElementById('w-hot').addEventListener('click', e => {
+    if (e.target.closest('[data-hotedit]')) { world.hotEdit = !world.hotEdit; return renderHot(); }
+    const b = e.target.closest('[data-hot]');
+    if (!b) return;
+    const i = +b.dataset.hot;
+    if (world.hotEdit || !HOT[i]) openHotPick(i); else useHot(i);
+  });
+  document.getElementById('w-hotpick').addEventListener('click', e => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    if (b.dataset.c === 'close') return document.getElementById('w-hotpick').classList.add('hidden');
+    if (!('put' in b.dataset)) return;
+    HOT[world.hotSlot] = b.dataset.put || null; saveHot();
+    document.getElementById('w-hotpick').classList.add('hidden');
+    renderHot();
   });
   document.getElementById('w-held').addEventListener('click', e => {
     if (e.target.closest('[data-ollie]')) return ollie();

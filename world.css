@@ -44,7 +44,7 @@ body.world #cp-search, body.world .w-row input, #dm-input {
 body.world #cp-search::placeholder, body.world .w-row input::placeholder, #dm-input::placeholder { color: #5f6656; }
 
 /* every button is a plastic key; the one that matters is navy */
-body.world #cp-head button, body.world #cp-head a#cp-game, #w-bar button, .w-box button, #w-emotes button, #w-toys button,
+body.world #cp-head button, body.world #cp-head a#cp-game, #w-bar button, #w-hot button, .w-box button, #w-emotes button, #w-toys button,
 #w-lab-close, #w-offer button, #w-dm header button, #dm-send, #cp-side-close, body.world #chat-attach, body.world #chat-send {
   font-family: var(--pixel); font-size: 14px; color: var(--text); cursor: pointer;
   background: linear-gradient(#ffffff, #e2e2e2 60%, #cfcfcf); border: 1px solid var(--border2); border-radius: 6px;
@@ -151,6 +151,29 @@ body.world #cp-side-close { display: block; position: sticky; top: 0; margin-lef
 #w-emotes button { font-size: 20px; padding: 4px 8px; }
 #w-toys button { font-size: 14px; }
 #w-held { display: flex; gap: 6px; }
+#w-hot {
+  position: absolute; bottom: 12px; right: 12px; display: flex; gap: 4px; padding: 6px;
+  background: linear-gradient(#5c5c3e, var(--olive) 50%, var(--olive2)); border-radius: 10px;
+  border: 1px solid #23230f; box-shadow: inset 0 1px 0 rgba(255,255,255,0.18), 0 6px 18px rgba(10,30,90,0.35);
+}
+#w-hot button { position: relative; width: 40px; height: 40px; padding: 0 !important; font-size: 19px; display: flex; align-items: center; justify-content: center; border-color: #23230f; box-shadow: inset 0 1px 0 rgba(255,255,255,0.7), 0 2px 0 #1f1f0c; }
+#w-hot button img { width: 30px; height: 30px; object-fit: contain; image-rendering: pixelated; }
+#w-hot button .w-fish { font-size: 20px; line-height: 1; height: auto; }
+#w-hot sub { position: absolute; left: 3px; top: 2px; font-size: 9px; line-height: 1; color: var(--dim); }
+#w-hot button.empty { color: var(--dim); }
+#w-hot button.on { background: linear-gradient(#c9d4ff, #8fa3f0); }
+#w-hot.edit button[data-hot] { outline: 2px dashed #8fa3f0; outline-offset: -4px; }
+#w-hot .w-hot-edit { width: 28px; font-size: 14px; }
+#w-emotes, #w-toys { z-index: 4; }
+.w-hotgrid { display: flex; flex-wrap: wrap; gap: 6px; }
+.w-hotgrid button { display: flex; align-items: center; gap: 6px; font-size: 13px !important; }
+.w-hotgrid button img { width: 24px; height: 24px; object-fit: contain; image-rendering: pixelated; }
+.w-hotgrid button .w-fish { font-size: 18px; line-height: 1; height: auto; }
+.w-hotgrid button.on { background: linear-gradient(#c9d4ff, #8fa3f0); }
+@media (max-width: 720px) {
+  #w-hot { bottom: 66px; left: 12px; right: auto; }
+  #w-hot button { width: 36px; height: 36px; }
+}
 #w-held:empty { display: none; }
 #w-bar #w-held button { font-size: 14px; background: linear-gradient(#c9d4ff, #8fa3f0) !important; }
 #w-held b { font-weight: normal; margin-left: 4px; }
@@ -204,6 +227,10 @@ body.world.w-dark #w-card h3 { color: #b9c4ff; }
 .w-item button { padding: 3px 10px; font-size: 13px; }
 .w-fish { font-style: normal; font-size: 34px; line-height: 48px; height: 48px; font-family: var(--pixel); color: var(--dim); }
 .w-tabs { display: flex; gap: 6px; margin-bottom: 10px; }
+.w-bag-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 12px 0 6px; }
+.w-bag-h:first-child { margin-top: 0; }
+.w-bag-h h3 { margin: 0; }
+.w-bag-h button { padding: 3px 10px; font-size: 13px; }
 .w-tabs button.on { color: #fff; background: linear-gradient(#4a63cf, var(--navy) 55%, var(--navy2)); border-color: #0b1446; }
 .w-row { display: flex; gap: 8px; margin-top: 8px; }
 .w-row input { flex: 1; min-width: 0; }
@@ -324,7 +351,7 @@ body.world.w-dark {
   background-color: #050407;
 }
 body.world.w-dark .w-panel { background: rgba(0,0,0,0.45); }
-body.world.w-dark #cp-head button, body.world.w-dark #cp-head a#cp-game, body.world.w-dark .w-box button, body.world.w-dark #w-emotes button, body.world.w-dark #w-toys button,
+body.world.w-dark #cp-head button, body.world.w-dark #cp-head a#cp-game, body.world.w-dark .w-box button, body.world.w-dark #w-hot button, body.world.w-dark #w-emotes button, body.world.w-dark #w-toys button,
 body.world.w-dark #w-lab-close, body.world.w-dark #w-offer button, body.world.w-dark #w-dm header button, body.world.w-dark #cp-side-close, body.world.w-dark #chat-attach, body.world.w-dark #login-rn {
   background: linear-gradient(#3a3746, #2a2733 60%, #211f29); box-shadow: inset 0 1px 0 rgba(255,255,255,0.1), 0 2px 0 #000;
 }

@@ -477,11 +477,20 @@ async function checkWorld(label, viewport) {
   if (await page.evaluate(() => world.skate)) fail(`${label} world: still on the board`);
   // the bag
   await page.click('#w-bag-btn');
-  await page.click('#w-bag [data-tab="fish"]');
+  await page.click('#w-bag [data-tab="album"]');
   await page.waitForTimeout(400);
   if (!(await page.textContent('#w-bag-list')).includes('Koi')) fail(`${label} world: the bag does not show the fish`);
   await page.screenshot({ path: `${ROOT}tests/out/${label}-world-bag.png` });
   await page.keyboard.press('Escape');
+  // the hotbar: fill an empty slot with a beetle, then hold it up with its key
+  await page.click('#w-hot [data-hot="4"]');
+  await page.waitForSelector('#w-hotpick [data-put="i:b:green"]', { timeout: 3000 }).catch(() => fail(`${label} world: the hotbar slot offers no beetle`));
+  await page.screenshot({ path: `${ROOT}tests/out/${label}-world-hotpick.png` });
+  await page.click('#w-hotpick [data-put="i:b:green"]');
+  await page.keyboard.press('5');
+  await page.waitForTimeout(400);
+  if (!w.sent.some(b => b.show === 'b:green')) fail(`${label} world: holding up a beetle sent nothing`);
+  await page.screenshot({ path: `${ROOT}tests/out/${label}-world-show.png` });
   // the stall buys what is in the bag
   await goTo(1300, 560);
   await page.waitForTimeout(300);

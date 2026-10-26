@@ -138,6 +138,18 @@ function price(string $k): int {
     if ($t === 'w' && isCos($k)) return isset(CAP_TIER[$id]) ? COS_PRICE[CAP_TIER[$id]] : max(1, intdiv(SHOP[$id][2], 3));
     return 0;
 }
+// how rare a thing is, on the beetle scale: tin, brz, mth, adm, dia (jnk for junk)
+function rarity(string $k): string {
+    [$t, $id] = explode(':', $k, 2) + ['', ''];
+    if ($t === 'b') foreach (BUGS as $i => $ks) if (in_array($id, $ks, true)) return ['tin', 'brz', 'mth', 'adm', 'dia'][$i];
+    if ($t === 'f') {
+        if (in_array($id, ['boot', 'disk'], true)) return 'jnk';
+        $w = FISH[$id][1] ?? 0;
+        return $w >= 12 ? 'tin' : ($w >= 7 ? 'brz' : ($w >= 4 ? 'mth' : ($w >= 2 ? 'adm' : 'dia')));
+    }
+    if ($t === 't') { $p = TRINKETS[$id] ?? 0; return $p <= 25 ? 'brz' : ($p <= 40 ? 'mth' : ($p <= 60 ? 'adm' : 'dia')); }
+    return $t === 'j' ? 'jnk' : '';
+}
 // w:<id> is something to wear as a thing you can sell or trade; the well's halo and toys are not
 const COS_PRICE = [6, 15, 45, 250];
 function isCos($k): bool {
@@ -254,13 +266,15 @@ function fold(float $p, float $a, float $b): float {
 
 // beetles wander about; every browser works out the same ones from the clock.
 // Keep in step with bugAt() in js/world.js.
-const BUG_N = 6, BUG_LIFE = 90;
+// more people online, more beetles: two for each, at least four and at most twelve
+const BUG_N = 12, BUG_LIFE = 90;
+function bugCount(int $people): int { return max(4, min(BUG_N, 2 + 2 * $people)); }
 const BUG_AREAS = [[1180, 830, 1700, 1130], [1180, 830, 1700, 1130], [140, 820, 620, 1120], [720, 480, 1080, 720], [140, 820, 620, 1120], [120, 440, 640, 540]];
 function hrand(float $n): float { $v = sin($n * 12.9898) * 43758.5453; return $v - floor($v); }
 function bugAt(int $k, float $t): array {
     $g = (int)floor(($t + $k * 13) / BUG_LIFE);
     $s = $g * 31 + $k * 7;
-    [$x0, $y0, $x1, $y1] = BUG_AREAS[$k];
+    [$x0, $y0, $x1, $y1] = BUG_AREAS[$k % count(BUG_AREAS)];
     $r = hrand($s + 3);
     return ['id' => $k . ':' . $g, 's' => $s, 'kind' => bugTier($r),
         'x' => $x0 + hrand($s + 1) * ($x1 - $x0) + 36 * sin($t * (0.3 + hrand($s + 4) * 0.4) + $s),
@@ -414,7 +428,7 @@ else {
         }
     }
     // catching a beetle: it has to be there, close to you, and nobody got it first
-    if (isset($in['catch']) && is_string($in['catch']) && preg_match('/^(\d):(\d+)$/', $in['catch'], $m) && (int)$m[1] < BUG_N) {
+    if (isset($in['catch']) && is_string($in['catch']) && preg_match('/^(\d+):(\d+)$/', $in['catch'], $m) && (int)$m[1] < bugCount(count($world['people']))) {
         $b = bugAt((int)$m[1], $now);
         if ($b['id'] !== $in['catch'] || isset($world['caught'][$b['id']])) $out['caught'] = 'gone';
         elseif (hypot($b['x'] - $rx, $b['y'] - $ry) > 80) $out['caught'] = 'far';
@@ -619,6 +633,8 @@ else {
         $out['inv'] = ['owned' => $r['owned'], 'bugs' => $r['inv']['bugs'], 'fish' => (object)$r['inv']['fish'],
             'fishnames' => array_map(fn($f) => $f[0], FISH), 'have' => (object)$r['inv']['have'], 'seen' => array_keys($r['inv']['seen']),
             'trade' => (object)tradeable($r['owned'], $r['inv']['have']),
+            'rar' => (object)array_combine(array_keys($r['inv']['have']), array_map(fn($k) => rarity((string)$k), array_keys($r['inv']['have']))),
+            'fishrar' => (object)array_combine(array_keys(FISH), array_map(fn($id) => rarity("f:$id"), array_keys(FISH))),
             'prices' => (object)array_combine(array_keys($r['inv']['have']), array_map('price', array_map('strval', array_keys($r['inv']['have']))))];
     }
     if ($user) { $p['c'] = $user['coins']; $p['w'] = $user['wear']; }
@@ -631,6 +647,12 @@ else {
         db($test)->prepare('UPDATE users SET status = ? WHERE u = ?')->execute([$st, $U]);
     }
     if (isset($in['emote']) && in_array($in['emote'], EMOTES, true)) $p['e'] = [$in['emote'], $now];
+    // holding something up for everyone to see; it stays yours
+    if (isset($in['show']) && is_string($in['show']) && preg_match('/^[bfjtw]:[a-z0-9_]{1,40}$/', $in['show'])) {
+        $getUser();
+        $k = $in['show'];
+        if ($user && (($user['inv']['have'][$k] ?? 0) > 0 || (str_starts_with($k, 'w:') && in_array(substr($k, 2), $user['owned'], true)))) $p['e'] = ["show:$k", $now];
+    }
     $p['sk'] = !empty($in['sk']) ? 1 : 0;         // on the skateboard
     $mine = array_filter($p['in'], fn($i) => $i[2] > $now - 8);
     if ($mine) $out['in'] = array_values(array_map(fn($i) => [$i[0], $i[1], round($now - $i[2], 2), $i[4] ?? 0], $mine));
@@ -690,6 +712,7 @@ fwrite($fp, json_encode($world));
 fflush($fp); flock($fp, LOCK_UN); fclose($fp);
 
 $out['now'] = $now;
+$out['bn'] = bugCount(count($world['people']));
 $out['people'] = [];
 foreach ($world['people'] as $u => $p) {
     $o = ['u' => (string)$u, 'd' => $p['d'], 'x' => $p['x'], 'y' => $p['y']];
