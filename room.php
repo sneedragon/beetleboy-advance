@@ -44,6 +44,7 @@ function whoami(string $token): ?array {
         curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 8, CURLOPT_FOLLOWLOCATION => false,
             CURLOPT_USERAGENT => 'BeetleBoySP-room/1', CURLOPT_HTTPHEADER => [$auth, 'Accept: application/json']]);
         $r = curl_exec($ch); $code = curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch);
+        $GLOBALS['dbg'][] = $code . ' ' . substr(preg_replace('/\s+/', ' ', (string)$r), 0, 160);
         return $code === 200 ? json_decode((string)$r, true) : null;
     };
     // a password login works on the internal API, "Sign in with remilia.net" only on /api/v1
@@ -56,7 +57,11 @@ function whoami(string $token): ?array {
         $handle = (string)($u['username'] ?? '');
         $name   = (string)($u['displayName'] ?? '');
     }
-    if (!preg_match('/^[A-Za-z0-9_.-]{1,40}$/', $handle)) return null;
+    if (!preg_match('/^[A-Za-z0-9_.-]{1,40}$/', $handle)) {
+        // temporary: why do sign-in tokens get refused? (no token in the log)
+        @file_put_contents(sys_get_temp_dir() . '/bbroom_dbg.log', date('H:i:s') . ' len' . strlen($token) . ' ' . substr(hash('sha256', $token), 0, 8) . ' | ' . implode(' | ', $GLOBALS['dbg'] ?? []) . "\n", FILE_APPEND);
+        return null;
+    }
     $me = ['u' => $handle, 'd' => mb_substr($name !== '' ? $name : $handle, 0, 40)];
     @file_put_contents($ck, json_encode($me));
     if (mt_rand(0, 49) === 0) foreach (glob(sys_get_temp_dir() . '/bbroomid_*') ?: [] as $f) if (filemtime($f) < time() - 900) @unlink($f);

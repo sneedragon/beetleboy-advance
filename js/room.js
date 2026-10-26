@@ -52,9 +52,12 @@ async function roomPost(body) {
     const r = await fetch('room.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: access, ...body }) });
     // only renew a token that has run out: refreshing on every refused tick
     // would burn through the single-use refresh tokens once a second
+    if (!r.ok) room.err = `${r.status} ${(await r.text()).slice(0, 40)} ${Math.round(jwtExp(access) - Date.now() / 1000)}s`;
     if (r.status === 401 && jwtExp(access) * 1000 < Date.now() + 30000) { await tryRefresh(access); return null; }
-    if (!r.ok) room.err = `${r.status} ${(await r.text()).slice(0, 60)}`;
-    return r.ok ? await r.json() : null;
+    if (!r.ok) return null;
+    const d = await r.json();
+    if (!d?.people) room.err = 'no people in answer';
+    return d;
   } catch (e) { room.err = e.message; return null; }
 }
 
